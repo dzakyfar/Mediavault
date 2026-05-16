@@ -13,10 +13,8 @@ export default function Navbar() {
           <span className="text-xl font-bold" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>MediaVault</span>
         </Link>
         <div className="hidden md:flex items-center gap-8">
-          <Link to="/explore" className="text-white hover:text-[#F5C800] transition-colors">Explore</Link>
           <a href="#how-it-works" className="text-white hover:text-[#F5C800] transition-colors">How It Works</a>
           <a href="#for-freelancers" className="text-white hover:text-[#F5C800] transition-colors">For Freelancers</a>
-          <Link to="/pricing" className="text-white hover:text-[#F5C800] transition-colors">Pricing</Link>
         </div>
         <div className="flex items-center gap-4">
           <button
