@@ -39,10 +39,6 @@ jobs:
           AWS_REGION: ${{ secrets.AWS_REGION }}
           SOURCE_DIR: 'frontend/dist'
       - name: Invalidate CloudFront
-<<<<<<< HEAD
-=======
-        if: ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID != '' }}
->>>>>>> 1e155e8e1fc4e86a2622f58cc392f8c2922e26d5
         run: |
           if [ -n "${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }}" ]; then
             aws cloudfront create-invalidation --distribution-id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} --paths "/*"
