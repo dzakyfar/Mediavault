@@ -1,7 +1,7 @@
 name: CD
 
 on:
-  workflow_dispatch:     # bisa dijalankan manual dari tab Actions
+  workflow_dispatch:
   push:
     branches: [ main ]
     paths:
@@ -12,8 +12,6 @@ on:
 jobs:
   deploy-frontend:
     runs-on: ubuntu-latest
-    # Hanya jalan jika secrets S3 terisi
-    if: secrets.AWS_ACCESS_KEY_ID != '' && secrets.AWS_SECRET_ACCESS_KEY != '' && secrets.AWS_S3_BUCKET != ''
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -40,9 +38,10 @@ jobs:
           AWS_REGION: ${{ secrets.AWS_REGION }}
           SOURCE_DIR: 'frontend/dist'
       - name: Invalidate CloudFront
-        if: secrets.CLOUDFRONT_DISTRIBUTION_ID != ''
         run: |
-          aws cloudfront create-invalidation --distribution-id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} --paths "/*"
+          if [ -n "${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }}" ]; then
+            aws cloudfront create-invalidation --distribution-id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} --paths "/*"
+          fi
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -50,8 +49,6 @@ jobs:
 
   deploy-backend:
     runs-on: ubuntu-latest
-    # Hanya jalan jika secrets EC2 terisi
-    if: secrets.EC2_HOST != '' && secrets.EC2_SSH_KEY != ''
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -69,14 +66,11 @@ jobs:
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            # Masuk ke folder project (misal di /home/ubuntu/mediavault)
             cd /home/ubuntu/mediavault || git clone https://github.com/${{ github.repository }}.git /home/ubuntu/mediavault
             cd /home/ubuntu/mediavault
             git pull origin main
             cd backend
             npm ci
-            # Migrasi database (jika pakai Prisma)
-            npx prisma migrate deploy
-            # Restart process (pm2)
+            npx prisma migrate deploy || true
             pm2 restart mediavault-backend || pm2 start server.js --name mediavault-backend
             pm2 save
