@@ -1,0 +1,55 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: mediavault-db-dev
+    environment:
+      POSTGRES_USER: mediavault
+      POSTGRES_PASSWORD: mediavaultpass
+      POSTGRES_DB: mediavault_dev
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data_dev:/var/lib/postgresql/data
+    networks:
+      - mediavault-net
+
+  backend:
+    build: ./backend
+    container_name: mediavault-backend-dev
+    environment:
+      - DATABASE_URL=postgresql://mediavault:mediavaultpass@db:5432/mediavault_dev
+      - JWT_SECRET=dev_secret_key
+      - PORT=5000
+    ports:
+      - "5000:5000"
+    depends_on:
+      - db
+    networks:
+      - mediavault-net
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    command: sh -c "npx prisma migrate deploy && npm run dev"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: mediavault-frontend-dev
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    networks:
+      - mediavault-net
+    depends_on:
+      - backend
+
+networks:
+  mediavault-net:
+
+volumes:
+  postgres_data_dev:
