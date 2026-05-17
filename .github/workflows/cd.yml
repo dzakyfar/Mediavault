@@ -12,7 +12,6 @@ on:
 jobs:
   deploy-frontend:
     runs-on: ubuntu-latest
-    if: ${{ secrets.AWS_ACCESS_KEY_ID != '' && secrets.AWS_SECRET_ACCESS_KEY != '' && secrets.AWS_S3_BUCKET != '' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -29,6 +28,7 @@ jobs:
         env:
           VITE_API_URL: ${{ secrets.PROD_API_URL }}
       - name: Deploy to S3
+        if: ${{ secrets.AWS_ACCESS_KEY_ID != '' && secrets.AWS_SECRET_ACCESS_KEY != '' && secrets.AWS_S3_BUCKET != '' }}
         uses: jakejarvis/s3-sync-action@v0.5.1
         with:
           args: --acl public-read --follow-symlinks --delete
@@ -49,7 +49,6 @@ jobs:
 
   deploy-backend:
     runs-on: ubuntu-latest
-    if: ${{ secrets.EC2_HOST != '' && secrets.EC2_SSH_KEY != '' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -61,6 +60,7 @@ jobs:
         working-directory: ./backend
         run: npm ci
       - name: Deploy to EC2 via SSH
+        if: ${{ secrets.EC2_HOST != '' && secrets.EC2_SSH_KEY != '' }}
         uses: appleboy/ssh-action@v1.0.0
         with:
           host: ${{ secrets.EC2_HOST }}
