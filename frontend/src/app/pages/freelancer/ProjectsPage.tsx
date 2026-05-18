@@ -1,10 +1,32 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { Camera, Upload } from 'lucide-react';
 import DashboardLayout from '../../components/DashboardLayout';
+import EmptyState from '../../components/EmptyState';
+import { apiRequest } from '../../lib/api';
+
+interface Project {
+  id: string;
+  client: string;
+  title: string;
+  serviceType: string | null;
+  status: string;
+  rawStatus: string;
+  progress: number;
+  eventDate: string;
+  due: string;
+  files: number;
+  amount: string;
+  statusColor: string;
+  city: string | null;
+  address: string | null;
+}
 
 export default function FreelancerProjects() {
   const [activeTab, setActiveTab] = useState('all');
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   const tabs = [
     { id: 'all', label: 'All' },
@@ -13,14 +35,19 @@ export default function FreelancerProjects() {
     { id: 'pending-review', label: 'Pending Review' },
   ];
 
-  const projects = [
-    { id: '1', client: 'Rania K.', title: 'Brand Product Shoot', status: 'In Progress', progress: 60, due: '10 Mar 2026', files: 3, amount: 'Rp 1.500.000', statusColor: 'bg-[#F5C800] text-black' },
-    { id: '2', client: 'Budi S.', title: 'Corporate Event Coverage', status: 'Pending Review', progress: 100, due: '5 Mar 2026', files: 15, amount: 'Rp 2.000.000', statusColor: 'bg-[#3B82F6] text-white' },
-    { id: '3', client: 'Sarah M.', title: 'Fashion Editorial Shoot', status: 'Completed', progress: 100, due: '1 Mar 2026', files: 20, amount: 'Rp 2.500.000', statusColor: 'bg-[#22C55E] text-white' },
-  ];
+  useEffect(() => {
+    apiRequest<{ projects: Project[] }>('/projects/mine?as=freelancer')
+      .then((response) => setProjects(response.projects))
+      .catch((err) => setError(err instanceof Error ? err.message : 'Gagal memuat project'))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const filteredProjects = activeTab === 'all'
+    ? projects
+    : projects.filter((project) => project.rawStatus.toLowerCase().replaceAll('_', '-') === activeTab);
 
   return (
-    <DashboardLayout userType="freelancer" userName="Fauzan A.">
+    <DashboardLayout userType="freelancer">
       <h1 className="text-5xl mb-8" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>
         My Projects
       </h1>
@@ -41,8 +68,18 @@ export default function FreelancerProjects() {
         ))}
       </div>
 
+      {error && (
+        <div className="mb-6 p-4 bg-[#EF4444]/10 border border-[#EF4444] rounded-lg text-[#EF4444]">
+          {error}
+        </div>
+      )}
+
       <div className="space-y-4">
-        {projects.map((project) => (
+        {loading && <EmptyState title="Memuat project" description="Mengambil project dari backend." />}
+        {!loading && filteredProjects.length === 0 && (
+          <EmptyState title="Belum ada project" description="Project dari database akan tampil di sini setelah client menerima Anda sebagai freelancer." />
+        )}
+        {filteredProjects.map((project) => (
           <div key={project.id} className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-6 hover:border-l-4 hover:border-l-[#F5C800] transition-all">
             <div className="flex items-start justify-between mb-4">
               <div>
@@ -54,7 +91,10 @@ export default function FreelancerProjects() {
                     </div>
                     for {project.client}
                   </div>
+                  <span>🎯 {project.serviceType || 'Jasa kreatif'}</span>
+                  <span>📍 {project.city || '-'}</span>
                 </div>
+                {project.address && <p className="text-sm text-[#888888] mt-2">{project.address}</p>}
               </div>
               <span className={`px-4 py-2 rounded-full text-sm font-bold ${project.statusColor}`}>
                 {project.status}
@@ -76,7 +116,8 @@ export default function FreelancerProjects() {
 
             <div className="flex items-center justify-between flex-wrap gap-4">
               <div className="flex gap-6 text-sm">
-                <span className="text-[#888888]">📅 Deadline: {project.due}</span>
+                <span className="text-[#888888]">📅 Pelaksanaan: {project.eventDate}</span>
+                <span className="text-[#888888]">⏳ Deadline: {project.due}</span>
                 <span className="text-[#888888]">📁 {project.files} Files Uploaded</span>
                 <span className="text-[#F5C800] font-bold">{project.amount}</span>
               </div>

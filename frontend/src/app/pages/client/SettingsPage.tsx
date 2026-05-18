@@ -1,17 +1,29 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Camera } from 'lucide-react';
 import DashboardLayout from '../../components/DashboardLayout';
+import { useAuth } from '../../context/AuthContext';
 
 export default function ClientSettings() {
+  const { user } = useAuth();
   const [formData, setFormData] = useState({
-    fullName: 'Rania K.',
-    email: 'rania.k@email.com',
-    phone: '+62 812-3456-7890',
-    city: 'Jakarta',
+    fullName: '',
+    email: '',
+    phone: '',
+    city: '',
   });
 
+  useEffect(() => {
+    if (!user) return;
+    setFormData({
+      fullName: user.fullName,
+      email: user.email,
+      phone: user.phone || '',
+      city: user.city || '',
+    });
+  }, [user]);
+
   return (
-    <DashboardLayout userType="client" userName="Rania K.">
+    <DashboardLayout userType="client">
       <h1 className="text-5xl mb-8" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>
         Account Settings
       </h1>
@@ -26,7 +38,7 @@ export default function ClientSettings() {
             <label className="block text-sm text-[#888888] mb-2">Profile Photo</label>
             <div className="flex items-center gap-4">
               <div className="w-20 h-20 rounded-full bg-[#141414] flex items-center justify-center text-[#F5C800] text-2xl font-bold">
-                R
+                {(formData.fullName || 'U').charAt(0)}
               </div>
               <button className="px-4 py-2 bg-[#141414] border border-[#2A2A2A] rounded-lg hover:border-[#F5C800] transition-colors">
                 Upload Photo

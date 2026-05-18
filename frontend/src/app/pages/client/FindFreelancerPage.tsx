@@ -1,19 +1,34 @@
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { Camera, Star, Search, SlidersHorizontal } from 'lucide-react';
 import DashboardLayout from '../../components/DashboardLayout';
+import EmptyState from '../../components/EmptyState';
+import { apiRequest } from '../../lib/api';
+
+interface Freelancer {
+  id: string;
+  name: string;
+  specialty: string;
+  rating: string | null;
+  price: string;
+  city: string;
+  available: boolean;
+}
 
 export default function ClientFindFreelancer() {
-  const freelancers = [
-    { id: '1', name: 'Fauzan A.', specialty: 'Wedding | Portrait', rating: '4.9', price: 'Rp 500K', city: 'Surabaya', available: true },
-    { id: '2', name: 'Nathanael V.', specialty: 'Product | Commercial', rating: '4.8', price: 'Rp 750K', city: 'Jakarta', available: true },
-    { id: '3', name: 'Dzaky F.', specialty: 'Fashion | Editorial', rating: '5.0', price: 'Rp 1M', city: 'Bandung', available: false },
-    { id: '4', name: 'Rania K.', specialty: 'Corporate | Events', rating: '4.9', price: 'Rp 600K', city: 'Yogyakarta', available: true },
-    { id: '5', name: 'Ahmad S.', specialty: 'Concert | Live Events', rating: '4.7', price: 'Rp 800K', city: 'Surabaya', available: false },
-    { id: '6', name: 'Siti M.', specialty: 'Real Estate', rating: '4.8', price: 'Rp 550K', city: 'Jakarta', available: true },
-  ];
+  const [freelancers, setFreelancers] = useState<Freelancer[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    apiRequest<{ freelancers: Freelancer[] }>('/freelancers')
+      .then((response) => setFreelancers(response.freelancers))
+      .catch((err) => setError(err instanceof Error ? err.message : 'Gagal memuat freelancer'))
+      .finally(() => setLoading(false));
+  }, []);
 
   return (
-    <DashboardLayout userType="client" userName="Rania K.">
+    <DashboardLayout userType="client">
       <h1 className="text-5xl mb-8" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>
         Find Freelancer
       </h1>
@@ -52,7 +67,25 @@ export default function ClientFindFreelancer() {
         </div>
       </div>
 
+      {error && (
+        <div className="mb-6 p-4 bg-[#EF4444]/10 border border-[#EF4444] rounded-lg text-[#EF4444]">
+          {error}
+        </div>
+      )}
+
       <div className="grid md:grid-cols-3 gap-6 mb-8">
+        {loading && (
+          <div className="md:col-span-3">
+            <EmptyState title="Memuat freelancer" description="Mengambil profil freelancer dari database." />
+          </div>
+        )}
+
+        {!loading && freelancers.length === 0 && (
+          <div className="md:col-span-3">
+            <EmptyState title="Belum ada freelancer" description="Profil freelancer dari database akan tampil di sini setelah user memilih role freelancer dan melengkapi profil." />
+          </div>
+        )}
+
         {freelancers.map((freelancer) => (
           <div key={freelancer.id} className="bg-[#141414] rounded-xl p-6 border border-[#2A2A2A] hover:border-[#F5C800] hover:-translate-y-1 transition-all">
             <div className="relative w-full aspect-square bg-[#1A1A1A] rounded-lg mb-4 flex items-center justify-center">
@@ -82,7 +115,7 @@ export default function ClientFindFreelancer() {
             </div>
             <div className="flex items-center gap-1 mb-2 text-sm">
               <Star className="w-4 h-4 text-[#F5C800] fill-current" />
-              <span>{freelancer.rating}</span>
+              <span>{freelancer.rating ?? 'Baru'}</span>
               <span className="text-[#888888] ml-2">• {freelancer.city}</span>
             </div>
             <p className="text-[#F5C800] font-bold mb-4">From {freelancer.price}</p>

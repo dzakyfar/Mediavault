@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { Zap, Eye, EyeOff } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
@@ -13,9 +14,11 @@ export default function RegisterPage() {
     agreedToTerms: false
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [submitting, setSubmitting] = useState(false);
   const navigate = useNavigate();
+  const { register } = useAuth();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const newErrors: Record<string, string> = {};
 
@@ -33,7 +36,21 @@ export default function RegisterPage() {
       return;
     }
 
-    navigate('/role-select');
+    try {
+      setSubmitting(true);
+      await register({
+        fullName: formData.fullName,
+        email: formData.email,
+        password: formData.password,
+      });
+      navigate('/role-select');
+    } catch (err) {
+      setErrors({
+        form: err instanceof Error ? err.message : 'Registrasi gagal',
+      });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -163,14 +180,21 @@ export default function RegisterPage() {
                   </a>
                 </span>
               </label>
-              {errors.terms && <p className="text-[#EF4444] text-sm mt-1">{errors.terms}</p>}
+            {errors.terms && <p className="text-[#EF4444] text-sm mt-1">{errors.terms}</p>}
             </div>
+
+            {errors.form && (
+              <div className="mb-4 p-3 bg-[#EF4444]/10 border border-[#EF4444] rounded-lg text-[#EF4444] text-sm">
+                {errors.form}
+              </div>
+            )}
 
             <button
               type="submit"
+              disabled={submitting}
               className="w-full bg-[#F5C800] text-black font-bold py-4 rounded-full hover:shadow-[0_0_20px_rgba(245,200,0,0.4)] transition-all"
             >
-              Create Account
+              {submitting ? 'Creating...' : 'Create Account'}
             </button>
           </form>
 

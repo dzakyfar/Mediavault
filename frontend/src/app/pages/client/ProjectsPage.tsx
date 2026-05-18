@@ -1,10 +1,38 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { Plus, Camera } from 'lucide-react';
 import DashboardLayout from '../../components/DashboardLayout';
+import EmptyState from '../../components/EmptyState';
+import { apiRequest } from '../../lib/api';
+
+interface Project {
+  id: string;
+  freelancer: string;
+  title: string;
+  serviceType: string | null;
+  status: string;
+  rawStatus: string;
+  statusColor: string;
+  progress: number;
+  eventDate: string;
+  due: string;
+  files: number;
+  amount: string;
+  city: string | null;
+  address: string | null;
+  pendingOffers: Array<{
+    id: string;
+    freelancer: string;
+    serviceType: string | null;
+    message: string | null;
+  }>;
+}
 
 export default function ClientProjects() {
   const [activeTab, setActiveTab] = useState('all');
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   const tabs = [
     { id: 'all', label: 'All' },
@@ -14,14 +42,36 @@ export default function ClientProjects() {
     { id: 'waiting-payment', label: 'Waiting Payment' },
   ];
 
-  const projects = [
-    { id: '1', freelancer: 'Fauzan A.', title: 'Brand Product Shoot — Maret 2026', status: 'In Progress', progress: 60, due: '10 Mar 2026', files: 3, amount: 'Rp 1.500.000', city: 'Surabaya', statusColor: 'bg-[#F5C800] text-black' },
-    { id: '2', freelancer: 'Nathanael V.', title: 'Wedding Documentation — Rania & Budi', status: 'Under Review', progress: 90, due: '5 Mar 2026', files: 12, amount: 'Rp 2.500.000', city: 'Jakarta', statusColor: 'bg-[#3B82F6] text-white' },
-    { id: '3', freelancer: 'Dzaky F.', title: 'Corporate Headshots — PT. Maju Jaya', status: 'Waiting Payment', progress: 100, due: '1 Mar 2026', files: 8, amount: 'Rp 800.000', city: 'Bandung', statusColor: 'bg-[#F97316] text-white' },
-  ];
+  useEffect(() => {
+    loadProjects();
+  }, []);
+
+  const loadProjects = () => {
+    setLoading(true);
+    apiRequest<{ projects: Project[] }>('/projects/mine?as=client')
+      .then((response) => setProjects(response.projects))
+      .catch((err) => setError(err instanceof Error ? err.message : 'Gagal memuat project'))
+      .finally(() => setLoading(false));
+  };
+
+  const respondOffer = async (applicationId: string, action: 'accept' | 'decline') => {
+    try {
+      await apiRequest(`/projects/applications/${applicationId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ action }),
+      });
+      await loadProjects();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Gagal memproses offer');
+    }
+  };
+
+  const filteredProjects = activeTab === 'all'
+    ? projects
+    : projects.filter((project) => project.rawStatus.toLowerCase().replaceAll('_', '-') === activeTab);
 
   return (
-    <DashboardLayout userType="client" userName="Rania K.">
+    <DashboardLayout userType="client">
       <div className="flex items-center justify-between mb-8">
         <h1 className="text-5xl" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>
           My Projects
@@ -51,8 +101,29 @@ export default function ClientProjects() {
         ))}
       </div>
 
+      {error && (
+        <div className="mb-6 p-4 bg-[#EF4444]/10 border border-[#EF4444] rounded-lg text-[#EF4444]">
+          {error}
+        </div>
+      )}
+
       <div className="space-y-4">
-        {projects.map((project) => (
+        {loading && <EmptyState title="Memuat project" description="Mengambil daftar project dari backend." />}
+
+        {!loading && filteredProjects.length === 0 && (
+          <EmptyState
+            title="Tidak ada project"
+            description="Project dari database akan muncul di sini setelah Anda membuat job baru."
+            action={(
+              <Link to="/post-job" className="inline-flex items-center gap-2 px-4 py-2 bg-[#F5C800] text-black font-bold rounded-lg">
+                <Plus className="w-4 h-4" />
+                Post New Job
+              </Link>
+            )}
+          />
+        )}
+
+        {filteredProjects.map((project) => (
           <div key={project.id} className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-6 hover:border-l-4 hover:border-l-[#F5C800] transition-all">
             <div className="flex items-start justify-between mb-4">
               <div>
@@ -64,7 +135,8 @@ export default function ClientProjects() {
                     </div>
                     by {project.freelancer}
                   </div>
-                  <span>📍 {project.city}</span>
+                  <span>📍 {project.city || '-'}</span>
+                  <span>🎯 {project.serviceType || project.category}</span>
                 </div>
               </div>
               <span className={`px-4 py-2 rounded-full text-sm font-bold ${project.statusColor}`}>
@@ -87,7 +159,8 @@ export default function ClientProjects() {
 
             <div className="flex items-center justify-between flex-wrap gap-4">
               <div className="flex gap-6 text-sm">
-                <span className="text-[#888888]">📅 Deadline: {project.due}</span>
+                <span className="text-[#888888]">📅 Pelaksanaan: {project.eventDate}</span>
+                <span className="text-[#888888]">⏳ Deadline: {project.due}</span>
                 <span className="text-[#888888]">📁 {project.files} Files Uploaded</span>
                 <span className="text-[#888888]">💳 {project.amount}</span>
               </div>
@@ -114,6 +187,35 @@ export default function ClientProjects() {
                 )}
               </div>
             </div>
+
+            {project.pendingOffers.length > 0 && (
+              <div className="mt-5 pt-5 border-t border-[#2A2A2A] space-y-3">
+                <h4 className="font-bold text-white">Freelancer Requests</h4>
+                {project.pendingOffers.map((offer) => (
+                  <div key={offer.id} className="flex items-center justify-between gap-4 bg-[#141414] rounded-lg p-4">
+                    <div>
+                      <div className="font-bold text-white">{offer.freelancer}</div>
+                      <div className="text-sm text-[#888888]">{offer.serviceType || project.serviceType || 'Jasa kreatif'}</div>
+                      {offer.message && <p className="text-sm text-[#888888] mt-1">{offer.message}</p>}
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => respondOffer(offer.id, 'accept')}
+                        className="px-4 py-2 bg-[#22C55E] text-white rounded-lg text-sm font-bold hover:bg-[#16A34A] transition-colors"
+                      >
+                        Accept Offer
+                      </button>
+                      <button
+                        onClick={() => respondOffer(offer.id, 'decline')}
+                        className="px-4 py-2 border border-[#EF4444] text-[#EF4444] rounded-lg text-sm hover:bg-[#EF4444] hover:text-white transition-colors"
+                      >
+                        Decline
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         ))}
       </div>

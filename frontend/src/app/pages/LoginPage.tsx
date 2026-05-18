@@ -1,21 +1,36 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { Zap, Eye, EyeOff } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { dashboardPathForRole } from '../lib/api';
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
   const navigate = useNavigate();
+  const { login } = useAuth();
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError('');
+
     if (!email || !password) {
       setError('Please fill in all fields');
       return;
     }
-    navigate('/role-select');
+
+    try {
+      setSubmitting(true);
+      const user = await login(email, password);
+      navigate(dashboardPathForRole(user.role));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Login gagal');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -99,7 +114,7 @@ export default function LoginPage() {
 
             <div className="flex justify-end mb-6">
               <a href="#" className="text-[#888888] text-sm hover:text-[#F5C800] transition-colors">
-                Forgot password?
+                Forgot passworrrd?
               </a>
             </div>
 
@@ -111,9 +126,10 @@ export default function LoginPage() {
 
             <button
               type="submit"
+              disabled={submitting}
               className="w-full bg-[#F5C800] text-black font-bold py-4 rounded-full hover:shadow-[0_0_20px_rgba(245,200,0,0.4)] transition-all"
             >
-              LOG IN
+              {submitting ? 'LOGGING IN...' : 'LOG IN'}
             </button>
           </form>
 

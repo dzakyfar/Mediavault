@@ -34,6 +34,7 @@ import FreelancerSettings from "./pages/freelancer/SettingsPage";
 import PostJobPage from "./pages/PostJobPage";
 import FreelancerProfilePage from "./pages/FreelancerProfilePage";
 import NotFoundPage from "./pages/NotFoundPage";
+import RequireAuth from "./components/auth/RequireAuth";
 
 export const router = createBrowserRouter([
   {
@@ -50,7 +51,11 @@ export const router = createBrowserRouter([
   },
   {
     path: "/role-select",
-    Component: RoleSelectPage,
+    Component: () => (
+      <RequireAuth>
+        <RoleSelectPage />
+      </RequireAuth>
+    ),
   },
   {
     path: "/explore",
@@ -63,81 +68,157 @@ export const router = createBrowserRouter([
   // Client Dashboard Routes
   {
     path: "/dashboard/client",
-    Component: ClientDashboard,
+    Component: () => (
+      <RequireAuth roles={["CLIENT", "BOTH"]}>
+        <ClientDashboard />
+      </RequireAuth>
+    ),
   },
   {
     path: "/dashboard/client/projects",
-    Component: ClientProjects,
+    Component: () => (
+      <RequireAuth roles={["CLIENT", "BOTH"]}>
+        <ClientProjects />
+      </RequireAuth>
+    ),
   },
   {
     path: "/dashboard/client/projects/:id",
-    Component: ClientProjectDetail,
+    Component: () => (
+      <RequireAuth roles={["CLIENT", "BOTH"]}>
+        <ClientProjectDetail />
+      </RequireAuth>
+    ),
   },
   {
     path: "/dashboard/client/find-freelancer",
-    Component: ClientFindFreelancer,
+    Component: () => (
+      <RequireAuth roles={["CLIENT", "BOTH"]}>
+        <ClientFindFreelancer />
+      </RequireAuth>
+    ),
   },
   {
     path: "/dashboard/client/messages",
-    Component: ClientMessages,
+    Component: () => (
+      <RequireAuth roles={["CLIENT", "BOTH"]}>
+        <ClientMessages />
+      </RequireAuth>
+    ),
   },
   {
     path: "/dashboard/client/notifications",
-    Component: ClientNotifications,
+    Component: () => (
+      <RequireAuth roles={["CLIENT", "BOTH"]}>
+        <ClientNotifications />
+      </RequireAuth>
+    ),
   },
   {
     path: "/dashboard/client/payments",
-    Component: ClientPayments,
+    Component: () => (
+      <RequireAuth roles={["CLIENT", "BOTH"]}>
+        <ClientPayments />
+      </RequireAuth>
+    ),
   },
   {
     path: "/dashboard/client/payments/:id",
-    Component: ClientPaymentDetail,
+    Component: () => (
+      <RequireAuth roles={["CLIENT", "BOTH"]}>
+        <ClientPaymentDetail />
+      </RequireAuth>
+    ),
   },
   {
     path: "/dashboard/client/settings",
-    Component: ClientSettings,
+    Component: () => (
+      <RequireAuth roles={["CLIENT", "BOTH"]}>
+        <ClientSettings />
+      </RequireAuth>
+    ),
   },
   // Freelancer Dashboard Routes
   {
     path: "/dashboard/freelancer",
-    Component: FreelancerDashboard,
+    Component: () => (
+      <RequireAuth roles={["FREELANCER", "BOTH"]}>
+        <FreelancerDashboard />
+      </RequireAuth>
+    ),
   },
   {
     path: "/dashboard/freelancer/requests",
-    Component: FreelancerJobRequests,
+    Component: () => (
+      <RequireAuth roles={["FREELANCER", "BOTH"]}>
+        <FreelancerJobRequests />
+      </RequireAuth>
+    ),
   },
   {
     path: "/dashboard/freelancer/projects",
-    Component: FreelancerProjects,
+    Component: () => (
+      <RequireAuth roles={["FREELANCER", "BOTH"]}>
+        <FreelancerProjects />
+      </RequireAuth>
+    ),
   },
   {
     path: "/dashboard/freelancer/projects/:id",
-    Component: FreelancerProjectDetail,
+    Component: () => (
+      <RequireAuth roles={["FREELANCER", "BOTH"]}>
+        <FreelancerProjectDetail />
+      </RequireAuth>
+    ),
   },
   {
     path: "/dashboard/freelancer/portfolio",
-    Component: FreelancerPortfolio,
+    Component: () => (
+      <RequireAuth roles={["FREELANCER", "BOTH"]}>
+        <FreelancerPortfolio />
+      </RequireAuth>
+    ),
   },
   {
     path: "/dashboard/freelancer/earnings",
-    Component: FreelancerEarnings,
+    Component: () => (
+      <RequireAuth roles={["FREELANCER", "BOTH"]}>
+        <FreelancerEarnings />
+      </RequireAuth>
+    ),
   },
   {
     path: "/dashboard/freelancer/messages",
-    Component: FreelancerMessages,
+    Component: () => (
+      <RequireAuth roles={["FREELANCER", "BOTH"]}>
+        <FreelancerMessages />
+      </RequireAuth>
+    ),
   },
   {
     path: "/dashboard/freelancer/notifications",
-    Component: FreelancerNotifications,
+    Component: () => (
+      <RequireAuth roles={["FREELANCER", "BOTH"]}>
+        <FreelancerNotifications />
+      </RequireAuth>
+    ),
   },
   {
     path: "/dashboard/freelancer/settings",
-    Component: FreelancerSettings,
+    Component: () => (
+      <RequireAuth roles={["FREELANCER", "BOTH"]}>
+        <FreelancerSettings />
+      </RequireAuth>
+    ),
   },
   // Shared Routes
   {
     path: "/post-job",
-    Component: PostJobPage,
+    Component: () => (
+      <RequireAuth roles={["CLIENT", "BOTH"]}>
+        <PostJobPage />
+      </RequireAuth>
+    ),
   },
   {
     path: "/freelancer/:id",

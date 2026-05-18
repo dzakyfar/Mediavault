@@ -1,22 +1,39 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import DashboardLayout from '../../components/DashboardLayout';
+import { useAuth } from '../../context/AuthContext';
 
 export default function FreelancerSettings() {
+  const { user } = useAuth();
   const [formData, setFormData] = useState({
-    fullName: 'Fauzan Ardiansyah',
-    email: 'fauzan.a@email.com',
-    phone: '+62 812-1234-5678',
-    city: 'Surabaya',
-    specialty: 'Product & Commercial Photography',
-    bio: 'Professional photographer with 5+ years experience in product and commercial photography.',
-    startingPrice: '500000',
-    bankName: 'Bank BCA',
-    accountNumber: '1234567890',
-    accountHolder: 'Fauzan Ardiansyah',
+    fullName: '',
+    email: '',
+    phone: '',
+    city: '',
+    specialty: '',
+    bio: '',
+    startingPrice: '',
+    bankName: '',
+    accountNumber: '',
+    accountHolder: '',
   });
 
+  useEffect(() => {
+    if (!user) return;
+    setFormData((current) => ({
+      ...current,
+      fullName: user.fullName,
+      email: user.email,
+      phone: user.phone || '',
+      city: user.city || '',
+      specialty: user.specialty || '',
+      bio: user.bio || '',
+      startingPrice: user.startingPrice ? String(user.startingPrice) : '',
+      accountHolder: user.fullName,
+    }));
+  }, [user]);
+
   return (
-    <DashboardLayout userType="freelancer" userName="Fauzan A.">
+    <DashboardLayout userType="freelancer">
       <h1 className="text-5xl mb-8" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>
         Account Settings
       </h1>
@@ -31,7 +48,7 @@ export default function FreelancerSettings() {
             <label className="block text-sm text-[#888888] mb-2">Profile Photo</label>
             <div className="flex items-center gap-4">
               <div className="w-20 h-20 rounded-full bg-[#141414] flex items-center justify-center text-[#F5C800] text-2xl font-bold">
-                F
+                {(formData.fullName || 'U').charAt(0)}
               </div>
               <button className="px-4 py-2 bg-[#141414] border border-[#2A2A2A] rounded-lg hover:border-[#F5C800] transition-colors">
                 Upload Photo

@@ -1,18 +1,34 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { Zap, ShoppingBag, Camera, Check } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { UserRole } from '../lib/api';
 
 export default function RoleSelectPage() {
   const [selectedRole, setSelectedRole] = useState<'client' | 'freelancer' | 'both' | null>(null);
+  const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
   const navigate = useNavigate();
+  const { updateRole } = useAuth();
 
-  const handleContinue = () => {
+  const roleMap: Record<'client' | 'freelancer' | 'both', UserRole> = {
+    client: 'CLIENT',
+    freelancer: 'FREELANCER',
+    both: 'BOTH',
+  };
+
+  const handleContinue = async () => {
     if (!selectedRole) return;
 
-    if (selectedRole === 'client' || selectedRole === 'both') {
-      navigate('/dashboard/client');
-    } else {
-      navigate('/dashboard/freelancer');
+    try {
+      setSubmitting(true);
+      setError('');
+      const user = await updateRole(roleMap[selectedRole]);
+      navigate(user.role === 'FREELANCER' ? '/dashboard/freelancer' : '/dashboard/client');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Gagal menyimpan role');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -97,16 +113,21 @@ export default function RoleSelectPage() {
         </div>
 
         <div className="text-center">
+          {error && (
+            <div className="mb-4 p-3 bg-[#EF4444]/10 border border-[#EF4444] rounded-lg text-[#EF4444] text-sm">
+              {error}
+            </div>
+          )}
           <button
             onClick={handleContinue}
-            disabled={!selectedRole}
+            disabled={!selectedRole || submitting}
             className={`px-12 py-4 rounded-full font-bold transition-all ${
               selectedRole
                 ? 'bg-[#F5C800] text-black hover:shadow-[0_0_20px_rgba(245,200,0,0.4)]'
                 : 'bg-[#2A2A2A] text-[#888888] cursor-not-allowed'
             }`}
           >
-            CONTINUE
+            {submitting ? 'SAVING...' : 'CONTINUE'}
           </button>
           <p className="text-[#888888] text-sm mt-4">
             You can switch roles anytime from your dashboard settings.

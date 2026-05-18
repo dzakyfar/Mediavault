@@ -30,9 +30,9 @@ jobs:
       - name: Deploy to S3
         uses: jakejarvis/s3-sync-action@v0.5.1
         with:
-          args: --acl public-read --follow-symlinks --delete
+          args: --follow-symlinks --delete
         env:
-          AWS_S3_BUCKET: ${{ secrets.AWS_S3_BUCKET }}
+          AWS_S3_BUCKET: ${{ secrets.AWS_S3_BUCKET_FRONTEND }}
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_REGION: ${{ secrets.AWS_REGION }}
@@ -66,8 +66,20 @@ jobs:
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            cd /home/ubuntu/mediavault || git clone https://github.com/${{ github.repository }}.git /home/ubuntu/mediavault
-            cd /home/ubuntu/mediavault
+            # Setup SSH key for GitHub (private repo)
+            mkdir -p /home/ec2-user/.ssh
+            echo "${{ secrets.EC2_SSH_PRIVATE_KEY }}" > /home/ec2-user/.ssh/github_deploy_key
+            chmod 600 /home/ec2-user/.ssh/github_deploy_key
+            cat << EOF >> /home/ec2-user/.ssh/config
+            Host github.com
+              IdentityFile /home/ec2-user/.ssh/github_deploy_key
+              User git
+            EOF
+            chmod 600 /home/ec2-user/.ssh/config
+
+            # Clone or pull repository using SSH
+            cd /home/ec2-user/mediavault || git clone git@github.com:dzakyfar/Mediavault.git /home/ec2-user/mediavault
+            cd /home/ec2-user/mediavault
             git pull origin main
             cd backend
             npm ci
