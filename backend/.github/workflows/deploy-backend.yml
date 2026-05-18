@@ -1,0 +1,47 @@
+name: Deploy Backend to EC2
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/deploy-backend.yml'
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script_stop: true
+          script: |
+            set -e
+            APP_DIR=/var/www/mediavault/backend
+            REPO_URL=https://github.com/${{ github.repository }}.git
+            if [ ! -d "$APP_DIR/.git" ]; then
+              rm -rf "$APP_DIR"
+              git clone "$REPO_URL" "$APP_DIR"
+            fi
+            cd "$APP_DIR"
+            git fetch origin main
+            git reset --hard origin/main
+            cd backend 2>/dev/null || true
+            cat > .env <<ENV
+            NODE_ENV=production
+            PORT=5000
+            DATABASE_URL=${{ secrets.PROD_DATABASE_URL }}
+            JWT_SECRET=${{ secrets.JWT_SECRET }}
+            JWT_EXPIRES_IN=7d
+            CORS_ORIGINS=${{ secrets.CORS_ORIGINS }}
+            AWS_REGION=${{ secrets.AWS_REGION }}
+            AWS_S3_BUCKET_USERFILES=${{ secrets.AWS_S3_BUCKET_USERFILES }}
+            PRESIGNED_URL_EXPIRES_SECONDS=300
+            MAX_UPLOAD_BYTES=52428800
+            ENV
+            npm ci
+            npx prisma generate
+            npx prisma migrate deploy
+            pm2 start src/server.js --name mediavault-api || pm2 restart mediavault-api
+            pm2 save

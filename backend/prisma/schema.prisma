@@ -1,0 +1,150 @@
+generator client { provider = "prisma-client-js" }
+datasource db { provider = "postgresql" url = env("DATABASE_URL") }
+
+enum Role { CLIENT FREELANCER ADMIN }
+enum BudgetType { FIXED HOURLY NEGOTIABLE }
+enum LocationType { ONSITE REMOTE HYBRID }
+enum ProjectStatus { OPEN NEGOTIATING IN_PROGRESS COMPLETED CANCELLED }
+enum ProposalStatus { PENDING ACCEPTED REJECTED WITHDRAWN }
+
+model User {
+  id String @id @default(uuid()) @db.Uuid
+  email String @unique @db.VarChar(255)
+  passwordHash String @map("password_hash")
+  name String @db.VarChar(255)
+  role Role
+  profilePicture String? @map("profile_picture")
+  phone String? @db.VarChar(20)
+  bio String?
+  location String? @db.VarChar(255)
+  isVerified Boolean @default(false) @map("is_verified")
+  isActive Boolean @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  freelancerProfile FreelancerProfile?
+  clientProjects Project[] @relation("ClientProjects")
+  assignedProjects Project[] @relation("FreelancerProjects")
+  proposals Proposal[]
+  portfolioItems PortfolioItem[]
+  notifications Notification[]
+  files File[]
+  @@map("users")
+}
+
+model FreelancerProfile {
+  id String @id @default(uuid()) @db.Uuid
+  userId String @unique @map("user_id") @db.Uuid
+  headline String? @db.VarChar(255)
+  hourlyRate Decimal? @map("hourly_rate") @db.Decimal(10,2)
+  experienceYears Int @default(0) @map("experience_years")
+  skills String[]
+  portfolioUrl String? @map("portfolio_url")
+  instagramHandle String? @map("instagram_handle") @db.VarChar(100)
+  websiteUrl String? @map("website_url")
+  totalProjects Int @default(0) @map("total_projects")
+  ratingAvg Decimal @default(0) @map("rating_avg") @db.Decimal(3,2)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  user User @relation(fields:[userId], references:[id], onDelete: Cascade)
+  @@map("freelancer_profiles")
+}
+
+model Category {
+  id String @id @default(uuid()) @db.Uuid
+  name String @unique @db.VarChar(100)
+  slug String @unique @db.VarChar(100)
+  icon String? @db.VarChar(50)
+  description String?
+  createdAt DateTime @default(now()) @map("created_at")
+  projects Project[]
+  @@map("categories")
+}
+
+model Project {
+  id String @id @default(uuid()) @db.Uuid
+  clientId String @map("client_id") @db.Uuid
+  freelancerId String? @map("freelancer_id") @db.Uuid
+  categoryId String? @map("category_id") @db.Uuid
+  title String @db.VarChar(255)
+  description String
+  budgetMin Decimal? @map("budget_min") @db.Decimal(10,2)
+  budgetMax Decimal? @map("budget_max") @db.Decimal(10,2)
+  budgetType BudgetType? @map("budget_type")
+  locationType LocationType? @map("location_type")
+  locationDetails String? @map("location_details")
+  deadline DateTime? @db.Date
+  status ProjectStatus @default(OPEN)
+  isFeatured Boolean @default(false) @map("is_featured")
+  viewsCount Int @default(0) @map("views_count")
+  proposalsCount Int @default(0) @map("proposals_count")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  client User @relation("ClientProjects", fields:[clientId], references:[id], onDelete: Cascade)
+  freelancer User? @relation("FreelancerProjects", fields:[freelancerId], references:[id], onDelete: SetNull)
+  category Category? @relation(fields:[categoryId], references:[id])
+  proposals Proposal[]
+  files File[]
+  @@map("projects")
+}
+
+model Proposal {
+  id String @id @default(uuid()) @db.Uuid
+  projectId String @map("project_id") @db.Uuid
+  freelancerId String @map("freelancer_id") @db.Uuid
+  coverLetter String @map("cover_letter")
+  bidAmount Decimal? @map("bid_amount") @db.Decimal(10,2)
+  estimatedDays Int? @map("estimated_days")
+  status ProposalStatus @default(PENDING)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  project Project @relation(fields:[projectId], references:[id], onDelete: Cascade)
+  freelancer User @relation(fields:[freelancerId], references:[id], onDelete: Cascade)
+  @@unique([projectId, freelancerId])
+  @@map("proposals")
+}
+
+model PortfolioItem {
+  id String @id @default(uuid()) @db.Uuid
+  freelancerId String @map("freelancer_id") @db.Uuid
+  title String @db.VarChar(255)
+  description String?
+  mediaUrls String[] @map("media_urls")
+  thumbnailUrl String? @map("thumbnail_url")
+  category String? @db.VarChar(100)
+  projectUrl String? @map("project_url")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  freelancer User @relation(fields:[freelancerId], references:[id], onDelete: Cascade)
+  files File[]
+  @@map("portfolio_items")
+}
+
+model Notification {
+  id String @id @default(uuid()) @db.Uuid
+  userId String @map("user_id") @db.Uuid
+  type String @db.VarChar(50)
+  title String @db.VarChar(255)
+  content String?
+  metadata Json?
+  isRead Boolean @default(false) @map("is_read")
+  createdAt DateTime @default(now()) @map("created_at")
+  user User @relation(fields:[userId], references:[id], onDelete: Cascade)
+  @@map("notifications")
+}
+
+model File {
+  id String @id @default(uuid()) @db.Uuid
+  projectId String? @map("project_id") @db.Uuid
+  portfolioId String? @map("portfolio_id") @db.Uuid
+  uploadedBy String @map("uploaded_by") @db.Uuid
+  originalName String @map("original_name") @db.VarChar(255)
+  storedKey String @map("stored_key") @db.VarChar(500)
+  fileSize BigInt? @map("file_size")
+  mimeType String? @map("mime_type") @db.VarChar(100)
+  isPublic Boolean @default(false) @map("is_public")
+  createdAt DateTime @default(now()) @map("created_at")
+  project Project? @relation(fields:[projectId], references:[id], onDelete: SetNull)
+  portfolio PortfolioItem? @relation(fields:[portfolioId], references:[id], onDelete: SetNull)
+  uploader User @relation(fields:[uploadedBy], references:[id])
+  @@map("files")
+}

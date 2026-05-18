@@ -1,23 +1,30 @@
-const express = require('express');
-const cors = require('cors');
-const authRoutes = require('./routes/authRoutes');
-const errorMiddleware = require('./middleware/errorMiddleware');
-
-const app = express();
-
-// Middleware
-app.use(cors());
-app.use(express.json());
-
-// Routes
+import 'dotenv/config';
+import express from 'express';
+import cors from 'cors';
+import helmet from 'helmet';
+import morgan from 'morgan';
+import rateLimit from 'express-rate-limit';
+import authRoutes from './routes/auth.routes.js';
+import projectRoutes from './routes/projects.routes.js';
+import profileRoutes from './routes/profile.routes.js';
+import fileRoutes from './routes/files.routes.js';
+import categoryRoutes from './routes/categories.routes.js';
+import notificationRoutes from './routes/notifications.routes.js';
+import { notFound, errorHandler } from './utils/errors.js';
+const app=express();
+const origins=(process.env.CORS_ORIGINS||'').split(',').map(s=>s.trim()).filter(Boolean);
+app.set('trust proxy', 1);
+app.use(helmet());
+app.use(cors({ origin:(origin,cb)=> !origin || origins.includes(origin) ? cb(null,true) : cb(new Error('CORS blocked')), credentials:true }));
+app.use(express.json({limit:'1mb'}));
+app.use(morgan('combined'));
+app.use('/api', rateLimit({windowMs:15*60*1000, limit:500}));
+app.get('/health', (req,res)=>res.json({ok:true, service:'mediavault-api'}));
 app.use('/api/auth', authRoutes);
-
-// Health check
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'OK', message: 'Backend MediaVault berjalan' });
-});
-
-// Error handling
-app.use(errorMiddleware);
-
-module.exports = app;
+app.use('/api/projects', projectRoutes);
+app.use('/api/profiles', profileRoutes);
+app.use('/api/files', fileRoutes);
+app.use('/api/categories', categoryRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use(notFound); app.use(errorHandler);
+export default app;

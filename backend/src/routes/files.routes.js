@@ -1,0 +1,31 @@
+import { Router } from 'express';
+import crypto from 'crypto';
+import { z } from 'zod';
+import { PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { s3 } from '../config/s3.js';
+import { prisma } from '../config/prisma.js';
+import { auth } from '../middleware/auth.js';
+import { asyncHandler, AppError } from '../utils/errors.js';
+const router=Router();
+const allowed = ['image/jpeg','image/png','image/webp','video/mp4','application/pdf','application/zip'];
+router.post('/presign-upload', auth, asyncHandler(async(req,res)=>{
+  const data=z.object({fileName:z.string().min(1), mimeType:z.string().min(3), fileSize:z.coerce.number().positive(), projectId:z.string().uuid().optional(), portfolioId:z.string().uuid().optional()}).parse(req.body);
+  if (!allowed.includes(data.mimeType)) throw new AppError(400,'File type not allowed');
+  if (data.fileSize > Number(process.env.MAX_UPLOAD_BYTES || 52428800)) throw new AppError(400,'File too large');
+  const ext = data.fileName.split('.').pop()?.replace(/[^a-zA-Z0-9]/g,'') || 'bin';
+  const key = `users/${req.user.id}/${Date.now()}-${crypto.randomUUID()}.${ext}`;
+  const command = new PutObjectCommand({ Bucket:process.env.AWS_S3_BUCKET_USERFILES, Key:key, ContentType:data.mimeType, ContentLength:data.fileSize });
+  const uploadUrl = await getSignedUrl(s3, command, { expiresIn:Number(process.env.PRESIGNED_URL_EXPIRES_SECONDS || 300) });
+  const file = await prisma.file.create({ data:{ uploadedBy:req.user.id, originalName:data.fileName, storedKey:key, mimeType:data.mimeType, fileSize:BigInt(data.fileSize), projectId:data.projectId, portfolioId:data.portfolioId }});
+  res.status(201).json({success:true, uploadUrl, key, fileId:file.id});
+}));
+router.get('/:id/download-url', auth, asyncHandler(async(req,res)=>{
+  const file=await prisma.file.findUnique({ where:{id:req.params.id}, include:{project:true, portfolio:true} });
+  if (!file) throw new AppError(404,'File not found');
+  const relatedUser = file.uploadedBy === req.user.id || file.project?.clientId === req.user.id || file.project?.freelancerId === req.user.id || file.portfolio?.freelancerId === req.user.id;
+  if (!relatedUser && !file.isPublic && req.user.role !== 'ADMIN') throw new AppError(403,'Forbidden');
+  const url=await getSignedUrl(s3, new GetObjectCommand({Bucket:process.env.AWS_S3_BUCKET_USERFILES, Key:file.storedKey}), {expiresIn:300});
+  res.json({success:true, url});
+}));
+export default router;
