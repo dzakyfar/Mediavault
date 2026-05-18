@@ -205,3 +205,86 @@
     line-height: 1.5;
   }
 }
+
+/* MediaVault runtime polish: keeps original dark UI, fixes light-mode contrast globally. */
+html {
+  scroll-behavior: smooth;
+}
+
+body,
+a,
+button,
+input,
+textarea,
+select,
+.bg-\[\#0A0A0A\],
+.bg-\[\#141414\],
+.bg-\[\#1A1A1A\],
+.text-white,
+.text-\[\#888888\],
+.border-\[\#2A2A2A\] {
+  transition-property: background-color, border-color, color, box-shadow, transform;
+  transition-duration: 180ms;
+  transition-timing-function: ease-out;
+}
+
+.light .bg-\[\#0A0A0A\],
+.light .bg-\[\#0A0A0A\]\/90 {
+  background-color: #F5F5F0 !important;
+}
+
+.light .bg-\[\#141414\] {
+  background-color: #FFFFFF !important;
+}
+
+.light .bg-\[\#1A1A1A\] {
+  background-color: #F8F8F3 !important;
+}
+
+.light .text-white {
+  color: #0A0A0A !important;
+}
+
+.light .text-\[\#888888\] {
+  color: #525252 !important;
+}
+
+.light .border-\[\#2A2A2A\] {
+  border-color: #D8D8CF !important;
+}
+
+.light .placeholder-\[\#888888\]::placeholder {
+  color: #737373 !important;
+}
+
+.light .hover\:text-white:hover {
+  color: #0A0A0A !important;
+}
+
+.light .hover\:bg-\[\#141414\]:hover,
+.light .hover\:bg-\[\#2A2A2A\]:hover {
+  background-color: #ECECE2 !important;
+}
+
+.light .hover\:bg-white:hover {
+  background-color: #0A0A0A !important;
+}
+
+.light .hover\:text-black:hover {
+  color: #FFFFFF !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}

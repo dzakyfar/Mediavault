@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { Zap, Eye, EyeOff } from 'lucide-react';
+import { registerMockUser } from '../lib/mockAuth';
 
 export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
@@ -33,6 +34,7 @@ export default function RegisterPage() {
       return;
     }
 
+    registerMockUser(formData.fullName, formData.email);
     navigate('/role-select');
   };
 

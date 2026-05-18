@@ -1,9 +1,20 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { Zap } from 'lucide-react';
+import { applyTheme, getNextTheme, getStoredTheme, setStoredTheme } from '../lib/theme';
+import type { ThemeName } from '../lib/theme';
 
 export default function Navbar() {
-  const [isDark, setIsDark] = useState(true);
+  const [theme, setTheme] = useState<ThemeName>(() => getStoredTheme());
+  const isDark = theme === 'dark';
+
+  useEffect(() => {
+    applyTheme(theme);
+  }, [theme]);
+
+  const handleThemeToggle = () => {
+    setTheme((currentTheme) => setStoredTheme(getNextTheme(currentTheme)));
+  };
 
   return (
     <nav className="sticky top-0 z-50 backdrop-blur-md bg-[#0A0A0A]/90 border-b border-[#2A2A2A]">
@@ -18,7 +29,10 @@ export default function Navbar() {
         </div>
         <div className="flex items-center gap-4">
           <button
-            onClick={() => setIsDark(!isDark)}
+            type="button"
+            onClick={handleThemeToggle}
+            aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+            title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
             className="p-2 rounded-lg hover:bg-[#141414] transition-colors"
           >
             {isDark ? '☀️' : '🌙'}

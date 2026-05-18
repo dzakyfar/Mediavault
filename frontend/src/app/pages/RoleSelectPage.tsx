@@ -1,19 +1,23 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { Zap, ShoppingBag, Camera, Check } from 'lucide-react';
+import { completeRoleSelection } from '../lib/mockAuth';
+import type { RoleSelection } from '../lib/mockAuth';
 
 export default function RoleSelectPage() {
-  const [selectedRole, setSelectedRole] = useState<'client' | 'freelancer' | 'both' | null>(null);
+  const [selectedRole, setSelectedRole] = useState<RoleSelection | null>(null);
   const navigate = useNavigate();
 
   const handleContinue = () => {
     if (!selectedRole) return;
 
-    if (selectedRole === 'client' || selectedRole === 'both') {
-      navigate('/dashboard/client');
-    } else {
-      navigate('/dashboard/freelancer');
+    const user = completeRoleSelection(selectedRole);
+    if (!user) {
+      navigate('/login');
+      return;
     }
+
+    navigate(`/dashboard/${user.activeRole || 'client'}`);
   };
 
   return (
@@ -27,7 +31,7 @@ export default function RoleSelectPage() {
           <h1 className="text-6xl text-white mb-4" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>
             How will you use MediaVault?
           </h1>
-          <p className="text-[#888888]">You can always switch later.</p>
+          <p className="text-[#888888]">Choose the role for this account. Accounts with both roles can switch from the dashboard.</p>
         </div>
 
         <div className="grid md:grid-cols-2 gap-6 mb-8">
@@ -90,7 +94,7 @@ export default function RoleSelectPage() {
         <div className="text-center mb-8">
           <button
             onClick={() => setSelectedRole('both')}
-            className="text-[#F5C800] hover:underline"
+            className={`text-[#F5C800] hover:underline ${selectedRole === 'both' ? 'font-bold underline' : ''}`}
           >
             I'm both — Client & Freelancer
           </button>
@@ -109,7 +113,7 @@ export default function RoleSelectPage() {
             CONTINUE
           </button>
           <p className="text-[#888888] text-sm mt-4">
-            You can switch roles anytime from your dashboard settings.
+            Role switching is available only when this account is registered as both.
           </p>
         </div>
       </div>

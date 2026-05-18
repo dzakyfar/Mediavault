@@ -1,17 +1,23 @@
 import { useState } from 'react';
 import { Camera } from 'lucide-react';
 import DashboardLayout from '../../components/DashboardLayout';
+import { getCurrentUser, updateCurrentUser } from '../../lib/mockAuth';
 
 export default function ClientSettings() {
+  const sessionUser = getCurrentUser();
   const [formData, setFormData] = useState({
-    fullName: 'Rania K.',
-    email: 'rania.k@email.com',
+    fullName: sessionUser?.name || 'Rania K.',
+    email: sessionUser?.email || 'rania.k@email.com',
     phone: '+62 812-3456-7890',
     city: 'Jakarta',
   });
 
+  const handleSaveProfile = () => {
+    updateCurrentUser({ name: formData.fullName });
+  };
+
   return (
-    <DashboardLayout userType="client" userName="Rania K.">
+    <DashboardLayout userType="client" userName={formData.fullName}>
       <h1 className="text-5xl mb-8" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>
         Account Settings
       </h1>
@@ -26,7 +32,7 @@ export default function ClientSettings() {
             <label className="block text-sm text-[#888888] mb-2">Profile Photo</label>
             <div className="flex items-center gap-4">
               <div className="w-20 h-20 rounded-full bg-[#141414] flex items-center justify-center text-[#F5C800] text-2xl font-bold">
-                R
+                {formData.fullName.charAt(0)}
               </div>
               <button className="px-4 py-2 bg-[#141414] border border-[#2A2A2A] rounded-lg hover:border-[#F5C800] transition-colors">
                 Upload Photo
@@ -73,7 +79,11 @@ export default function ClientSettings() {
             </div>
           </div>
 
-          <button className="px-6 py-3 bg-[#F5C800] text-black font-bold rounded-lg hover:shadow-[0_0_20px_rgba(245,200,0,0.4)] transition-all">
+          <button
+            type="button"
+            onClick={handleSaveProfile}
+            className="px-6 py-3 bg-[#F5C800] text-black font-bold rounded-lg hover:shadow-[0_0_20px_rgba(245,200,0,0.4)] transition-all"
+          >
             Save Changes
           </button>
         </div>

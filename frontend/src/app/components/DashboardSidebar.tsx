@@ -1,5 +1,6 @@
-import { Link, useLocation } from 'react-router';
+import { Link, useLocation, useNavigate } from 'react-router';
 import { Zap, Home, Briefcase, Search, MessageCircle, Bell, CreditCard, Settings, LogOut, FileText, Folder, DollarSign } from 'lucide-react';
+import { canUseRole, logoutMockUser, setActiveRole } from '../lib/mockAuth';
 
 interface DashboardSidebarProps {
   userType: 'client' | 'freelancer';
@@ -8,6 +9,9 @@ interface DashboardSidebarProps {
 
 export default function DashboardSidebar({ userType, userName }: DashboardSidebarProps) {
   const location = useLocation();
+  const navigate = useNavigate();
+  const targetRole = userType === 'client' ? 'freelancer' : 'client';
+  const canSwitchRole = canUseRole(targetRole);
 
   const clientMenuItems = [
     { icon: Home, label: 'Overview', path: '/dashboard/client' },
@@ -33,6 +37,16 @@ export default function DashboardSidebar({ userType, userName }: DashboardSideba
   const menuItems = userType === 'client' ? clientMenuItems : freelancerMenuItems;
   const switchPath = userType === 'client' ? '/dashboard/freelancer' : '/dashboard/client';
   const switchLabel = userType === 'client' ? 'Switch to Freelancer' : 'Switch to Client';
+
+  const handleRoleSwitch = () => {
+    if (!canSwitchRole) return;
+    setActiveRole(targetRole);
+    navigate(switchPath);
+  };
+
+  const handleLogout = () => {
+    logoutMockUser();
+  };
 
   return (
     <div className="w-60 h-screen fixed left-0 top-0 bg-[#141414] border-r border-[#2A2A2A] flex flex-col">
@@ -76,14 +90,18 @@ export default function DashboardSidebar({ userType, userName }: DashboardSideba
       </nav>
 
       <div className="p-6 border-t border-[#2A2A2A]">
-        <Link
-          to={switchPath}
-          className="block text-[#888888] hover:text-[#F5C800] mb-3 text-sm transition-colors"
-        >
-          {switchLabel}
-        </Link>
+        {canSwitchRole && (
+          <button
+            type="button"
+            onClick={handleRoleSwitch}
+            className="block text-[#888888] hover:text-[#F5C800] mb-3 text-sm transition-colors"
+          >
+            {switchLabel}
+          </button>
+        )}
         <Link
           to="/login"
+          onClick={handleLogout}
           className="flex items-center gap-2 text-[#EF4444] hover:text-[#FF6B6B] text-sm transition-colors"
         >
           <LogOut className="w-4 h-4" />

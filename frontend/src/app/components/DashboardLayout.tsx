@@ -1,7 +1,11 @@
-import { ReactNode } from 'react';
+import { useEffect, useState } from 'react';
+import type { ReactNode } from 'react';
 import { Bell } from 'lucide-react';
 import { Link } from 'react-router';
 import DashboardSidebar from './DashboardSidebar';
+import { getCurrentUser } from '../lib/mockAuth';
+import { applyTheme, getNextTheme, getStoredTheme, setStoredTheme } from '../lib/theme';
+import type { ThemeName } from '../lib/theme';
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -11,6 +15,19 @@ interface DashboardLayoutProps {
 }
 
 export default function DashboardLayout({ children, userType, userName, greeting }: DashboardLayoutProps) {
+  const sessionUser = getCurrentUser();
+  const displayName = sessionUser?.name || userName;
+  const [theme, setTheme] = useState<ThemeName>(() => getStoredTheme());
+  const isDark = theme === 'dark';
+
+  useEffect(() => {
+    applyTheme(theme);
+  }, [theme]);
+
+  const handleThemeToggle = () => {
+    setTheme((currentTheme) => setStoredTheme(getNextTheme(currentTheme)));
+  };
+
   const currentDate = new Date().toLocaleDateString('en-US', {
     weekday: 'long',
     year: 'numeric',
@@ -28,20 +45,26 @@ export default function DashboardLayout({ children, userType, userName, greeting
 
   return (
     <div className="min-h-screen bg-[#0A0A0A]" style={{ fontFamily: 'DM Sans, sans-serif' }}>
-      <DashboardSidebar userType={userType} userName={userName} />
+      <DashboardSidebar userType={userType} userName={displayName} />
 
       <div className="ml-60">
         <div className="border-b border-[#2A2A2A] bg-[#0A0A0A] sticky top-0 z-40">
           <div className="px-8 py-4 flex items-center justify-between">
             <div>
               <h1 className="text-xl text-white font-bold">
-                {greeting || `Good morning, ${userName.split(' ')[0]}`} 👋
+                {greeting || `Good morning, ${displayName.split(' ')[0]}`} 👋
               </h1>
               <p className="text-sm text-[#888888]">{currentDate}</p>
             </div>
             <div className="flex items-center gap-4">
-              <button className="p-2 rounded-lg hover:bg-[#141414] transition-colors text-white">
-                ☀️
+              <button
+                type="button"
+                onClick={handleThemeToggle}
+                aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+                title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+                className="p-2 rounded-lg hover:bg-[#141414] transition-colors text-white"
+              >
+                {isDark ? '☀️' : '🌙'}
               </button>
               <Link
                 to={notificationPath}
@@ -52,7 +75,7 @@ export default function DashboardLayout({ children, userType, userName, greeting
               </Link>
               <Link to={settingsPath}>
                 <div className="w-10 h-10 rounded-full bg-[#1A1A1A] flex items-center justify-center text-[#F5C800] font-bold hover:bg-[#2A2A2A] transition-colors cursor-pointer">
-                  {userName.charAt(0)}
+                  {displayName.charAt(0)}
                 </div>
               </Link>
             </div>

@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import DashboardLayout from '../../components/DashboardLayout';
+import { getCurrentUser, updateCurrentUser } from '../../lib/mockAuth';
 
 export default function FreelancerSettings() {
+  const sessionUser = getCurrentUser();
   const [formData, setFormData] = useState({
-    fullName: 'Fauzan Ardiansyah',
-    email: 'fauzan.a@email.com',
+    fullName: sessionUser?.name || 'Fauzan Ardiansyah',
+    email: sessionUser?.email || 'fauzan.a@email.com',
     phone: '+62 812-1234-5678',
     city: 'Surabaya',
     specialty: 'Product & Commercial Photography',
@@ -12,11 +14,15 @@ export default function FreelancerSettings() {
     startingPrice: '500000',
     bankName: 'Bank BCA',
     accountNumber: '1234567890',
-    accountHolder: 'Fauzan Ardiansyah',
+    accountHolder: sessionUser?.name || 'Fauzan Ardiansyah',
   });
 
+  const handleSaveProfile = () => {
+    updateCurrentUser({ name: formData.fullName });
+  };
+
   return (
-    <DashboardLayout userType="freelancer" userName="Fauzan A.">
+    <DashboardLayout userType="freelancer" userName={formData.fullName}>
       <h1 className="text-5xl mb-8" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>
         Account Settings
       </h1>
@@ -31,7 +37,7 @@ export default function FreelancerSettings() {
             <label className="block text-sm text-[#888888] mb-2">Profile Photo</label>
             <div className="flex items-center gap-4">
               <div className="w-20 h-20 rounded-full bg-[#141414] flex items-center justify-center text-[#F5C800] text-2xl font-bold">
-                F
+                {formData.fullName.charAt(0)}
               </div>
               <button className="px-4 py-2 bg-[#141414] border border-[#2A2A2A] rounded-lg hover:border-[#F5C800] transition-colors">
                 Upload Photo
@@ -78,7 +84,11 @@ export default function FreelancerSettings() {
             </div>
           </div>
 
-          <button className="px-6 py-3 bg-[#F5C800] text-black font-bold rounded-lg hover:shadow-[0_0_20px_rgba(245,200,0,0.4)] transition-all">
+          <button
+            type="button"
+            onClick={handleSaveProfile}
+            className="px-6 py-3 bg-[#F5C800] text-black font-bold rounded-lg hover:shadow-[0_0_20px_rgba(245,200,0,0.4)] transition-all"
+          >
             Save Changes
           </button>
         </div>
