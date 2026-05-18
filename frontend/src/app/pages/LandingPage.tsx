@@ -1,9 +1,28 @@
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { Pencil, Camera, FolderOpen, Star, Image, Shield, Zap, MapPin } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
+import { apiRequest } from '../lib/api';
+
+interface Freelancer {
+  id: string;
+  name: string;
+  specialty: string;
+  rating: string | null;
+  price: string;
+  available: boolean;
+}
 
 export default function LandingPage() {
+  const [topFreelancers, setTopFreelancers] = useState<Freelancer[]>([]);
+
+  useEffect(() => {
+    apiRequest<{ freelancers: Freelancer[] }>('/freelancers', { auth: false })
+      .then((response) => setTopFreelancers(response.freelancers.slice(0, 4)))
+      .catch(() => setTopFreelancers([]));
+  }, []);
+
   return (
     <div className="min-h-screen bg-[#0A0A0A] text-white" style={{ fontFamily: 'DM Sans, sans-serif' }}>
       <Navbar />
@@ -108,13 +127,15 @@ export default function LandingPage() {
             <Link to="/explore" className="text-[#F5C800] hover:underline font-bold">See All →</Link>
           </div>
           <div className="grid md:grid-cols-4 gap-6">
-            {[
-              { name: 'Fauzan A.', specialty: 'Wedding | Portrait', rating: '4.9', price: 'Rp 500K', id: '1', available: true },
-              { name: 'Nathanael V.', specialty: 'Product | Commercial', rating: '4.8', price: 'Rp 750K', id: '2', available: true },
-              { name: 'Dzaky F.', specialty: 'Fashion | Editorial', rating: '5.0', price: 'Rp 1M', id: '3', available: false },
-              { name: 'Rania K.', specialty: 'Corporate | Events', rating: '4.9', price: 'Rp 600K', id: '4', available: true }
-            ].map((freelancer, i) => (
-              <div key={i} className="bg-[#141414] rounded-xl p-6 border border-[#2A2A2A] hover:border-[#F5C800] hover:-translate-y-1 transition-all">
+            {topFreelancers.length === 0 && (
+              <div className="md:col-span-4 bg-[#141414] border border-[#2A2A2A] rounded-xl p-8 text-center">
+                <h3 className="text-xl font-bold mb-2">Belum ada freelancer dari database</h3>
+                <p className="text-[#888888]">Profil freelancer nyata akan tampil di sini setelah user mendaftar dan memilih role freelancer.</p>
+              </div>
+            )}
+
+            {topFreelancers.map((freelancer) => (
+              <div key={freelancer.id} className="bg-[#141414] rounded-xl p-6 border border-[#2A2A2A] hover:border-[#F5C800] hover:-translate-y-1 transition-all">
                 <div className="relative w-full aspect-square bg-[#1A1A1A] rounded-lg mb-4 flex items-center justify-center">
                   <Camera className="w-12 h-12 text-[#888888]" />
                   {/* Status Badge */}
@@ -142,7 +163,7 @@ export default function LandingPage() {
                 </div>
                 <div className="flex items-center gap-1 mb-2 text-sm">
                   <Star className="w-4 h-4 text-[#F5C800] fill-current" />
-                  <span>{freelancer.rating}</span>
+                  <span>{freelancer.rating ?? 'Baru'}</span>
                 </div>
                 <p className="text-[#F5C800] font-bold mb-4">From {freelancer.price}</p>
                 <Link to={`/freelancer/${freelancer.id}`} className="block w-full px-4 py-2 border border-[#888888] rounded-lg hover:border-[#F5C800] hover:text-[#F5C800] transition-colors text-center">
@@ -161,12 +182,12 @@ export default function LandingPage() {
           </h2>
           <div className="grid md:grid-cols-3 gap-6">
             {[
-              { name: 'Wedding', count: '120' },
-              { name: 'Product', count: '85' },
-              { name: 'Fashion', count: '64' },
-              { name: 'Corporate', count: '92' },
-              { name: 'Concert', count: '43' },
-              { name: 'Real Estate', count: '57' }
+              { name: 'Wedding' },
+              { name: 'Product' },
+              { name: 'Fashion' },
+              { name: 'Corporate' },
+              { name: 'Concert' },
+              { name: 'Real Estate' }
             ].map((category, i) => (
               <Link
                 key={i}
@@ -180,7 +201,7 @@ export default function LandingPage() {
                     {category.name}
                   </h3>
                   <span className="px-3 py-1 bg-[#F5C800] text-black text-sm font-bold rounded-full">
-                    {category.count} Available
+                    Explore
                   </span>
                 </div>
               </Link>
@@ -189,26 +210,11 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section className="py-12 bg-[#141414] overflow-hidden">
-        <div className="flex gap-8 animate-[scroll_30s_linear_infinite]">
-          {[...Array(2)].map((_, setIndex) => (
-            <div key={setIndex} className="flex gap-8 min-w-max">
-              {[
-                { quote: 'Best platform for finding talented photographers!', name: 'Budi S.' },
-                { quote: 'Got my wedding shot perfectly. Highly recommend!', name: 'Siti A.' },
-                { quote: 'Easy to use, professional results every time.', name: 'Ahmad R.' },
-                { quote: 'Love the fast delivery and quality work.', name: 'Dewi K.' }
-              ].map((testimonial, i) => (
-                <div key={i} className="flex items-center gap-4 px-6 py-4 bg-[#1A1A1A] rounded-lg min-w-max">
-                  <span className="text-4xl text-[#F5C800]">"</span>
-                  <div>
-                    <p className="text-white mb-1">{testimonial.quote}</p>
-                    <p className="text-[#888888] text-sm">— {testimonial.name}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ))}
+      <section className="py-12 bg-[#141414]">
+        <div className="max-w-7xl mx-auto px-6 text-center">
+          <p className="text-[#888888]">
+            Testimonial nyata akan ditampilkan setelah data review tersedia di database.
+          </p>
         </div>
       </section>
 

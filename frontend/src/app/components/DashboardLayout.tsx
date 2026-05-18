@@ -2,15 +2,19 @@ import { ReactNode } from 'react';
 import { Bell } from 'lucide-react';
 import { Link } from 'react-router';
 import DashboardSidebar from './DashboardSidebar';
+import { useAuth } from '../context/AuthContext';
 
 interface DashboardLayoutProps {
   children: ReactNode;
   userType: 'client' | 'freelancer';
-  userName: string;
+  userName?: string;
   greeting?: string;
 }
 
 export default function DashboardLayout({ children, userType, userName, greeting }: DashboardLayoutProps) {
+  const { user } = useAuth();
+  const displayName = user?.fullName || userName || 'User';
+  const firstName = displayName.split(' ')[0];
   const currentDate = new Date().toLocaleDateString('en-US', {
     weekday: 'long',
     year: 'numeric',
@@ -28,14 +32,14 @@ export default function DashboardLayout({ children, userType, userName, greeting
 
   return (
     <div className="min-h-screen bg-[#0A0A0A]" style={{ fontFamily: 'DM Sans, sans-serif' }}>
-      <DashboardSidebar userType={userType} userName={userName} />
+      <DashboardSidebar userType={userType} userName={displayName} />
 
       <div className="ml-60">
         <div className="border-b border-[#2A2A2A] bg-[#0A0A0A] sticky top-0 z-40">
           <div className="px-8 py-4 flex items-center justify-between">
             <div>
               <h1 className="text-xl text-white font-bold">
-                {greeting || `Good morning, ${userName.split(' ')[0]}`} 👋
+                {greeting || `Good morning, ${firstName}`} 👋
               </h1>
               <p className="text-sm text-[#888888]">{currentDate}</p>
             </div>
@@ -52,7 +56,7 @@ export default function DashboardLayout({ children, userType, userName, greeting
               </Link>
               <Link to={settingsPath}>
                 <div className="w-10 h-10 rounded-full bg-[#1A1A1A] flex items-center justify-center text-[#F5C800] font-bold hover:bg-[#2A2A2A] transition-colors cursor-pointer">
-                  {userName.charAt(0)}
+                  {displayName.charAt(0)}
                 </div>
               </Link>
             </div>
