@@ -1,0 +1,98 @@
+name: Backend CI
+
+on:
+  push:
+    branches:
+      - develop
+    paths:
+      - "backend/**"
+      - ".github/workflows/backend-ci.yml"
+
+  pull_request:
+    branches:
+      - develop
+    paths:
+      - "backend/**"
+      - ".github/workflows/backend-ci.yml"
+
+jobs:
+  backend-ci:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: mediavault_app
+          POSTGRES_PASSWORD: mediavault_test_password
+          POSTGRES_DB: mediavault_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U mediavault_app -d mediavault_test"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    env:
+      NODE_ENV: test
+      PORT: 5000
+      DATABASE_URL: postgresql://mediavault_app:mediavault_test_password@localhost:5432/mediavault_test?schema=public
+      JWT_SECRET: test_jwt_secret_minimal_32_characters
+      JWT_EXPIRES_IN: 7d
+      CORS_ORIGINS: http://localhost:5173
+      AWS_REGION: ap-southeast-1
+      AWS_S3_BUCKET_USERFILES: mediavault-userfiles-test
+      PRESIGNED_URL_EXPIRES_SECONDS: 300
+      MAX_UPLOAD_BYTES: 52428800
+
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
+
+      - name: Run database migrations
+        run: npx prisma migrate deploy
+
+      - name: Seed database
+        run: npm run seed
+
+      - name: Start backend and test health
+        run: |
+          npm start &
+          sleep 5
+          curl -f http://localhost:5000/health
+
+      - name: Test register and login
+        run: |
+          curl -f -X POST http://localhost:5000/api/auth/register \
+            -H "Content-Type: application/json" \
+            -d '{
+              "name": "Client Test",
+              "email": "client@test.com",
+              "password": "password123",
+              "role": "CLIENT"
+            }'
+
+          curl -f -X POST http://localhost:5000/api/auth/login \
+            -H "Content-Type: application/json" \
+            -d '{
+              "email": "client@test.com",
+              "password": "password123"
+            }'
