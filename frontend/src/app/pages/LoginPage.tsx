@@ -114,7 +114,7 @@ export default function LoginPage() {
 
             <div className="flex justify-end mb-6">
               <a href="#" className="text-[#888888] text-sm hover:text-[#F5C800] transition-colors">
-                Forgot password?
+                Forgot passworrrd?
               </a>
             </div>
 
