@@ -70,6 +70,7 @@ jobs:
             git pull origin main
             cd backend
             npm ci
-            npx prisma migrate deploy || true
+            npx prisma generate
+            npx prisma migrate deploy
             pm2 restart mediavault-backend || pm2 start server.js --name mediavault-backend
             pm2 save
