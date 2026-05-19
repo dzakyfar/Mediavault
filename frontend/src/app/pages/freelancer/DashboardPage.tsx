@@ -132,17 +132,17 @@ export default function FreelancerDashboard() {
                   </div>
 
                   <div className="flex items-center justify-between">
-                    <div className="text-sm text-[#888888]">📅 Due: {project.due}</div>
+                    <div className="text-sm text-[#888888]">Due: {project.due}</div>
                     <div className="flex gap-2">
                       <Link
                         to={`/dashboard/freelancer/projects/${project.id}`}
-                        className="px-4 py-2 border border-[#888888] rounded-lg text-sm hover:border-[#F5C800] hover:text-[#F5C800] transition-colors"
+                        className="px-4 py-2 border border-[#888888] text-white rounded-lg text-sm hover:border-[#F5C800] hover:text-[#F5C800] transition-colors"
                       >
                         View
                       </Link>
                       <Link
                         to="/dashboard/freelancer/messages"
-                        className="px-4 py-2 border border-[#888888] rounded-lg text-sm hover:border-[#F5C800] hover:text-[#F5C800] transition-colors"
+                        className="px-4 py-2 border border-[#888888] text-white rounded-lg text-sm hover:border-[#F5C800] hover:text-[#F5C800] transition-colors"
                       >
                         Message
                       </Link>
@@ -159,7 +159,7 @@ export default function FreelancerDashboard() {
                 New Requests
               </h2>
               <Link to="/dashboard/freelancer/requests" className="text-[#F5C800] hover:underline font-bold">
-                See All →
+                See All
               </Link>
             </div>
             <div className="space-y-4">

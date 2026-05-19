@@ -69,7 +69,7 @@ export default function LoginPage() {
             </Link>
           </p>
 
-          <button className="w-full bg-white text-black font-bold py-3 rounded-full mb-6 hover:bg-gray-100 transition-colors flex items-center justify-center gap-2">
+          <button className="w-full bg-white text-black border border-[#2A2A2A] font-bold py-3 rounded-full mb-6 hover:bg-gray-100 transition-colors flex items-center justify-center gap-2">
             <span>G</span>
             Continue with Google
           </button>
@@ -114,7 +114,7 @@ export default function LoginPage() {
 
             <div className="flex justify-end mb-6">
               <a href="#" className="text-[#888888] text-sm hover:text-[#F5C800] transition-colors">
-                Forgot passworrrd?
+                Forgot password?
               </a>
             </div>
 

@@ -135,8 +135,8 @@ export default function ClientProjects() {
                     </div>
                     by {project.freelancer}
                   </div>
-                  <span>📍 {project.city || '-'}</span>
-                  <span>🎯 {project.serviceType || project.category}</span>
+                  <span>Location: {project.city || '-'}</span>
+                  <span>Service: {project.serviceType || project.category}</span>
                 </div>
               </div>
               <span className={`px-4 py-2 rounded-full text-sm font-bold ${project.statusColor}`}>
@@ -159,21 +159,21 @@ export default function ClientProjects() {
 
             <div className="flex items-center justify-between flex-wrap gap-4">
               <div className="flex gap-6 text-sm">
-                <span className="text-[#888888]">📅 Pelaksanaan: {project.eventDate}</span>
-                <span className="text-[#888888]">⏳ Deadline: {project.due}</span>
-                <span className="text-[#888888]">📁 {project.files} Files Uploaded</span>
-                <span className="text-[#888888]">💳 {project.amount}</span>
+                <span className="text-[#888888]">Pelaksanaan: {project.eventDate}</span>
+                <span className="text-[#888888]">Deadline: {project.due}</span>
+                <span className="text-[#888888]">{project.files} Files Uploaded</span>
+                <span className="text-[#888888]">{project.amount}</span>
               </div>
               <div className="flex gap-2">
                 <Link
                   to={`/dashboard/client/projects/${project.id}`}
-                  className="px-4 py-2 border border-[#888888] rounded-lg text-sm hover:border-[#F5C800] hover:text-[#F5C800] transition-colors"
+                  className="px-4 py-2 border border-[#888888] text-white rounded-lg text-sm hover:border-[#F5C800] hover:text-[#F5C800] transition-colors"
                 >
                   View Detail
                 </Link>
                 <Link
                   to="/dashboard/client/messages"
-                  className="px-4 py-2 border border-[#888888] rounded-lg text-sm hover:border-[#F5C800] hover:text-[#F5C800] transition-colors"
+                  className="px-4 py-2 border border-[#888888] text-white rounded-lg text-sm hover:border-[#F5C800] hover:text-[#F5C800] transition-colors"
                 >
                   Send Message
                 </Link>

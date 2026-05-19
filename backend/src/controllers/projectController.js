@@ -24,6 +24,11 @@ const projectInclude = {
   _count: { select: { files: true } },
 };
 
+const createProjectHistory = (projectId, actorId, title, body, eventType) =>
+  prisma.projectHistory.create({
+    data: { projectId, actorId, title, body, eventType },
+  });
+
 exports.listMyProjects = async (req, res, next) => {
   try {
     const requestedView = req.query.as;
@@ -115,6 +120,14 @@ exports.createProject = async (req, res, next) => {
       include: projectInclude,
     });
 
+    await createProjectHistory(
+      project.id,
+      req.user.id,
+      'Project dibuat',
+      `${req.user.fullName} membuat brief untuk ${project.title}`,
+      'PROJECT_CREATED'
+    );
+
     res.status(201).json({ project: serializeProject(project) });
   } catch (error) {
     next(error);
@@ -127,7 +140,10 @@ exports.listOpenProjects = async (req, res, next) => {
       where: {
         status: 'OPEN',
         applications: {
-          none: { freelancerId: req.user.id },
+          none: {
+            freelancerId: req.user.id,
+            status: { in: ['PENDING', 'ACCEPTED'] },
+          },
         },
       },
       include: {
@@ -213,6 +229,13 @@ exports.applyToProject = async (req, res, next) => {
           body: message || `Saya tertarik mengambil job "${project.title}".`,
         },
       }),
+      createProjectHistory(
+        projectId,
+        req.user.id,
+        'Request job masuk',
+        `${req.user.fullName} mengirim request untuk ${project.title}`,
+        'APPLICATION_CREATED'
+      ),
     ]);
 
     res.status(201).json({ application });
@@ -274,13 +297,20 @@ exports.respondToApplication = async (req, res, next) => {
             body: `Request Anda untuk "${application.project.title}" diterima. Mari lanjut konfirmasi detail job.`,
           },
         }),
+        createProjectHistory(
+          application.projectId,
+          req.user.id,
+          'Request diterima',
+          `${application.freelancer.fullName} sekarang mengerjakan ${application.project.title}`,
+          'APPLICATION_ACCEPTED'
+        ),
       ]);
 
       res.json({ project: serializeProject(updatedProject) });
       return;
     }
 
-    await prisma.$transaction([
+    const rejectTransaction = [
       prisma.projectApplication.update({
         where: { id: applicationId },
         data: { status: 'REJECTED' },
@@ -293,7 +323,29 @@ exports.respondToApplication = async (req, res, next) => {
           body: `${req.user.fullName} menolak request Anda untuk ${application.project.title}`,
         },
       }),
-    ]);
+      createProjectHistory(
+        application.projectId,
+        req.user.id,
+        'Request ditolak',
+        `Request ${application.freelancer.fullName} untuk ${application.project.title} ditolak`,
+        'APPLICATION_REJECTED'
+      ),
+    ];
+
+    if (application.project.freelancerId === application.freelancerId) {
+      rejectTransaction.push(
+        prisma.project.update({
+          where: { id: application.projectId },
+          data: {
+            freelancerId: null,
+            status: 'OPEN',
+            progress: 0,
+          },
+        })
+      );
+    }
+
+    await prisma.$transaction(rejectTransaction);
 
     res.json({ message: 'Offer ditolak' });
   } catch (error) {

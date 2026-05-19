@@ -38,7 +38,7 @@ export default function LandingPage() {
         <div className="relative max-w-7xl mx-auto px-6 py-24 text-center">
           <div className="flex items-center justify-center gap-4 mb-8 flex-wrap">
             <span className="px-4 py-2 border border-[#F5C800] bg-[#141414] rounded-full text-sm">
-              ⭐ 4.9 Rating
+              4.9 Rating
             </span>
             <span className="px-4 py-2 border border-[#F5C800] bg-[#141414] rounded-full text-sm">
               500+ Freelancers
@@ -124,7 +124,7 @@ export default function LandingPage() {
             <h2 className="text-5xl md:text-6xl" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>
               Top Shooters This Week
             </h2>
-            <Link to="/explore" className="text-[#F5C800] hover:underline font-bold">See All →</Link>
+            <Link to="/explore" className="text-[#F5C800] hover:underline font-bold">See All</Link>
           </div>
           <div className="grid md:grid-cols-4 gap-6">
             {topFreelancers.length === 0 && (
@@ -166,7 +166,7 @@ export default function LandingPage() {
                   <span>{freelancer.rating ?? 'Baru'}</span>
                 </div>
                 <p className="text-[#F5C800] font-bold mb-4">From {freelancer.price}</p>
-                <Link to={`/freelancer/${freelancer.id}`} className="block w-full px-4 py-2 border border-[#888888] rounded-lg hover:border-[#F5C800] hover:text-[#F5C800] transition-colors text-center">
+                <Link to={`/freelancer/${freelancer.id}`} className="block w-full px-4 py-2 border border-[#888888] text-white rounded-lg hover:border-[#F5C800] hover:text-[#F5C800] transition-colors text-center">
                   View Profile
                 </Link>
               </div>

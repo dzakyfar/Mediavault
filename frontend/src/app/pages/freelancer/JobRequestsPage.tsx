@@ -10,6 +10,7 @@ interface RequestProject {
   client: string;
   amount: string;
   category: string;
+  status: string;
   description: string;
   due: string;
   city: string | null;
@@ -43,7 +44,8 @@ export default function FreelancerJobRequests() {
       .toLowerCase()
       .includes(query.toLowerCase());
     const matchesCategory = !categoryFilter || request.category === categoryFilter;
-    return matchesQuery && matchesCategory;
+    const matchesTab = activeTab === 'all' || request.status === 'Open';
+    return matchesQuery && matchesCategory && matchesTab;
   });
 
   const requestJob = async (request: RequestProject) => {
@@ -124,7 +126,7 @@ export default function FreelancerJobRequests() {
                     {request.category}
                   </span>
                 </div>
-                <p className="text-sm text-[#888888] mb-3">by {request.client} • {request.city || '-'}</p>
+                <p className="text-sm text-[#888888] mb-3">by {request.client} - {request.city || '-'}</p>
                 <p className="text-[#888888]">{request.description}</p>
                 <div className="mt-3 flex flex-wrap gap-2 text-xs">
                   <span className="px-3 py-1 bg-[#141414] rounded-full text-[#F5C800]">{request.serviceType || request.category}</span>
@@ -139,7 +141,7 @@ export default function FreelancerJobRequests() {
                   <span className="text-[#888888]">Budget: </span>
                   <span className="text-[#F5C800] font-bold">{request.amount}</span>
                 </div>
-                <span className="text-[#888888]">📅 Deadline: {request.due}</span>
+                <span className="text-[#888888]">Deadline: {request.due}</span>
               </div>
               <div className="flex gap-2">
                 <button

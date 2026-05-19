@@ -223,7 +223,7 @@ export default function FreelancerProfilePage() {
                   <button onClick={submitOrder} className="w-full bg-[#F5C800] text-black font-bold py-3 rounded-lg hover:shadow-[0_0_20px_rgba(245,200,0,0.4)] transition-all">
                     Kirim Pesanan
                   </button>
-                  <Link to={user ? '/dashboard/client/messages' : '/login'} className="w-full flex items-center justify-center gap-2 border border-[#888888] rounded-lg py-3 hover:border-[#F5C800] hover:text-[#F5C800] transition-colors">
+                  <Link to={user ? '/dashboard/client/messages' : '/login'} className="w-full flex items-center justify-center gap-2 border border-[#888888] text-white rounded-lg py-3 hover:border-[#F5C800] hover:text-[#F5C800] transition-colors">
                     <MessageCircle className="w-4 h-4" />
                     Message
                   </Link>

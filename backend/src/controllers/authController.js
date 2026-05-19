@@ -125,3 +125,39 @@ exports.updateRole = async (req, res, next) => {
     next(error);
   }
 };
+
+exports.updateProfile = async (req, res, next) => {
+  try {
+    const {
+      fullName,
+      phone,
+      city,
+      bio,
+      specialty,
+      startingPrice,
+      isAvailable,
+    } = req.body;
+
+    const parsedPrice = startingPrice === undefined || startingPrice === ''
+      ? undefined
+      : Number(startingPrice);
+
+    const user = await prisma.user.update({
+      where: { id: req.user.id },
+      data: {
+        ...(fullName ? { fullName } : {}),
+        phone: phone ?? undefined,
+        city: city ?? undefined,
+        bio: bio ?? undefined,
+        specialty: specialty ?? undefined,
+        startingPrice: Number.isFinite(parsedPrice) ? Math.round(parsedPrice) : undefined,
+        isAvailable: typeof isAvailable === 'boolean' ? isAvailable : undefined,
+      },
+      select: publicUserSelect,
+    });
+
+    res.json({ user });
+  } catch (error) {
+    next(error);
+  }
+};
