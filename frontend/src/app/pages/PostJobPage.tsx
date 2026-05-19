@@ -4,6 +4,7 @@ import { ArrowLeft, ArrowRight, Check, MapPin } from 'lucide-react';
 import DashboardLayout from '../components/DashboardLayout';
 import { apiRequest } from '../lib/api';
 import { findCity, findDistrict, findProvince, locationOptions } from '../lib/locationOptions';
+import { formatBytes, S3_TOTAL_LIMIT_BYTES } from '../lib/uploadLimits';
 
 export default function PostJobPage() {
   const [searchParams] = useSearchParams();
@@ -244,7 +245,9 @@ export default function PostJobPage() {
                   <label className="block text-sm text-[#888888] mb-2">Reference Files (Optional)</label>
                   <div className="border-2 border-dashed border-[#2A2A2A] rounded-lg p-8 text-center hover:border-[#F5C800] transition-colors cursor-pointer">
                     <p className="text-[#888888]">Click to upload or drag and drop</p>
-                    <p className="text-sm text-[#888888] mt-2">PNG, JPG, PDF up to 10MB</p>
+                    <p className="text-sm text-[#888888] mt-2">
+                      File project akan diarahkan ke S3 private. Total storage project mengikuti limit bucket {formatBytes(S3_TOTAL_LIMIT_BYTES)}.
+                    </p>
                   </div>
                 </div>
               </div>

@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router';
 import DashboardLayout from '../../components/DashboardLayout';
 import { useAuth } from '../../context/AuthContext';
 
 export default function FreelancerSettings() {
-  const { user, updateProfile } = useAuth();
+  const { user, updateProfile, deleteAccount } = useAuth();
+  const navigate = useNavigate();
   const [statusMessage, setStatusMessage] = useState('');
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({
@@ -42,6 +44,7 @@ export default function FreelancerSettings() {
       setStatusMessage('');
       await updateProfile({
         fullName: formData.fullName,
+        email: formData.email,
         phone: formData.phone,
         city: formData.city,
         specialty: formData.specialty,
@@ -55,6 +58,12 @@ export default function FreelancerSettings() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!window.confirm('Hapus akun ini secara permanen? Semua data terkait akun akan ikut terhapus.')) return;
+    await deleteAccount();
+    navigate('/', { replace: true });
   };
 
   return (
@@ -262,7 +271,11 @@ export default function FreelancerSettings() {
           <p className="text-[#888888] mb-6">
             Once you delete your account, there is no going back. Please be certain.
           </p>
-          <button className="px-6 py-3 border-2 border-[#EF4444] text-[#EF4444] font-bold rounded-lg hover:bg-[#EF4444] hover:text-white transition-all">
+          <button
+            type="button"
+            onClick={handleDeleteAccount}
+            className="px-6 py-3 border-2 border-[#EF4444] text-[#EF4444] font-bold rounded-lg hover:bg-[#EF4444] hover:text-white transition-all"
+          >
             Delete Account
           </button>
         </div>

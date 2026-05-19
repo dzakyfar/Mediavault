@@ -40,7 +40,9 @@ model User {
   id             String               @id @default(cuid())
   fullName       String
   email          String               @unique
-  passwordHash   String
+  passwordHash   String?
+  googleId       String?              @unique
+  avatarUrl      String?
   role           UserRole?
   phone          String?
   city           String?
@@ -113,7 +115,11 @@ model PortfolioItem {
   category    String?
   description String?
   fileUrl     String?
+  fileName    String?
+  fileType    String?
+  fileSize    Int?
   createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
   freelancer  User     @relation(fields: [freelancerId], references: [id], onDelete: Cascade)
 }
 
@@ -143,6 +149,10 @@ model Message {
   senderId   String
   receiverId String
   body       String
+  imageUrl   String?
+  imageName  String?
+  imageMime  String?
+  imageSize  Int?
   readAt     DateTime?
   createdAt  DateTime @default(now())
   sender     User     @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)

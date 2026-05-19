@@ -18,6 +18,14 @@ const statusColor = {
   CANCELLED: 'bg-[#EF4444] text-white',
 };
 
+const projectStages = [
+  { status: 'OPEN', label: 'Open', progress: 0 },
+  { status: 'IN_PROGRESS', label: 'In Progress', progress: 25 },
+  { status: 'UNDER_REVIEW', label: 'Under Review', progress: 60 },
+  { status: 'WAITING_PAYMENT', label: 'Waiting Payment', progress: 85 },
+  { status: 'COMPLETED', label: 'Completed', progress: 100 },
+];
+
 const currency = new Intl.NumberFormat('id-ID', {
   style: 'currency',
   currency: 'IDR',
@@ -81,6 +89,18 @@ const serializeProject = (project) => ({
     freelancerId: application.freelancerId,
     freelancer: application.freelancer ? shortName(application.freelancer.fullName) : 'Freelancer',
     createdAt: formatDate(application.createdAt),
+  })) || [],
+  tracking: projectStages.map((stage) => ({
+    ...stage,
+    done: project.progress >= stage.progress || project.status === stage.status,
+    active: project.status === stage.status,
+  })),
+  histories: project.histories?.map((history) => ({
+    id: history.id,
+    title: history.title,
+    body: history.body,
+    eventType: history.eventType,
+    createdAt: formatDate(history.createdAt),
   })) || [],
 });
 
