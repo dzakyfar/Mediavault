@@ -5,6 +5,7 @@ const serializePortfolioItem = (item) => ({
   id: item.id,
   title: item.title,
   category: item.category,
+  serviceType: item.serviceType,
   description: item.description,
   fileUrl: item.fileUrl,
   fileName: item.fileName,
@@ -29,7 +30,7 @@ exports.listMyPortfolio = async (req, res, next) => {
 
 exports.createPortfolioItem = async (req, res, next) => {
   try {
-    const { title, category, description, fileUrl, fileName, fileType, fileSize } = req.body;
+    const { title, category, serviceType, description, fileUrl, fileName, fileType, fileSize } = req.body;
 
     if (!title?.trim()) {
       res.status(400);
@@ -52,6 +53,7 @@ exports.createPortfolioItem = async (req, res, next) => {
         freelancerId: req.user.id,
         title: title.trim(),
         category: category || null,
+        serviceType: serviceType || null,
         description: description || null,
         fileUrl: fileUrl || null,
         fileName: fileName || null,
@@ -69,7 +71,7 @@ exports.createPortfolioItem = async (req, res, next) => {
 exports.updatePortfolioItem = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { title, category, description, fileUrl, fileName, fileType, fileSize } = req.body;
+    const { title, category, serviceType, description, fileUrl, fileName, fileType, fileSize } = req.body;
 
     const existing = await prisma.portfolioItem.findFirst({
       where: { id, freelancerId: req.user.id },
@@ -96,6 +98,7 @@ exports.updatePortfolioItem = async (req, res, next) => {
       data: {
         ...(title !== undefined ? { title: title.trim() } : {}),
         category: category ?? undefined,
+        serviceType: serviceType ?? undefined,
         description: description ?? undefined,
         fileUrl: fileUrl ?? undefined,
         fileName: fileName ?? undefined,

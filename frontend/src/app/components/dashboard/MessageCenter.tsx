@@ -54,9 +54,17 @@ export default function MessageCenter({ userType }: { userType: 'client' | 'free
     if (!silent) setLoading(true);
     try {
       const response = await apiRequest<MessagesResponse>('/messages');
-      setMessages(response.messages);
-      setConversations(response.conversations);
-      setActivePeerId((current) => current || response.conversations[0]?.peerId || '');
+      const nextMessages = Array.isArray(response.messages) ? response.messages : [];
+      const nextConversations = Array.isArray(response.conversations) ? response.conversations : [];
+      setMessages(nextMessages);
+      setConversations(nextConversations);
+      setActivePeerId((current) => {
+        if (current && nextConversations.some((conversation) => conversation.peerId === current)) {
+          return current;
+        }
+
+        return nextConversations[0]?.peerId || '';
+      });
       setError('');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Gagal memuat pesan');

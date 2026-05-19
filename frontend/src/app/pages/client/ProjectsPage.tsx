@@ -178,12 +178,9 @@ export default function ClientProjects() {
                   Send Message
                 </Link>
                 {project.status === 'Waiting Payment' && (
-                  <Link
-                    to="/dashboard/client/payments"
-                    className="px-4 py-2 bg-[#F5C800] text-black font-bold rounded-lg text-sm hover:shadow-[0_0_10px_rgba(245,200,0,0.4)] transition-all"
-                  >
-                    Pay Now
-                  </Link>
+                  <span className="px-4 py-2 bg-[#2A2A2A] text-[#888888] font-bold rounded-lg text-sm cursor-not-allowed">
+                    Payment Soon
+                  </span>
                 )}
               </div>
             </div>

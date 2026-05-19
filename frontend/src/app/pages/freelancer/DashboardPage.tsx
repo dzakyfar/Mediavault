@@ -27,6 +27,7 @@ interface FreelancerDashboardResponse {
   };
   projects: Project[];
   requests: Project[];
+  activities: Array<{ text: string; time: string }>;
 }
 
 export default function FreelancerDashboard() {
@@ -50,6 +51,7 @@ export default function FreelancerDashboard() {
 
   const projects = dashboard?.projects ?? [];
   const newRequests = dashboard?.requests ?? [];
+  const activities = dashboard?.activities ?? [];
 
   const requestJob = async (request: Project) => {
     try {
@@ -220,6 +222,25 @@ export default function FreelancerDashboard() {
             >
               View Public Profile
             </Link>
+            <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-6">
+              <h3 className="text-2xl font-bold mb-4" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>
+                Recent Activity
+              </h3>
+              <div className="space-y-4">
+                {activities.length === 0 && (
+                  <p className="text-sm text-[#888888]">Belum ada aktivitas dari database.</p>
+                )}
+                {activities.map((activity, index) => (
+                  <div key={index} className="flex gap-3">
+                    <div className="flex-shrink-0 w-2 h-2 rounded-full mt-2 bg-[#F5C800]" />
+                    <div>
+                      <p className="text-sm text-white">{activity.text}</p>
+                      <p className="text-xs text-[#888888] mt-1">{activity.time}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       </div>

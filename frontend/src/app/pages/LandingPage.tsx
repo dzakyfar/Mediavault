@@ -8,14 +8,38 @@ import { apiRequest } from '../lib/api';
 interface Freelancer {
   id: string;
   name: string;
+  avatarUrl?: string | null;
   specialty: string;
   rating: string | null;
+  reviewCount: number;
   price: string;
   available: boolean;
 }
 
 export default function LandingPage() {
   const [topFreelancers, setTopFreelancers] = useState<Freelancer[]>([]);
+  const testimonials = [
+    {
+      name: 'Rania Putri',
+      role: 'Client Wedding',
+      quote: 'MediaVault bikin proses cari fotografer nikahan terasa tenang. Brief jelas, progress kelihatan, dan hasilnya benar-benar sinematik.',
+    },
+    {
+      name: 'Bima Studio',
+      role: 'Freelancer Video',
+      quote: 'Request job masuk lebih rapi, chat tidak tercecer, dan client bisa review draft tanpa drama revisi panjang.',
+    },
+    {
+      name: 'Aurelia Brand',
+      role: 'Client Product Shoot',
+      quote: 'Referensi produk bisa dikirim dari awal, jadi fotografer langsung paham mood yang kami cari. Flow-nya bersih dan cepat.',
+    },
+    {
+      name: 'Dion Visuals',
+      role: 'Freelancer Photo',
+      quote: 'Tracker project membantu banget. Client tahu tahap pengerjaan, saya juga punya catatan approval yang jelas.',
+    },
+  ];
 
   useEffect(() => {
     apiRequest<{ freelancers: Freelancer[] }>('/freelancers', { auth: false })
@@ -101,7 +125,7 @@ export default function LandingPage() {
             {[
               { icon: Image, title: 'Build Your Portfolio', desc: 'Showcase your best work and get discovered by clients.' },
               { icon: Zap, title: 'Get Hired Fast', desc: 'Connect with clients looking for your exact skills.' },
-              { icon: Shield, title: 'Secure Payments', desc: 'Get paid on time, every time. Protected by escrow.' }
+              { icon: Shield, title: 'Payment Ready', desc: 'Alur approval sudah siap, sementara transaksi finansial masih di-hold untuk fase berikutnya.' }
             ].map((item, i) => (
               <div key={i} className="text-center">
                 <div className="inline-flex items-center justify-center w-16 h-16 bg-[#F5C800] rounded-lg mb-4">
@@ -137,7 +161,9 @@ export default function LandingPage() {
             {topFreelancers.map((freelancer) => (
               <div key={freelancer.id} className="bg-[#141414] rounded-xl p-6 border border-[#2A2A2A] hover:border-[#F5C800] hover:-translate-y-1 transition-all">
                 <div className="relative w-full aspect-square bg-[#1A1A1A] rounded-lg mb-4 flex items-center justify-center">
-                  <Camera className="w-12 h-12 text-[#888888]" />
+                  {freelancer.avatarUrl
+                    ? <img src={freelancer.avatarUrl} alt={freelancer.name} className="w-full h-full object-cover rounded-lg" />
+                    : <Camera className="w-12 h-12 text-[#888888]" />}
                   {/* Status Badge */}
                   <div className="absolute top-3 right-3">
                     {freelancer.available ? (
@@ -164,6 +190,7 @@ export default function LandingPage() {
                 <div className="flex items-center gap-1 mb-2 text-sm">
                   <Star className="w-4 h-4 text-[#F5C800] fill-current" />
                   <span>{freelancer.rating ?? 'Baru'}</span>
+                  {freelancer.reviewCount > 0 && <span className="text-[#888888]">({freelancer.reviewCount})</span>}
                 </div>
                 <p className="text-[#F5C800] font-bold mb-4">From {freelancer.price}</p>
                 <Link to={`/freelancer/${freelancer.id}`} className="block w-full px-4 py-2 border border-[#888888] text-white rounded-lg hover:border-[#F5C800] hover:text-[#F5C800] transition-colors text-center">
@@ -210,11 +237,26 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section className="py-12 bg-[#141414]">
-        <div className="max-w-7xl mx-auto px-6 text-center">
-          <p className="text-[#888888]">
-            Testimonial nyata akan ditampilkan setelah data review tersedia di database.
-          </p>
+      <section className="py-16 bg-[#141414] overflow-hidden">
+        <div className="max-w-7xl mx-auto px-6 mb-8 text-center">
+          <h2 className="text-5xl md:text-6xl" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>
+            Voices From The Vault
+          </h2>
+          <p className="text-[#888888] mt-3">Kutipan dummy yang mewakili alur project MediaVault.</p>
+        </div>
+        <div className="relative">
+          <div className="flex gap-5 w-max animate-[testimonialMarquee_32s_linear_infinite]">
+            {[...testimonials, ...testimonials].map((testimonial, index) => (
+              <div key={`${testimonial.name}-${index}`} className="w-80 md:w-96 bg-[#0A0A0A] border border-[#2A2A2A] rounded-2xl p-6 shadow-[0_18px_50px_rgba(0,0,0,0.25)]">
+                <div className="text-5xl text-[#F5C800] leading-none mb-3">"</div>
+                <p className="text-white leading-relaxed mb-6">{testimonial.quote}</p>
+                <div>
+                  <div className="font-bold text-[#F5C800]">{testimonial.name}</div>
+                  <div className="text-sm text-[#888888]">{testimonial.role}</div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
@@ -222,6 +264,14 @@ export default function LandingPage() {
 
       <style>{`
         @keyframes scroll {
+          0% {
+            transform: translateX(0);
+          }
+          100% {
+            transform: translateX(-50%);
+          }
+        }
+        @keyframes testimonialMarquee {
           0% {
             transform: translateX(0);
           }

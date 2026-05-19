@@ -46,8 +46,10 @@ export default function DashboardSidebar({ userType, userName }: DashboardSideba
         </Link>
 
         <div className="flex items-center gap-3 mb-8">
-          <div className="w-12 h-12 rounded-full bg-[#1A1A1A] flex items-center justify-center text-[#F5C800] font-bold">
-            {userName.charAt(0)}
+          <div className="w-12 h-12 rounded-full bg-[#1A1A1A] overflow-hidden flex items-center justify-center text-[#F5C800] font-bold">
+            {user?.avatarUrl
+              ? <img src={user.avatarUrl} alt={userName} className="w-full h-full object-cover" />
+              : userName.charAt(0)}
           </div>
           <div>
             <div className="font-bold text-white">{userName}</div>

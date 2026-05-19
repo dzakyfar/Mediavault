@@ -19,6 +19,14 @@ export default function DashboardLayout({ children, userType, userName, greeting
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const displayName = user?.fullName || userName || 'User';
   const firstName = displayName.split(' ')[0];
+  const hour = new Date().getHours();
+  const timeGreeting = hour < 11
+    ? 'Good morning'
+    : hour < 15
+      ? 'Good afternoon'
+      : hour < 19
+        ? 'Good evening'
+        : 'Good night';
   const currentDate = new Date().toLocaleDateString('en-US', {
     weekday: 'long',
     year: 'numeric',
@@ -64,7 +72,7 @@ export default function DashboardLayout({ children, userType, userName, greeting
           <div className="px-8 py-4 flex items-center justify-between">
             <div>
               <h1 className="text-xl text-white font-bold">
-                {greeting || `Good morning, ${firstName}`}!
+                {greeting || `${timeGreeting}, ${firstName}`}!
               </h1>
               <p className="text-sm text-[#888888]">{currentDate}</p>
             </div>
@@ -87,8 +95,10 @@ export default function DashboardLayout({ children, userType, userName, greeting
                 )}
               </Link>
               <Link to={settingsPath}>
-                <div className="w-10 h-10 rounded-full bg-[#1A1A1A] flex items-center justify-center text-[#F5C800] font-bold hover:bg-[#2A2A2A] transition-colors cursor-pointer">
-                  {displayName.charAt(0)}
+                <div className="w-10 h-10 rounded-full bg-[#1A1A1A] overflow-hidden flex items-center justify-center text-[#F5C800] font-bold hover:bg-[#2A2A2A] transition-colors cursor-pointer">
+                  {user?.avatarUrl
+                    ? <img src={user.avatarUrl} alt={displayName} className="w-full h-full object-cover" />
+                    : displayName.charAt(0)}
                 </div>
               </Link>
             </div>
