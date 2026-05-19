@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import DashboardLayout from '../../components/DashboardLayout';
 import EmptyState from '../../components/EmptyState';
+import ProjectTracker from '../../components/dashboard/ProjectTracker';
 import { apiRequest } from '../../lib/api';
 
 interface ProjectDetail {
@@ -31,6 +32,20 @@ interface ProjectDetail {
     freelancer: string;
     serviceType: string | null;
     message: string | null;
+  }>;
+  tracking: Array<{
+    status: string;
+    label: string;
+    progress: number;
+    done: boolean;
+    active: boolean;
+  }>;
+  histories: Array<{
+    id: string;
+    title: string;
+    body: string | null;
+    eventType: string;
+    createdAt: string;
   }>;
 }
 
@@ -118,6 +133,14 @@ export default function ClientProjectDetail() {
                 </div>
               </div>
             </div>
+
+            <ProjectTracker
+              projectId={project.id}
+              stages={project.tracking}
+              histories={project.histories}
+              canUpdate={Boolean(project.freelancer && project.freelancer !== 'Belum ada freelancer')}
+              onUpdated={(updatedProject) => setProject(updatedProject as ProjectDetail)}
+            />
 
             {project.pendingOffers.length > 0 && (
               <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-8">

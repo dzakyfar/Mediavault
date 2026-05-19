@@ -1,10 +1,14 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router';
 import { Camera } from 'lucide-react';
 import DashboardLayout from '../../components/DashboardLayout';
 import { useAuth } from '../../context/AuthContext';
 
 export default function ClientSettings() {
-  const { user } = useAuth();
+  const { user, updateProfile, deleteAccount } = useAuth();
+  const navigate = useNavigate();
+  const [statusMessage, setStatusMessage] = useState('');
+  const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
@@ -22,6 +26,30 @@ export default function ClientSettings() {
     });
   }, [user]);
 
+  const saveProfile = async () => {
+    try {
+      setSaving(true);
+      setStatusMessage('');
+      await updateProfile({
+        fullName: formData.fullName,
+        email: formData.email,
+        phone: formData.phone,
+        city: formData.city,
+      });
+      setStatusMessage('Profile berhasil disimpan');
+    } catch (error) {
+      setStatusMessage(error instanceof Error ? error.message : 'Gagal menyimpan profile');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!window.confirm('Hapus akun ini secara permanen? Semua data terkait akun akan ikut terhapus.')) return;
+    await deleteAccount();
+    navigate('/', { replace: true });
+  };
+
   return (
     <DashboardLayout userType="client">
       <h1 className="text-5xl mb-8" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>
@@ -29,6 +57,12 @@ export default function ClientSettings() {
       </h1>
 
       <div className="space-y-6 max-w-4xl">
+        {statusMessage && (
+          <div className="p-4 bg-[#141414] border border-[#2A2A2A] rounded-xl text-[#F5C800]">
+            {statusMessage}
+          </div>
+        )}
+
         <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-8">
           <h2 className="text-2xl font-bold mb-6" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>
             Profile
@@ -85,8 +119,13 @@ export default function ClientSettings() {
             </div>
           </div>
 
-          <button className="px-6 py-3 bg-[#F5C800] text-black font-bold rounded-lg hover:shadow-[0_0_20px_rgba(245,200,0,0.4)] transition-all">
-            Save Changes
+          <button
+            type="button"
+            onClick={saveProfile}
+            disabled={saving}
+            className="px-6 py-3 bg-[#F5C800] text-black font-bold rounded-lg hover:shadow-[0_0_20px_rgba(245,200,0,0.4)] transition-all disabled:opacity-60"
+          >
+            {saving ? 'Saving...' : 'Save Changes'}
           </button>
         </div>
 
@@ -144,7 +183,11 @@ export default function ClientSettings() {
           <p className="text-[#888888] mb-6">
             Once you delete your account, there is no going back. Please be certain.
           </p>
-          <button className="px-6 py-3 border-2 border-[#EF4444] text-[#EF4444] font-bold rounded-lg hover:bg-[#EF4444] hover:text-white transition-all">
+          <button
+            type="button"
+            onClick={handleDeleteAccount}
+            className="px-6 py-3 border-2 border-[#EF4444] text-[#EF4444] font-bold rounded-lg hover:bg-[#EF4444] hover:text-white transition-all"
+          >
             Delete Account
           </button>
         </div>

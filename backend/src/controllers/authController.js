@@ -1,11 +1,15 @@
 const bcrypt = require('bcryptjs');
+const { OAuth2Client } = require('google-auth-library');
 const prisma = require('../config/prisma');
 const generateToken = require('../utils/generateToken');
+
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 const publicUserSelect = {
   id: true,
   fullName: true,
   email: true,
+  avatarUrl: true,
   role: true,
   phone: true,
   city: true,
@@ -83,6 +87,11 @@ exports.login = async (req, res, next) => {
       throw new Error('Email atau password salah');
     }
 
+    if (!userWithPassword.passwordHash) {
+      res.status(401);
+      throw new Error('Akun ini terhubung dengan Google. Silakan login dengan Google.');
+    }
+
     const passwordMatches = await bcrypt.compare(password, userWithPassword.passwordHash);
 
     if (!passwordMatches) {
@@ -91,6 +100,63 @@ exports.login = async (req, res, next) => {
     }
 
     const { passwordHash, ...user } = userWithPassword;
+
+    res.json({
+      user,
+      token: generateToken(user),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.googleLogin = async (req, res, next) => {
+  try {
+    const { credential } = req.body;
+
+    if (!process.env.GOOGLE_CLIENT_ID) {
+      res.status(500);
+      throw new Error('GOOGLE_CLIENT_ID belum dikonfigurasi di backend');
+    }
+
+    if (!credential) {
+      res.status(400);
+      throw new Error('Credential Google wajib dikirim');
+    }
+
+    const ticket = await googleClient.verifyIdToken({
+      idToken: credential,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+    const payload = ticket.getPayload();
+
+    if (!payload?.email) {
+      res.status(400);
+      throw new Error('Email Google tidak ditemukan');
+    }
+
+    const email = payload.email.toLowerCase();
+    const existingUser = await prisma.user.findUnique({ where: { email } });
+
+    const user = existingUser
+      ? await prisma.user.update({
+        where: { id: existingUser.id },
+        data: {
+          googleId: existingUser.googleId || payload.sub,
+          avatarUrl: payload.picture || existingUser.avatarUrl,
+          fullName: existingUser.fullName || payload.name || email,
+        },
+        select: publicUserSelect,
+      })
+      : await prisma.user.create({
+        data: {
+          fullName: payload.name || email,
+          email,
+          googleId: payload.sub,
+          avatarUrl: payload.picture,
+        },
+        select: publicUserSelect,
+      });
 
     res.json({
       user,
@@ -130,6 +196,7 @@ exports.updateProfile = async (req, res, next) => {
   try {
     const {
       fullName,
+      email,
       phone,
       city,
       bio,
@@ -142,10 +209,22 @@ exports.updateProfile = async (req, res, next) => {
       ? undefined
       : Number(startingPrice);
 
+    if (email && email.toLowerCase() !== req.user.email) {
+      const existingEmail = await prisma.user.findUnique({
+        where: { email: email.toLowerCase() },
+      });
+
+      if (existingEmail) {
+        res.status(409);
+        throw new Error('Email sudah digunakan akun lain');
+      }
+    }
+
     const user = await prisma.user.update({
       where: { id: req.user.id },
       data: {
         ...(fullName ? { fullName } : {}),
+        ...(email ? { email: email.toLowerCase() } : {}),
         phone: phone ?? undefined,
         city: city ?? undefined,
         bio: bio ?? undefined,
@@ -157,6 +236,18 @@ exports.updateProfile = async (req, res, next) => {
     });
 
     res.json({ user });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.deleteAccount = async (req, res, next) => {
+  try {
+    await prisma.user.delete({
+      where: { id: req.user.id },
+    });
+
+    res.json({ message: 'Akun berhasil dihapus' });
   } catch (error) {
     next(error);
   }

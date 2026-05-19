@@ -22,12 +22,24 @@ const projectInclude = {
     orderBy: { createdAt: 'desc' },
   },
   _count: { select: { files: true } },
+  histories: {
+    orderBy: { createdAt: 'desc' },
+    take: 10,
+  },
 };
 
 const createProjectHistory = (projectId, actorId, title, body, eventType) =>
   prisma.projectHistory.create({
     data: { projectId, actorId, title, body, eventType },
   });
+
+const allowedProgressStatuses = ['IN_PROGRESS', 'UNDER_REVIEW', 'WAITING_PAYMENT', 'COMPLETED'];
+const statusProgress = {
+  IN_PROGRESS: 25,
+  UNDER_REVIEW: 60,
+  WAITING_PAYMENT: 85,
+  COMPLETED: 100,
+};
 
 exports.listMyProjects = async (req, res, next) => {
   try {
@@ -134,6 +146,101 @@ exports.createProject = async (req, res, next) => {
   }
 };
 
+exports.updateProject = async (req, res, next) => {
+  try {
+    const { projectId } = req.params;
+    const project = await prisma.project.findUnique({ where: { id: projectId } });
+
+    if (!project || project.clientId !== req.user.id) {
+      res.status(404);
+      throw new Error('Project tidak ditemukan');
+    }
+
+    if (!['DRAFT', 'OPEN'].includes(project.status)) {
+      res.status(400);
+      throw new Error('Project yang sudah berjalan tidak bisa diedit dari brief');
+    }
+
+    const {
+      title,
+      description,
+      category,
+      serviceType,
+      province,
+      city,
+      district,
+      village,
+      postalCode,
+      address,
+      addressDetail,
+      latitude,
+      longitude,
+      locationSource,
+      budget,
+      eventDate,
+      deadline,
+    } = req.body;
+
+    const updatedProject = await prisma.project.update({
+      where: { id: projectId },
+      data: {
+        ...(title ? { title } : {}),
+        ...(description ? { description } : {}),
+        ...(category ? { category } : {}),
+        serviceType: serviceType ?? undefined,
+        province: province ?? undefined,
+        city: city ?? undefined,
+        district: district ?? undefined,
+        village: village ?? undefined,
+        postalCode: postalCode ?? undefined,
+        address: address ?? undefined,
+        addressDetail: addressDetail ?? undefined,
+        latitude: latitude === undefined ? undefined : parseCoordinate(latitude),
+        longitude: longitude === undefined ? undefined : parseCoordinate(longitude),
+        locationSource: locationSource ?? undefined,
+        budget: budget === undefined ? undefined : parseBudget(budget),
+        eventDate: eventDate ? new Date(eventDate) : undefined,
+        deadline: deadline ? new Date(deadline) : undefined,
+      },
+      include: projectInclude,
+    });
+
+    await createProjectHistory(
+      projectId,
+      req.user.id,
+      'Project diperbarui',
+      `${req.user.fullName} memperbarui brief project`,
+      'PROJECT_UPDATED'
+    );
+
+    res.json({ project: serializeProject(updatedProject) });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.deleteProject = async (req, res, next) => {
+  try {
+    const { projectId } = req.params;
+    const project = await prisma.project.findUnique({ where: { id: projectId } });
+
+    if (!project || project.clientId !== req.user.id) {
+      res.status(404);
+      throw new Error('Project tidak ditemukan');
+    }
+
+    if (!['DRAFT', 'OPEN', 'CANCELLED'].includes(project.status)) {
+      res.status(400);
+      throw new Error('Project yang sudah berjalan tidak bisa dihapus. Batalkan alur melalui status project.');
+    }
+
+    await prisma.project.delete({ where: { id: projectId } });
+    res.json({ message: 'Project berhasil dihapus' });
+  } catch (error) {
+    next(error);
+  }
+};
+
 exports.listOpenProjects = async (req, res, next) => {
   try {
     const projects = await prisma.project.findMany({
@@ -184,6 +291,70 @@ exports.getProjectById = async (req, res, next) => {
     }
 
     res.json({ project: serializeProject(project) });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.updateProjectProgress = async (req, res, next) => {
+  try {
+    const { projectId } = req.params;
+    const { status, progress, note } = req.body;
+
+    const normalizedStatus = String(status || '').toUpperCase();
+    if (!allowedProgressStatuses.includes(normalizedStatus)) {
+      res.status(400);
+      throw new Error('Status tracking tidak valid');
+    }
+
+    const project = await prisma.project.findUnique({
+      where: { id: projectId },
+      include: { client: { select: { fullName: true } }, freelancer: { select: { fullName: true } } },
+    });
+
+    if (!project || (project.clientId !== req.user.id && project.freelancerId !== req.user.id)) {
+      res.status(404);
+      throw new Error('Project tidak ditemukan');
+    }
+
+    if (!project.freelancerId) {
+      res.status(400);
+      throw new Error('Project belum memiliki freelancer');
+    }
+
+    const nextProgress = Math.max(
+      statusProgress[normalizedStatus],
+      Math.min(100, Math.max(0, Number(progress) || statusProgress[normalizedStatus]))
+    );
+
+    const updatedProject = await prisma.project.update({
+      where: { id: projectId },
+      data: {
+        status: normalizedStatus,
+        progress: nextProgress,
+      },
+      include: projectInclude,
+    });
+
+    await Promise.all([
+      createProjectHistory(
+        projectId,
+        req.user.id,
+        `Progress: ${normalizedStatus.replaceAll('_', ' ')}`,
+        note || `${req.user.fullName} memperbarui progress project menjadi ${nextProgress}%`,
+        'PROJECT_PROGRESS_UPDATED'
+      ),
+      prisma.notification.create({
+        data: {
+          userId: req.user.id === project.clientId ? project.freelancerId : project.clientId,
+          type: 'PROJECT',
+          title: 'Progress project diperbarui',
+          body: `${project.title} sekarang berada di tahap ${normalizedStatus.replaceAll('_', ' ').toLowerCase()}`,
+        },
+      }),
+    ]);
+
+    res.json({ project: serializeProject(updatedProject) });
   } catch (error) {
     next(error);
   }

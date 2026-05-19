@@ -1,0 +1,14 @@
+ALTER TABLE "User" ADD COLUMN "googleId" TEXT;
+ALTER TABLE "User" ADD COLUMN "avatarUrl" TEXT;
+ALTER TABLE "User" ALTER COLUMN "passwordHash" DROP NOT NULL;
+CREATE UNIQUE INDEX "User_googleId_key" ON "User"("googleId");
+
+ALTER TABLE "PortfolioItem" ADD COLUMN "fileName" TEXT;
+ALTER TABLE "PortfolioItem" ADD COLUMN "fileType" TEXT;
+ALTER TABLE "PortfolioItem" ADD COLUMN "fileSize" INTEGER;
+ALTER TABLE "PortfolioItem" ADD COLUMN "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP;
+
+ALTER TABLE "Message" ADD COLUMN "imageUrl" TEXT;
+ALTER TABLE "Message" ADD COLUMN "imageName" TEXT;
+ALTER TABLE "Message" ADD COLUMN "imageMime" TEXT;
+ALTER TABLE "Message" ADD COLUMN "imageSize" INTEGER;

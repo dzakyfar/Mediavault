@@ -1,9 +1,14 @@
 const prisma = require('../config/prisma');
 const { shortName } = require('../utils/formatters');
+const { validateInlineImage } = require('../utils/uploadLimits');
 
 const serializeMessage = (message, currentUserId) => ({
   id: message.id,
   body: message.body,
+  imageUrl: message.imageUrl,
+  imageName: message.imageName,
+  imageMime: message.imageMime,
+  imageSize: message.imageSize,
   createdAt: message.createdAt,
   read: Boolean(message.readAt),
   isMine: message.senderId === currentUserId,
@@ -69,11 +74,11 @@ exports.listMessages = async (req, res, next) => {
 
 exports.sendMessage = async (req, res, next) => {
   try {
-    const { receiverId, body } = req.body;
+    const { receiverId, body = '', imageUrl, imageName, imageMime, imageSize } = req.body;
 
-    if (!receiverId || !body?.trim()) {
+    if (!receiverId || (!body?.trim() && !imageUrl)) {
       res.status(400);
-      throw new Error('Penerima dan isi pesan wajib diisi');
+      throw new Error('Penerima dan isi pesan atau gambar wajib diisi');
     }
 
     if (receiverId === req.user.id) {
@@ -91,12 +96,24 @@ exports.sendMessage = async (req, res, next) => {
       throw new Error('Penerima pesan tidak ditemukan');
     }
 
+    const imageError = validateInlineImage({ imageUrl, imageMime, imageSize });
+    if (imageError) {
+      res.status(400);
+      throw new Error(imageError);
+    }
+
+    const cleanBody = body.trim() || (imageUrl ? 'Mengirim gambar' : '');
+
     const [message] = await prisma.$transaction([
       prisma.message.create({
         data: {
           senderId: req.user.id,
           receiverId,
-          body: body.trim(),
+          body: cleanBody,
+          imageUrl: imageUrl || null,
+          imageName: imageName || null,
+          imageMime: imageMime || null,
+          imageSize: Number.isFinite(Number(imageSize)) ? Number(imageSize) : null,
         },
         include: {
           sender: { select: { id: true, fullName: true } },
@@ -108,7 +125,7 @@ exports.sendMessage = async (req, res, next) => {
           userId: receiverId,
           type: 'MESSAGE',
           title: 'Pesan baru',
-          body: `${req.user.fullName}: ${body.trim().slice(0, 120)}`,
+          body: `${req.user.fullName}: ${cleanBody.slice(0, 120)}`,
         },
       }),
     ]);

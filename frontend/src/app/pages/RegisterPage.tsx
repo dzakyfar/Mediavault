@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { Zap, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { dashboardPathForRole } from '../lib/api';
+import { requestGoogleCredential } from '../lib/googleAuth';
 
 export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
@@ -16,7 +18,7 @@ export default function RegisterPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const navigate = useNavigate();
-  const { register } = useAuth();
+  const { register, loginWithGoogle } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,6 +55,22 @@ export default function RegisterPage() {
     }
   };
 
+  const handleGoogleRegister = async () => {
+    try {
+      setErrors({});
+      setSubmitting(true);
+      const credential = await requestGoogleCredential();
+      const user = await loginWithGoogle(credential);
+      navigate(user.role ? dashboardPathForRole(user.role) : '/role-select');
+    } catch (err) {
+      setErrors({
+        form: err instanceof Error ? err.message : 'Registrasi Google gagal',
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#0A0A0A] flex" style={{ fontFamily: 'DM Sans, sans-serif' }}>
       <div className="hidden md:flex md:w-1/2 bg-[#0A0A0A] relative overflow-hidden">
@@ -83,7 +101,12 @@ export default function RegisterPage() {
             Create your account.
           </h1>
 
-          <button className="w-full bg-white text-black font-bold py-3 rounded-full mb-6 hover:bg-gray-100 transition-colors flex items-center justify-center gap-2">
+          <button
+            type="button"
+            onClick={handleGoogleRegister}
+            disabled={submitting}
+            className="w-full bg-white text-black border border-[#2A2A2A] font-bold py-3 rounded-full mb-6 hover:bg-gray-100 transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
+          >
             <span>G</span>
             Continue with Google
           </button>
