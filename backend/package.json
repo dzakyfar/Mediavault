@@ -6,7 +6,8 @@
     "dev": "nodemon server.js",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate deploy",
-    "prisma:dev": "prisma migrate dev"
+    "prisma:dev": "prisma migrate dev",
+    "seed:dummy": "node prisma/seedDummy.js"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",

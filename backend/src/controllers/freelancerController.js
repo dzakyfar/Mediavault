@@ -170,6 +170,15 @@ exports.orderFreelancerService = async (req, res, next) => {
           body: `Saya ingin memesan jasa ${serviceType}: ${title}. ${description}`,
         },
       }),
+      prisma.projectHistory.create({
+        data: {
+          projectId: project.id,
+          actorId: req.user.id,
+          title: 'Pesanan jasa dibuat',
+          body: `${req.user.fullName} memesan jasa ${serviceType} ke ${freelancer.fullName}`,
+          eventType: 'DIRECT_ORDER_CREATED',
+        },
+      }),
     ]);
 
     res.status(201).json({ projectId: project.id });

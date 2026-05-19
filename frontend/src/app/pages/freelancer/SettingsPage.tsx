@@ -3,7 +3,9 @@ import DashboardLayout from '../../components/DashboardLayout';
 import { useAuth } from '../../context/AuthContext';
 
 export default function FreelancerSettings() {
-  const { user } = useAuth();
+  const { user, updateProfile } = useAuth();
+  const [statusMessage, setStatusMessage] = useState('');
+  const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
@@ -12,6 +14,7 @@ export default function FreelancerSettings() {
     specialty: '',
     bio: '',
     startingPrice: '',
+    isAvailable: true,
     bankName: '',
     accountNumber: '',
     accountHolder: '',
@@ -28,9 +31,31 @@ export default function FreelancerSettings() {
       specialty: user.specialty || '',
       bio: user.bio || '',
       startingPrice: user.startingPrice ? String(user.startingPrice) : '',
+      isAvailable: user.isAvailable ?? true,
       accountHolder: user.fullName,
     }));
   }, [user]);
+
+  const saveProfile = async () => {
+    try {
+      setSaving(true);
+      setStatusMessage('');
+      await updateProfile({
+        fullName: formData.fullName,
+        phone: formData.phone,
+        city: formData.city,
+        specialty: formData.specialty,
+        bio: formData.bio,
+        startingPrice: formData.startingPrice ? Number(formData.startingPrice) : null,
+        isAvailable: formData.isAvailable,
+      });
+      setStatusMessage('Profile berhasil disimpan');
+    } catch (error) {
+      setStatusMessage(error instanceof Error ? error.message : 'Gagal menyimpan profile');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <DashboardLayout userType="freelancer">
@@ -39,6 +64,12 @@ export default function FreelancerSettings() {
       </h1>
 
       <div className="space-y-6 max-w-4xl">
+        {statusMessage && (
+          <div className="p-4 bg-[#141414] border border-[#2A2A2A] rounded-xl text-[#F5C800]">
+            {statusMessage}
+          </div>
+        )}
+
         <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-8">
           <h2 className="text-2xl font-bold mb-6" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>
             Profile
@@ -95,8 +126,13 @@ export default function FreelancerSettings() {
             </div>
           </div>
 
-          <button className="px-6 py-3 bg-[#F5C800] text-black font-bold rounded-lg hover:shadow-[0_0_20px_rgba(245,200,0,0.4)] transition-all">
-            Save Changes
+          <button
+            type="button"
+            onClick={saveProfile}
+            disabled={saving}
+            className="px-6 py-3 bg-[#F5C800] text-black font-bold rounded-lg hover:shadow-[0_0_20px_rgba(245,200,0,0.4)] transition-all disabled:opacity-60"
+          >
+            {saving ? 'Saving...' : 'Save Changes'}
           </button>
         </div>
 
@@ -133,10 +169,27 @@ export default function FreelancerSettings() {
                 className="w-full bg-[#141414] border border-[#2A2A2A] rounded-lg px-4 py-3 text-white focus:border-[#F5C800] focus:outline-none focus:ring-2 focus:ring-[#F5C800]/20 transition-all"
               />
             </div>
+            <label className="flex items-center justify-between gap-4 p-4 bg-[#141414] border border-[#2A2A2A] rounded-lg cursor-pointer">
+              <div>
+                <div className="font-bold text-white">Available for new jobs</div>
+                <div className="text-sm text-[#888888]">Jika dimatikan, profile tidak muncul saat filter Available Only aktif.</div>
+              </div>
+              <input
+                type="checkbox"
+                checked={formData.isAvailable}
+                onChange={(e) => setFormData({ ...formData, isAvailable: e.target.checked })}
+                className="w-5 h-5 rounded border-[#2A2A2A] bg-[#1A1A1A] text-[#F5C800]"
+              />
+            </label>
           </div>
 
-          <button className="px-6 py-3 bg-[#F5C800] text-black font-bold rounded-lg hover:shadow-[0_0_20px_rgba(245,200,0,0.4)] transition-all">
-            Save Changes
+          <button
+            type="button"
+            onClick={saveProfile}
+            disabled={saving}
+            className="px-6 py-3 bg-[#F5C800] text-black font-bold rounded-lg hover:shadow-[0_0_20px_rgba(245,200,0,0.4)] transition-all disabled:opacity-60"
+          >
+            {saving ? 'Saving...' : 'Save Changes'}
           </button>
         </div>
 

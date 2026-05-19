@@ -3,7 +3,7 @@ const { formatCurrency, serializeProject } = require('../utils/formatters');
 
 exports.getClientDashboard = async (req, res, next) => {
   try {
-    const [projects, unreadMessages, pendingInvoices] = await Promise.all([
+    const [projects, unreadMessages, pendingInvoices, histories] = await Promise.all([
       prisma.project.findMany({
         where: { clientId: req.user.id },
         include: {
@@ -31,6 +31,12 @@ exports.getClientDashboard = async (req, res, next) => {
         },
         _sum: { amount: true },
       }),
+      prisma.projectHistory.findMany({
+        where: { project: { clientId: req.user.id } },
+        include: { project: { select: { title: true } } },
+        orderBy: { createdAt: 'desc' },
+        take: 6,
+      }),
     ]);
 
     const activeProjects = projects.filter((project) =>
@@ -47,7 +53,10 @@ exports.getClientDashboard = async (req, res, next) => {
         unreadMessages,
       },
       projects: projects.map(serializeProject),
-      activities: [],
+      activities: histories.map((history) => ({
+        text: history.body || history.title,
+        time: history.createdAt,
+      })),
       recommendedFreelancers: [],
     });
   } catch (error) {
@@ -57,7 +66,7 @@ exports.getClientDashboard = async (req, res, next) => {
 
 exports.getFreelancerDashboard = async (req, res, next) => {
   try {
-    const [projects, openRequests, unreadMessages, pendingInvoices] = await Promise.all([
+    const [projects, openRequests, unreadMessages, pendingInvoices, histories] = await Promise.all([
       prisma.project.findMany({
         where: { freelancerId: req.user.id },
         include: {
@@ -75,7 +84,10 @@ exports.getFreelancerDashboard = async (req, res, next) => {
         where: {
           status: 'OPEN',
           applications: {
-            none: { freelancerId: req.user.id },
+            none: {
+              freelancerId: req.user.id,
+              status: { in: ['PENDING', 'ACCEPTED'] },
+            },
           },
         },
         include: {
@@ -101,6 +113,12 @@ exports.getFreelancerDashboard = async (req, res, next) => {
         },
         _sum: { amount: true },
       }),
+      prisma.projectHistory.findMany({
+        where: { project: { freelancerId: req.user.id } },
+        include: { project: { select: { title: true } } },
+        orderBy: { createdAt: 'desc' },
+        take: 6,
+      }),
     ]);
 
     res.json({
@@ -112,7 +130,10 @@ exports.getFreelancerDashboard = async (req, res, next) => {
       },
       projects: projects.map(serializeProject),
       requests: openRequests.map(serializeProject),
-      activities: [],
+      activities: histories.map((history) => ({
+        text: history.body || history.title,
+        time: history.createdAt,
+      })),
     });
   } catch (error) {
     next(error);

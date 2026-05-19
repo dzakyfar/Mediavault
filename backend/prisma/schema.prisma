@@ -89,6 +89,7 @@ model Project {
   applications  ProjectApplication[]
   files         ProjectFile[]
   invoices      Invoice[]
+  histories     ProjectHistory[]
 }
 
 model ProjectApplication {
@@ -146,6 +147,17 @@ model Message {
   createdAt  DateTime @default(now())
   sender     User     @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
   receiver   User     @relation("ReceivedMessages", fields: [receiverId], references: [id], onDelete: Cascade)
+}
+
+model ProjectHistory {
+  id        String   @id @default(cuid())
+  projectId String
+  actorId   String?
+  title     String
+  body      String?
+  eventType String
+  createdAt DateTime @default(now())
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
 }
 
 model Notification {

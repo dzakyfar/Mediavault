@@ -3,6 +3,7 @@ import { Bell } from 'lucide-react';
 import { Link } from 'react-router';
 import DashboardSidebar from './DashboardSidebar';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -13,13 +14,14 @@ interface DashboardLayoutProps {
 
 export default function DashboardLayout({ children, userType, userName, greeting }: DashboardLayoutProps) {
   const { user } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const displayName = user?.fullName || userName || 'User';
   const firstName = displayName.split(' ')[0];
   const currentDate = new Date().toLocaleDateString('en-US', {
     weekday: 'long',
     year: 'numeric',
     month: 'long',
-    day: 'numeric'
+    day: 'numeric',
   });
 
   const notificationPath = userType === 'client'
@@ -39,20 +41,25 @@ export default function DashboardLayout({ children, userType, userName, greeting
           <div className="px-8 py-4 flex items-center justify-between">
             <div>
               <h1 className="text-xl text-white font-bold">
-                {greeting || `Good morning, ${firstName}`} 👋
+                {greeting || `Good morning, ${firstName}`}!
               </h1>
               <p className="text-sm text-[#888888]">{currentDate}</p>
             </div>
             <div className="flex items-center gap-4">
-              <button className="p-2 rounded-lg hover:bg-[#141414] transition-colors text-white">
-                ☀️
+              <button
+                type="button"
+                onClick={toggleTheme}
+                className="px-3 py-2 rounded-lg hover:bg-[#141414] transition-colors text-[#F5C800] text-sm font-bold"
+                aria-label="Toggle theme"
+              >
+                {theme === 'dark' ? 'Light' : 'Dark'}
               </button>
               <Link
                 to={notificationPath}
                 className="relative p-2 rounded-lg hover:bg-[#141414] transition-colors"
               >
                 <Bell className="w-5 h-5 text-white" />
-                <span className="absolute top-1 right-1 w-2 h-2 bg-[#F5C800] rounded-full"></span>
+                <span className="absolute top-1 right-1 w-2 h-2 bg-[#F5C800] rounded-full" />
               </Link>
               <Link to={settingsPath}>
                 <div className="w-10 h-10 rounded-full bg-[#1A1A1A] flex items-center justify-center text-[#F5C800] font-bold hover:bg-[#2A2A2A] transition-colors cursor-pointer">

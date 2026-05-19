@@ -519,7 +519,7 @@ export default function PostJobPage() {
             {step > 1 ? (
               <button
                 onClick={handleBack}
-                className="flex items-center gap-2 px-6 py-3 border border-[#888888] rounded-lg hover:border-[#F5C800] hover:text-[#F5C800] transition-colors"
+                className="flex items-center gap-2 px-6 py-3 border border-[#888888] text-white rounded-lg hover:border-[#F5C800] hover:text-[#F5C800] transition-colors"
               >
                 <ArrowLeft className="w-4 h-4" />
                 Back

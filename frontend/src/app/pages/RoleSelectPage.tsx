@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { Zap, ShoppingBag, Camera, Check } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -9,13 +9,18 @@ export default function RoleSelectPage() {
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const navigate = useNavigate();
-  const { updateRole } = useAuth();
+  const { user, updateRole } = useAuth();
 
   const roleMap: Record<'client' | 'freelancer' | 'both', UserRole> = {
     client: 'CLIENT',
     freelancer: 'FREELANCER',
     both: 'BOTH',
   };
+
+  useEffect(() => {
+    if (!user?.role) return;
+    navigate(user.role === 'FREELANCER' ? '/dashboard/freelancer' : '/dashboard/client', { replace: true });
+  }, [navigate, user?.role]);
 
   const handleContinue = async () => {
     if (!selectedRole) return;
@@ -24,7 +29,7 @@ export default function RoleSelectPage() {
       setSubmitting(true);
       setError('');
       const user = await updateRole(roleMap[selectedRole]);
-      navigate(user.role === 'FREELANCER' ? '/dashboard/freelancer' : '/dashboard/client');
+      navigate(user.role === 'FREELANCER' ? '/dashboard/freelancer' : '/dashboard/client', { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Gagal menyimpan role');
     } finally {
@@ -108,7 +113,7 @@ export default function RoleSelectPage() {
             onClick={() => setSelectedRole('both')}
             className="text-[#F5C800] hover:underline"
           >
-            I'm both — Client & Freelancer
+            I'm both - Client & Freelancer
           </button>
         </div>
 
