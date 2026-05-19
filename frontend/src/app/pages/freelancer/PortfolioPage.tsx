@@ -2,13 +2,17 @@ import { FormEvent, useEffect, useState } from 'react';
 import { Edit2, ImagePlus, Trash2, X } from 'lucide-react';
 import DashboardLayout from '../../components/DashboardLayout';
 import EmptyState from '../../components/EmptyState';
+import ConfirmDialog from '../../components/dashboard/ConfirmDialog';
+import SmoothToast from '../../components/dashboard/SmoothToast';
 import { apiRequest } from '../../lib/api';
 import { MESSAGE_IMAGE_MAX_BYTES, readFileAsDataUrl, validateImageFile } from '../../lib/uploadLimits';
+import { getServicesForCategory, serviceCatalog } from '../../lib/serviceCatalog';
 
 interface PortfolioItem {
   id: string;
   title: string;
   category: string | null;
+  serviceType: string | null;
   description: string | null;
   fileUrl: string | null;
   fileName: string | null;
@@ -20,6 +24,7 @@ const emptyForm = {
   id: '',
   title: '',
   category: '',
+  serviceType: '',
   description: '',
   fileUrl: '',
   fileName: '',
@@ -33,6 +38,8 @@ export default function FreelancerPortfolio() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [deleteTargetId, setDeleteTargetId] = useState('');
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' }>({ message: '', type: 'info' });
 
   const loadItems = async () => {
     try {
@@ -75,6 +82,7 @@ export default function FreelancerPortfolio() {
       id: item.id,
       title: item.title,
       category: item.category || '',
+      serviceType: item.serviceType || '',
       description: item.description || '',
       fileUrl: item.fileUrl || '',
       fileName: item.fileName || '',
@@ -92,11 +100,17 @@ export default function FreelancerPortfolio() {
       return;
     }
 
+    if (!form.category || !form.serviceType) {
+      setError('Kategori dan jasa portfolio wajib dipilih');
+      return;
+    }
+
     try {
       setSaving(true);
       const payload = {
         title: form.title,
         category: form.category,
+        serviceType: form.serviceType,
         description: form.description,
         fileUrl: form.fileUrl || null,
         fileName: form.fileName || null,
@@ -117,13 +131,28 @@ export default function FreelancerPortfolio() {
   };
 
   const deleteItem = async (id: string) => {
-    if (!window.confirm('Hapus portfolio ini?')) return;
-    await apiRequest(`/portfolio/${id}`, { method: 'DELETE' });
-    await loadItems();
+    try {
+      await apiRequest(`/portfolio/${id}`, { method: 'DELETE' });
+      setToast({ message: 'Portfolio berhasil dihapus', type: 'success' });
+      setDeleteTargetId('');
+      await loadItems();
+    } catch (err) {
+      setToast({ message: err instanceof Error ? err.message : 'Gagal menghapus portfolio', type: 'error' });
+    }
   };
 
   return (
     <DashboardLayout userType="freelancer">
+      <SmoothToast message={toast.message} type={toast.type} onClose={() => setToast({ message: '', type: 'info' })} />
+      <ConfirmDialog
+        open={Boolean(deleteTargetId)}
+        title="Delete Portfolio"
+        description="Portfolio ini akan dihapus permanen dari profile Anda."
+        confirmLabel="Delete"
+        danger
+        onCancel={() => setDeleteTargetId('')}
+        onConfirm={() => deleteItem(deleteTargetId)}
+      />
       <div className="flex items-center justify-between gap-4 mb-8 flex-wrap">
         <h1 className="text-5xl" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>
           Portfolio
@@ -152,12 +181,34 @@ export default function FreelancerPortfolio() {
             placeholder="Judul project portfolio"
             className="bg-[#141414] border border-[#2A2A2A] rounded-lg px-4 py-3 text-white placeholder-[#888888] focus:border-[#F5C800] focus:outline-none"
           />
-          <input
+          <select
             value={form.category}
-            onChange={(event) => setForm({ ...form, category: event.target.value })}
-            placeholder="Kategori / jasa"
+            onChange={(event) => {
+              const nextCategory = event.target.value;
+              setForm({
+                ...form,
+                category: nextCategory,
+                serviceType: getServicesForCategory(nextCategory)[0] || '',
+              });
+            }}
             className="bg-[#141414] border border-[#2A2A2A] rounded-lg px-4 py-3 text-white placeholder-[#888888] focus:border-[#F5C800] focus:outline-none"
-          />
+          >
+            <option value="">Pilih kategori</option>
+            {serviceCatalog.map((item) => (
+              <option key={item.category} value={item.category}>{item.category}</option>
+            ))}
+          </select>
+          <select
+            value={form.serviceType}
+            onChange={(event) => setForm({ ...form, serviceType: event.target.value })}
+            disabled={!form.category}
+            className="md:col-span-2 bg-[#141414] border border-[#2A2A2A] rounded-lg px-4 py-3 text-white focus:border-[#F5C800] focus:outline-none disabled:opacity-60"
+          >
+            <option value="">Pilih jasa</option>
+            {getServicesForCategory(form.category).map((service) => (
+              <option key={service} value={service}>{service}</option>
+            ))}
+          </select>
           <textarea
             value={form.description}
             onChange={(event) => setForm({ ...form, description: event.target.value })}
@@ -211,13 +262,14 @@ export default function FreelancerPortfolio() {
             <div className="p-5">
               <div className="text-sm text-[#F5C800] font-bold mb-1">{item.category || 'Portfolio'}</div>
               <h3 className="text-xl font-bold text-white">{item.title}</h3>
+              {item.serviceType && <p className="text-sm text-[#888888] mt-1">{item.serviceType}</p>}
               {item.description && <p className="text-[#888888] mt-2">{item.description}</p>}
               <div className="flex gap-2 mt-4">
                 <button onClick={() => editItem(item)} className="inline-flex items-center gap-2 px-3 py-2 border border-[#888888] text-white rounded-lg text-sm hover:border-[#F5C800]">
                   <Edit2 className="w-4 h-4" />
                   Edit
                 </button>
-                <button onClick={() => deleteItem(item.id)} className="inline-flex items-center gap-2 px-3 py-2 border border-[#EF4444] text-[#EF4444] rounded-lg text-sm hover:bg-[#EF4444] hover:text-white">
+                <button onClick={() => setDeleteTargetId(item.id)} className="inline-flex items-center gap-2 px-3 py-2 border border-[#EF4444] text-[#EF4444] rounded-lg text-sm hover:bg-[#EF4444] hover:text-white">
                   <Trash2 className="w-4 h-4" />
                   Delete
                 </button>

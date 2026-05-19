@@ -32,7 +32,7 @@ export default function FreelancerProjects() {
     { id: 'all', label: 'All' },
     { id: 'in-progress', label: 'In Progress' },
     { id: 'completed', label: 'Completed' },
-    { id: 'pending-review', label: 'Pending Review' },
+    { id: 'under-review', label: 'Under Review' },
   ];
 
   useEffect(() => {
@@ -129,15 +129,18 @@ export default function FreelancerProjects() {
                   View Detail
                 </Link>
                 {project.status === 'In Progress' && (
-                  <button className="flex items-center gap-2 px-4 py-2 bg-[#F5C800] text-black font-bold rounded-lg text-sm hover:shadow-[0_0_10px_rgba(245,200,0,0.4)] transition-all">
+                  <Link
+                    to={`/dashboard/freelancer/projects/${project.id}`}
+                    className="flex items-center gap-2 px-4 py-2 bg-[#F5C800] text-black font-bold rounded-lg text-sm hover:shadow-[0_0_10px_rgba(245,200,0,0.4)] transition-all"
+                  >
                     <Upload className="w-4 h-4" />
-                    Upload Files
-                  </button>
+                    Upload Draft
+                  </Link>
                 )}
                 {project.status === 'Completed' && (
-                  <button className="px-4 py-2 bg-[#22C55E] text-white font-bold rounded-lg text-sm">
-                    Request Payment
-                  </button>
+                  <span className="px-4 py-2 bg-[#2A2A2A] text-[#888888] font-bold rounded-lg text-sm cursor-not-allowed">
+                    Payment Soon
+                  </span>
                 )}
               </div>
             </div>

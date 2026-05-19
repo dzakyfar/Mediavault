@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router';
 import DashboardLayout from '../../components/DashboardLayout';
 import EmptyState from '../../components/EmptyState';
 import ProjectTracker from '../../components/dashboard/ProjectTracker';
+import ProjectReviewPanel, { ProjectSubmission } from '../../components/dashboard/ProjectReviewPanel';
 import { apiRequest } from '../../lib/api';
 
 interface ProjectDetail {
@@ -38,6 +39,15 @@ interface ProjectDetail {
     title: string;
     body: string | null;
     eventType: string;
+    createdAt: string;
+  }>;
+  submissions: ProjectSubmission[];
+  referenceFiles: Array<{
+    id: string;
+    fileName: string;
+    fileUrl: string;
+    contentType: string | null;
+    size: number | null;
     createdAt: string;
   }>;
 }
@@ -121,7 +131,34 @@ export default function FreelancerProjectDetail() {
               projectId={project.id}
               stages={project.tracking}
               histories={project.histories}
-              canUpdate
+              canUpdate={false}
+              onUpdated={(updatedProject) => setProject(updatedProject as ProjectDetail)}
+            />
+            {project.referenceFiles.length > 0 && (
+              <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-8">
+                <h2 className="text-3xl mb-4" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>
+                  Reference Files
+                </h2>
+                <div className="grid md:grid-cols-2 gap-3">
+                  {project.referenceFiles.map((file) => (
+                    <a
+                      key={file.id}
+                      href={file.fileUrl}
+                      download={file.fileName}
+                      className="block bg-[#141414] border border-[#2A2A2A] rounded-lg p-4 hover:border-[#F5C800] transition-colors"
+                    >
+                      <div className="text-white font-bold">{file.fileName}</div>
+                      <div className="text-sm text-[#888888]">{file.createdAt}</div>
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+            <ProjectReviewPanel
+              projectId={project.id}
+              userType="freelancer"
+              projectStatus={project.status}
+              submissions={project.submissions}
               onUpdated={(updatedProject) => setProject(updatedProject as ProjectDetail)}
             />
           </div>

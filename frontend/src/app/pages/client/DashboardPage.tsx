@@ -28,8 +28,10 @@ interface DashboardProject {
 interface FreelancerCard {
   id: string;
   name: string;
+  avatarUrl?: string | null;
   specialty: string;
   rating: string | null;
+  reviewCount: number;
   price: string;
   available: boolean;
 }
@@ -235,7 +237,9 @@ export default function ClientDashboard() {
               {recommendedFreelancers.map((freelancer) => (
                 <div key={freelancer.id} className="bg-[#141414] rounded-xl p-4 border border-[#2A2A2A] hover:border-[#F5C800] transition-all">
                   <div className="relative w-full aspect-square bg-[#1A1A1A] rounded-lg mb-3 flex items-center justify-center">
-                    <Camera className="w-8 h-8 text-[#888888]" />
+                    {freelancer.avatarUrl
+                      ? <img src={freelancer.avatarUrl} alt={freelancer.name} className="w-full h-full object-cover rounded-lg" />
+                      : <Camera className="w-8 h-8 text-[#888888]" />}
                     {/* Status Badge */}
                     <div className="absolute top-2 right-2">
                       {freelancer.available ? (
@@ -256,6 +260,7 @@ export default function ClientDashboard() {
                   <div className="flex items-center gap-1 mb-2 text-sm">
                     <Star className="w-4 h-4 text-[#F5C800] fill-current" />
                     <span>{freelancer.rating ?? 'Baru'}</span>
+                    {freelancer.reviewCount > 0 && <span className="text-[#888888]">({freelancer.reviewCount})</span>}
                   </div>
                   <p className="text-[#F5C800] font-bold text-sm mb-3">From {freelancer.price}</p>
                   <Link

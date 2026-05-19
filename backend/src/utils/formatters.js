@@ -46,6 +46,17 @@ const formatDate = (date) => {
   }).format(date);
 };
 
+const formatDateTime = (date) => {
+  if (!date) return '-';
+  return new Intl.DateTimeFormat('id-ID', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date);
+};
+
 const shortName = (fullName) => {
   if (!fullName) return 'Unassigned';
   const parts = fullName.trim().split(/\s+/);
@@ -102,6 +113,33 @@ const serializeProject = (project) => ({
     eventType: history.eventType,
     createdAt: formatDate(history.createdAt),
   })) || [],
+  submissions: project.submissions?.map((submission) => ({
+    id: submission.id,
+    comment: submission.comment,
+    fileUrl: submission.fileUrl,
+    fileName: submission.fileName,
+    fileType: submission.fileType,
+    fileSize: submission.fileSize,
+    status: submission.status,
+    reviewComment: submission.reviewComment,
+    reviewedAt: submission.reviewedAt ? formatDateTime(submission.reviewedAt) : null,
+    createdAt: formatDateTime(submission.createdAt),
+    isPending: submission.status === 'PENDING',
+  })) || [],
+  referenceFiles: project.files?.map((file) => ({
+    id: file.id,
+    fileName: file.fileName,
+    fileUrl: file.fileKey,
+    contentType: file.contentType,
+    size: file.size,
+    createdAt: formatDateTime(file.createdAt),
+  })) || [],
+  review: project.reviews?.[0] ? {
+    id: project.reviews[0].id,
+    rating: project.reviews[0].rating,
+    comment: project.reviews[0].comment,
+    createdAt: formatDateTime(project.reviews[0].createdAt),
+  } : null,
 });
 
 module.exports = {

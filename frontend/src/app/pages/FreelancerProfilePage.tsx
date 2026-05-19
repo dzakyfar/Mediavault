@@ -11,10 +11,12 @@ interface FreelancerProfile {
   id: string;
   name: string;
   fullName: string;
+  avatarUrl?: string | null;
   specialty: string;
   services: string[];
   bio: string;
   rating: string | null;
+  reviewCount: number;
   price: string;
   city: string;
   available: boolean;
@@ -22,8 +24,15 @@ interface FreelancerProfile {
     id: string;
     title: string;
     category: string | null;
+    serviceType: string | null;
     description: string | null;
     fileUrl: string | null;
+  }>;
+  reviews: Array<{
+    id: string;
+    rating: number;
+    comment: string;
+    createdAt: string;
   }>;
 }
 
@@ -44,6 +53,7 @@ export default function FreelancerProfilePage() {
     city: '',
     address: '',
   });
+  const isOwnProfile = Boolean(user && freelancer && user.id === freelancer.id);
 
   useEffect(() => {
     if (!id) return;
@@ -64,6 +74,11 @@ export default function FreelancerProfilePage() {
     if (!id) return;
     if (!user) {
       navigate('/login');
+      return;
+    }
+
+    if (freelancer && user.id === freelancer.id) {
+      setError('Tidak bisa memesan jasa dari profile sendiri');
       return;
     }
 
@@ -104,8 +119,10 @@ export default function FreelancerProfilePage() {
             <section className="lg:col-span-2 space-y-6">
               <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-8">
                 <div className="flex items-start gap-6">
-                  <div className="w-28 h-28 rounded-full bg-[#141414] flex items-center justify-center text-[#F5C800] text-4xl font-bold">
-                    {freelancer.fullName.charAt(0)}
+                  <div className="w-28 h-28 rounded-full bg-[#141414] overflow-hidden flex items-center justify-center text-[#F5C800] text-4xl font-bold">
+                    {freelancer.avatarUrl
+                      ? <img src={freelancer.avatarUrl} alt={freelancer.fullName} className="w-full h-full object-cover" />
+                      : freelancer.fullName.charAt(0)}
                   </div>
                   <div className="flex-1">
                     <div className="flex items-start justify-between gap-4">
@@ -120,7 +137,11 @@ export default function FreelancerProfilePage() {
 
                     <div className="flex flex-wrap gap-4 mt-4 text-sm text-[#888888]">
                       <span className="inline-flex items-center gap-2"><MapPin className="w-4 h-4" />{freelancer.city}</span>
-                      <span className="inline-flex items-center gap-2"><Star className="w-4 h-4 text-[#F5C800] fill-current" />{freelancer.rating ?? 'Baru'}</span>
+                      <span className="inline-flex items-center gap-2">
+                        <Star className="w-4 h-4 text-[#F5C800] fill-current" />
+                        {freelancer.rating ?? 'Baru'}
+                        {freelancer.reviewCount > 0 && <span>({freelancer.reviewCount} ulasan)</span>}
+                      </span>
                       <span className="text-[#F5C800] font-bold">Mulai dari {freelancer.price}</span>
                     </div>
 
@@ -153,6 +174,33 @@ export default function FreelancerProfilePage() {
                         </div>
                         <h3 className="font-bold">{item.title}</h3>
                         {item.category && <p className="text-sm text-[#888888]">{item.category}</p>}
+                        {item.serviceType && <p className="text-sm text-[#F5C800]">{item.serviceType}</p>}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-8">
+                <h2 className="text-3xl mb-4" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>Reviews</h2>
+                {freelancer.reviews.length === 0 ? (
+                  <EmptyState title="Belum ada review" description="Rating dan ulasan client akan muncul setelah project selesai direview." />
+                ) : (
+                  <div className="space-y-4">
+                    {freelancer.reviews.map((review) => (
+                      <div key={review.id} className="bg-[#141414] border border-[#2A2A2A] rounded-xl p-5">
+                        <div className="flex items-center gap-2 text-[#F5C800] font-bold mb-2">
+                          <Star className="w-4 h-4 fill-current" />
+                          {review.rating}/5
+                        </div>
+                        <p className="text-white mb-2">"{review.comment}"</p>
+                        <p className="text-xs text-[#888888]">
+                          {new Date(review.createdAt).toLocaleDateString('id-ID', {
+                            day: '2-digit',
+                            month: 'short',
+                            year: 'numeric',
+                          })}
+                        </p>
                       </div>
                     ))}
                   </div>
@@ -163,6 +211,11 @@ export default function FreelancerProfilePage() {
             <aside className="space-y-6">
               <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-6 sticky top-24">
                 <h2 className="text-3xl mb-4" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>Pesan Jasa</h2>
+                {isOwnProfile && (
+                  <div className="mb-4 p-3 bg-[#F5C800]/10 border border-[#F5C800] rounded-lg text-[#F5C800] text-sm">
+                    Ini profile Anda sendiri. Client lain tetap bisa melihat dan memesan jasa Anda.
+                  </div>
+                )}
                 <div className="space-y-4">
                   <select
                     value={orderData.serviceType}
@@ -220,8 +273,12 @@ export default function FreelancerProfilePage() {
                     rows={3}
                     className="w-full bg-[#141414] border border-[#2A2A2A] rounded-lg px-4 py-3 text-white placeholder-[#888888] focus:border-[#F5C800] focus:outline-none"
                   />
-                  <button onClick={submitOrder} className="w-full bg-[#F5C800] text-black font-bold py-3 rounded-lg hover:shadow-[0_0_20px_rgba(245,200,0,0.4)] transition-all">
-                    Kirim Pesanan
+                  <button
+                    onClick={submitOrder}
+                    disabled={isOwnProfile}
+                    className="w-full bg-[#F5C800] text-black font-bold py-3 rounded-lg hover:shadow-[0_0_20px_rgba(245,200,0,0.4)] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isOwnProfile ? 'Profile Sendiri' : 'Kirim Pesanan'}
                   </button>
                   <Link to={user ? '/dashboard/client/messages' : '/login'} className="w-full flex items-center justify-center gap-2 border border-[#888888] text-white rounded-lg py-3 hover:border-[#F5C800] hover:text-[#F5C800] transition-colors">
                     <MessageCircle className="w-4 h-4" />

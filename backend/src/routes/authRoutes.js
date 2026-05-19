@@ -6,6 +6,7 @@ const {
   me,
   updateRole,
   updateProfile,
+  changePassword,
   deleteAccount,
 } = require('../controllers/authController');
 const { protect } = require('../middleware/authMiddleware');
@@ -18,6 +19,7 @@ router.post('/google', googleLogin);
 router.get('/me', protect, me);
 router.patch('/role', protect, updateRole);
 router.patch('/profile', protect, updateProfile);
+router.patch('/password', protect, changePassword);
 router.delete('/me', protect, deleteAccount);
 
 module.exports = router;

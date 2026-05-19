@@ -2,8 +2,11 @@ export const MB = 1024 * 1024;
 export const GB = 1024 * MB;
 
 export const MESSAGE_IMAGE_MAX_BYTES = 1 * MB;
+export const PROJECT_SUBMISSION_MAX_BYTES = 1 * MB;
+export const REFERENCE_FILE_MAX_BYTES = 100 * MB;
 export const S3_TOTAL_LIMIT_BYTES = 5 * GB;
 export const ALLOWED_IMAGE_TYPES = ['image/png', 'image/jpeg'];
+export const ALLOWED_SUBMISSION_TYPES = ['image/png', 'image/jpeg', 'application/pdf'];
 
 export function formatBytes(bytes: number) {
   if (bytes >= GB) return `${(bytes / GB).toFixed(1)}GB`;
@@ -18,6 +21,26 @@ export function validateImageFile(file: File, maxBytes = MESSAGE_IMAGE_MAX_BYTES
 
   if (file.size > maxBytes) {
     return `Ukuran file maksimal ${formatBytes(maxBytes)}`;
+  }
+
+  return '';
+}
+
+export function validateSubmissionFile(file: File, maxBytes = PROJECT_SUBMISSION_MAX_BYTES) {
+  if (!ALLOWED_SUBMISSION_TYPES.includes(file.type)) {
+    return 'File harus berupa PNG, JPEG, atau PDF';
+  }
+
+  if (file.size > maxBytes) {
+    return `Ukuran file maksimal ${formatBytes(maxBytes)} untuk mode local saat ini`;
+  }
+
+  return '';
+}
+
+export function validateReferenceFile(file: File, maxBytes = REFERENCE_FILE_MAX_BYTES) {
+  if (file.size > maxBytes) {
+    return `Ukuran reference file maksimal ${formatBytes(maxBytes)}`;
   }
 
   return '';

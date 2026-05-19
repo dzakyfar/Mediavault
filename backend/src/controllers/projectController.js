@@ -1,5 +1,6 @@
 const prisma = require('../config/prisma');
 const { serializeProject } = require('../utils/formatters');
+const { validateReferenceFiles, validateSubmissionFile } = require('../utils/uploadLimits');
 
 const parseBudget = (value) => {
   if (value === undefined || value === null || value === '') return null;
@@ -21,8 +22,14 @@ const projectInclude = {
     include: { freelancer: { select: { fullName: true } } },
     orderBy: { createdAt: 'desc' },
   },
+  files: true,
+  reviews: true,
   _count: { select: { files: true } },
   histories: {
+    orderBy: { createdAt: 'desc' },
+    take: 10,
+  },
+  submissions: {
     orderBy: { createdAt: 'desc' },
     take: 10,
   },
@@ -98,6 +105,12 @@ exports.createProject = async (req, res, next) => {
       throw new Error('Provinsi, kota, kecamatan, desa, dan detail alamat wajib diisi');
     }
 
+    const referenceFileError = validateReferenceFiles(referenceFiles || []);
+    if (referenceFileError) {
+      res.status(400);
+      throw new Error(referenceFileError);
+    }
+
     const composedAddress = [
       addressDetail,
       village,
@@ -128,6 +141,14 @@ exports.createProject = async (req, res, next) => {
         eventDate: eventDate ? new Date(eventDate) : null,
         deadline: deadline ? new Date(deadline) : null,
         clientId: req.user.id,
+        files: {
+          create: (referenceFiles || []).map((file) => ({
+            fileName: file.fileName,
+            fileKey: file.fileUrl,
+            contentType: file.fileType,
+            size: Number.isFinite(Number(file.fileSize)) ? Number(file.fileSize) : null,
+          })),
+        },
       },
       include: projectInclude,
     });
@@ -179,6 +200,7 @@ exports.updateProject = async (req, res, next) => {
       budget,
       eventDate,
       deadline,
+      referenceFiles,
     } = req.body;
 
     const updatedProject = await prisma.project.update({
@@ -246,6 +268,7 @@ exports.listOpenProjects = async (req, res, next) => {
     const projects = await prisma.project.findMany({
       where: {
         status: 'OPEN',
+        clientId: { not: req.user.id },
         applications: {
           none: {
             freelancerId: req.user.id,
@@ -360,6 +383,253 @@ exports.updateProjectProgress = async (req, res, next) => {
   }
 };
 
+exports.submitProjectReview = async (req, res, next) => {
+  try {
+    const { projectId } = req.params;
+    const { comment, fileUrl, fileName, fileType, fileSize } = req.body;
+
+    if (!comment?.trim()) {
+      res.status(400);
+      throw new Error('Komentar progress wajib diisi');
+    }
+
+    const fileError = validateSubmissionFile({ fileUrl, fileType, fileSize });
+    if (fileError) {
+      res.status(400);
+      throw new Error(fileError);
+    }
+
+    const project = await prisma.project.findUnique({
+      where: { id: projectId },
+      include: { client: { select: { fullName: true } }, freelancer: { select: { fullName: true } } },
+    });
+
+    if (!project || project.freelancerId !== req.user.id) {
+      res.status(404);
+      throw new Error('Project tidak ditemukan atau bukan project Anda');
+    }
+
+    if (!['IN_PROGRESS', 'UNDER_REVIEW'].includes(project.status)) {
+      res.status(400);
+      throw new Error('Draft hanya bisa dikirim saat project sedang berjalan atau revisi');
+    }
+
+    const [submission, updatedProject] = await prisma.$transaction([
+      prisma.projectSubmission.create({
+        data: {
+          projectId,
+          freelancerId: req.user.id,
+          comment: comment.trim(),
+          fileUrl,
+          fileName: fileName || null,
+          fileType,
+          fileSize: Number.isFinite(Number(fileSize)) ? Number(fileSize) : null,
+        },
+      }),
+      prisma.project.update({
+        where: { id: projectId },
+        data: {
+          status: 'UNDER_REVIEW',
+          progress: Math.max(project.progress, 60),
+        },
+        include: projectInclude,
+      }),
+      createProjectHistory(
+        projectId,
+        req.user.id,
+        'Draft dikirim untuk review',
+        comment.trim(),
+        'SUBMISSION_CREATED'
+      ),
+      prisma.notification.create({
+        data: {
+          userId: project.clientId,
+          type: 'PROJECT',
+          title: 'Draft project siap direview',
+          body: `${req.user.fullName} mengirim draft untuk ${project.title}`,
+        },
+      }),
+      prisma.message.create({
+        data: {
+          senderId: req.user.id,
+          receiverId: project.clientId,
+          body: `Saya mengirim draft untuk "${project.title}". Komentar: ${comment.trim()}`,
+        },
+      }),
+    ]);
+
+    res.status(201).json({ submission, project: serializeProject(updatedProject) });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.reviewProjectSubmission = async (req, res, next) => {
+  try {
+    const { projectId, submissionId } = req.params;
+    const { action, comment } = req.body;
+
+    if (!['approve', 'revision'].includes(action)) {
+      res.status(400);
+      throw new Error('Action harus approve atau revision');
+    }
+
+    const submission = await prisma.projectSubmission.findUnique({
+      where: { id: submissionId },
+      include: {
+        project: true,
+      },
+    });
+
+    if (!submission || submission.projectId !== projectId || submission.project.clientId !== req.user.id) {
+      res.status(404);
+      throw new Error('Submission tidak ditemukan');
+    }
+
+    if (submission.status !== 'PENDING') {
+      res.status(400);
+      throw new Error('Submission ini sudah direview');
+    }
+
+    const approved = action === 'approve';
+    const nextStatus = approved ? 'WAITING_PAYMENT' : 'IN_PROGRESS';
+    const nextProgress = approved ? 85 : 45;
+    const reviewComment = comment?.trim() || (approved
+      ? 'Draft disetujui oleh client'
+      : 'Client meminta revisi draft');
+
+    const [, updatedProject] = await prisma.$transaction([
+      prisma.projectSubmission.update({
+        where: { id: submissionId },
+        data: {
+          status: approved ? 'APPROVED' : 'REVISION_REQUESTED',
+          reviewComment,
+          reviewedAt: new Date(),
+        },
+      }),
+      prisma.project.update({
+        where: { id: projectId },
+        data: {
+          status: nextStatus,
+          progress: nextProgress,
+        },
+        include: projectInclude,
+      }),
+      createProjectHistory(
+        projectId,
+        req.user.id,
+        approved ? 'Draft disetujui' : 'Revisi diminta',
+        reviewComment,
+        approved ? 'SUBMISSION_APPROVED' : 'SUBMISSION_REVISION_REQUESTED'
+      ),
+      prisma.notification.create({
+        data: {
+          userId: submission.freelancerId,
+          type: 'PROJECT',
+          title: approved ? 'Draft project disetujui' : 'Client meminta revisi',
+          body: approved
+            ? `${submission.project.title} masuk tahap menunggu pembayaran`
+            : reviewComment,
+        },
+      }),
+      prisma.message.create({
+        data: {
+          senderId: req.user.id,
+          receiverId: submission.freelancerId,
+          body: approved
+            ? `Draft untuk "${submission.project.title}" disetujui. Project masuk tahap menunggu pembayaran.`
+            : `Revisi diminta untuk "${submission.project.title}": ${reviewComment}`,
+        },
+      }),
+    ]);
+
+    res.json({ project: serializeProject(updatedProject) });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.reviewFreelancer = async (req, res, next) => {
+  try {
+    const { projectId } = req.params;
+    const { rating, comment } = req.body;
+    const parsedRating = Number(rating);
+    const normalizedComment = comment?.trim();
+
+    if (!Number.isInteger(parsedRating) || parsedRating < 1 || parsedRating > 5) {
+      res.status(400);
+      throw new Error('Rating harus bernilai 1 sampai 5');
+    }
+
+    if (!normalizedComment) {
+      res.status(400);
+      throw new Error('Ulasan wajib diisi');
+    }
+
+    const project = await prisma.project.findUnique({
+      where: { id: projectId },
+      include: {
+        client: { select: { fullName: true } },
+        freelancer: { select: { id: true, fullName: true } },
+      },
+    });
+
+    if (!project || project.clientId !== req.user.id || !project.freelancerId) {
+      res.status(404);
+      throw new Error('Project tidak ditemukan');
+    }
+
+    if (!['WAITING_PAYMENT', 'COMPLETED'].includes(project.status)) {
+      res.status(400);
+      throw new Error('Ulasan hanya bisa diberikan setelah draft disetujui');
+    }
+
+    const [, updatedProject] = await prisma.$transaction([
+      prisma.freelancerReview.upsert({
+        where: { projectId },
+        update: {
+          rating: parsedRating,
+          comment: normalizedComment,
+        },
+        create: {
+          projectId,
+          clientId: req.user.id,
+          freelancerId: project.freelancerId,
+          rating: parsedRating,
+          comment: normalizedComment,
+        },
+      }),
+      prisma.project.update({
+        where: { id: projectId },
+        data: {
+          status: 'COMPLETED',
+          progress: 100,
+        },
+        include: projectInclude,
+      }),
+      createProjectHistory(
+        projectId,
+        req.user.id,
+        'Ulasan freelancer diberikan',
+        `${req.user.fullName} memberi rating ${parsedRating}/5 untuk ${project.freelancer.fullName}`,
+        'FREELANCER_REVIEW_CREATED'
+      ),
+      prisma.notification.create({
+        data: {
+          userId: project.freelancerId,
+          type: 'PROJECT',
+          title: 'Ulasan baru diterima',
+          body: `${req.user.fullName} memberi rating ${parsedRating}/5 untuk ${project.title}`,
+        },
+      }),
+    ]);
+
+    res.json({ project: serializeProject(updatedProject) });
+  } catch (error) {
+    next(error);
+  }
+};
+
 exports.applyToProject = async (req, res, next) => {
   try {
     const { projectId } = req.params;
@@ -375,14 +645,47 @@ exports.applyToProject = async (req, res, next) => {
       throw new Error('Job tidak tersedia untuk direquest');
     }
 
-    const application = await prisma.projectApplication.create({
-      data: {
-        projectId,
-        freelancerId: req.user.id,
-        message: message || `Saya tertarik mengambil job ${project.title}`,
-        serviceType,
+    if (project.clientId === req.user.id) {
+      res.status(400);
+      throw new Error('Tidak bisa request job milik akun sendiri');
+    }
+
+    const existingApplication = await prisma.projectApplication.findUnique({
+      where: {
+        projectId_freelancerId: {
+          projectId,
+          freelancerId: req.user.id,
+        },
       },
     });
+
+    if (existingApplication?.status === 'PENDING') {
+      res.status(400);
+      throw new Error('Anda sudah mengirim request untuk job ini');
+    }
+
+    if (existingApplication?.status === 'ACCEPTED') {
+      res.status(400);
+      throw new Error('Anda sudah diterima untuk job ini');
+    }
+
+    const application = existingApplication
+      ? await prisma.projectApplication.update({
+        where: { id: existingApplication.id },
+        data: {
+          status: 'PENDING',
+          message: message || `Saya tertarik mengambil job ${project.title}`,
+          serviceType,
+        },
+      })
+      : await prisma.projectApplication.create({
+        data: {
+          projectId,
+          freelancerId: req.user.id,
+          message: message || `Saya tertarik mengambil job ${project.title}`,
+          serviceType,
+        },
+      });
 
     await Promise.all([
       prisma.notification.create({
@@ -403,9 +706,9 @@ exports.applyToProject = async (req, res, next) => {
       createProjectHistory(
         projectId,
         req.user.id,
-        'Request job masuk',
+        existingApplication ? 'Request job dikirim ulang' : 'Request job masuk',
         `${req.user.fullName} mengirim request untuk ${project.title}`,
-        'APPLICATION_CREATED'
+        existingApplication ? 'APPLICATION_RESUBMITTED' : 'APPLICATION_CREATED'
       ),
     ]);
 
@@ -439,10 +742,18 @@ exports.respondToApplication = async (req, res, next) => {
     }
 
     if (action === 'accept') {
-      const [, updatedProject] = await prisma.$transaction([
+      const [, , updatedProject] = await prisma.$transaction([
         prisma.projectApplication.update({
           where: { id: applicationId },
           data: { status: 'ACCEPTED' },
+        }),
+        prisma.projectApplication.updateMany({
+          where: {
+            projectId: application.projectId,
+            id: { not: applicationId },
+            status: 'PENDING',
+          },
+          data: { status: 'REJECTED' },
         }),
         prisma.project.update({
           where: { id: application.projectId },

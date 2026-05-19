@@ -9,8 +9,10 @@ import { apiRequest } from '../lib/api';
 interface Freelancer {
   id: string;
   name: string;
+  avatarUrl?: string | null;
   specialty: string;
   rating: string | null;
+  reviewCount: number;
   price: string;
   city: string;
   available: boolean;
@@ -117,7 +119,9 @@ export default function ExplorePage() {
           {filteredFreelancers.map((freelancer) => (
             <div key={freelancer.id} className="bg-[#141414] rounded-xl p-6 border border-[#2A2A2A] hover:border-[#F5C800] hover:-translate-y-1 transition-all">
               <div className="relative w-full aspect-square bg-[#1A1A1A] rounded-lg mb-4 flex items-center justify-center">
-                <Camera className="w-12 h-12 text-[#888888]" />
+                {freelancer.avatarUrl
+                  ? <img src={freelancer.avatarUrl} alt={freelancer.name} className="w-full h-full object-cover rounded-lg" />
+                  : <Camera className="w-12 h-12 text-[#888888]" />}
                 <div className="absolute top-3 right-3">
                   <div className={`flex items-center gap-1 px-3 py-1 text-white rounded-full text-xs font-bold ${freelancer.available ? 'bg-[#22C55E]' : 'bg-[#888888]'}`}>
                     <div className="w-2 h-2 bg-white rounded-full" />
@@ -136,6 +140,7 @@ export default function ExplorePage() {
               <div className="flex items-center gap-1 mb-2 text-sm">
                 <Star className="w-4 h-4 text-[#F5C800] fill-current" />
                 <span>{freelancer.rating ?? 'Baru'}</span>
+                {freelancer.reviewCount > 0 && <span className="text-[#888888]">({freelancer.reviewCount})</span>}
                 <span className="text-[#888888] ml-2">- {freelancer.city}</span>
               </div>
               <p className="text-[#F5C800] font-bold mb-4">From {freelancer.price}</p>

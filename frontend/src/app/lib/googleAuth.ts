@@ -8,8 +8,17 @@ type GoogleAccounts = {
       client_id: string;
       callback: (response: GoogleCredentialResponse) => void;
     }) => void;
-    prompt: () => void;
+    prompt: (callback?: (notification: GooglePromptNotification) => void) => void;
   };
+};
+
+type GooglePromptNotification = {
+  isNotDisplayed: () => boolean;
+  isSkippedMoment: () => boolean;
+  isDismissedMoment: () => boolean;
+  getNotDisplayedReason?: () => string;
+  getSkippedReason?: () => string;
+  getDismissedReason?: () => string;
 };
 
 declare global {
@@ -56,11 +65,40 @@ export async function requestGoogleCredential() {
 
   await loadGoogleIdentityScript();
 
-  return new Promise<string>((resolve) => {
+  return new Promise<string>((resolve, reject) => {
+    const timeout = window.setTimeout(() => {
+      reject(new Error('Google Login tidak merespons. Coba refresh halaman atau cek konfigurasi OAuth origin.'));
+    }, 30000);
+
     window.google?.accounts.id.initialize({
       client_id: clientId,
-      callback: (response) => resolve(response.credential),
+      callback: (response) => {
+        window.clearTimeout(timeout);
+        if (!response.credential) {
+          reject(new Error('Credential Google tidak diterima'));
+          return;
+        }
+        resolve(response.credential);
+      },
     });
-    window.google?.accounts.id.prompt();
+
+    window.google?.accounts.id.prompt((notification) => {
+      if (notification.isNotDisplayed()) {
+        window.clearTimeout(timeout);
+        reject(new Error(`Google Login tidak tampil: ${notification.getNotDisplayedReason?.() || 'unknown reason'}`));
+        return;
+      }
+
+      if (notification.isSkippedMoment()) {
+        window.clearTimeout(timeout);
+        reject(new Error(`Google Login dilewati: ${notification.getSkippedReason?.() || 'unknown reason'}`));
+        return;
+      }
+
+      if (notification.isDismissedMoment()) {
+        window.clearTimeout(timeout);
+        reject(new Error(`Google Login ditutup: ${notification.getDismissedReason?.() || 'unknown reason'}`));
+      }
+    });
   });
 }

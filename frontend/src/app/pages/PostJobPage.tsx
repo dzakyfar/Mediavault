@@ -1,10 +1,17 @@
 import { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
-import { ArrowLeft, ArrowRight, Check, MapPin } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, FileUp, MapPin, X } from 'lucide-react';
 import DashboardLayout from '../components/DashboardLayout';
 import { apiRequest } from '../lib/api';
 import { findCity, findDistrict, findProvince, locationOptions } from '../lib/locationOptions';
-import { formatBytes, S3_TOTAL_LIMIT_BYTES } from '../lib/uploadLimits';
+import { formatBytes, readFileAsDataUrl, REFERENCE_FILE_MAX_BYTES, S3_TOTAL_LIMIT_BYTES, validateReferenceFile } from '../lib/uploadLimits';
+
+interface ReferenceFile {
+  fileName: string;
+  fileType: string;
+  fileSize: number;
+  fileUrl: string;
+}
 
 export default function PostJobPage() {
   const [searchParams] = useSearchParams();
@@ -27,6 +34,7 @@ export default function PostJobPage() {
     latitude: '',
     longitude: '',
     locationSource: 'manual',
+    referenceFiles: [] as ReferenceFile[],
   });
   const [error, setError] = useState('');
   const [locating, setLocating] = useState(false);
@@ -51,6 +59,49 @@ export default function PostJobPage() {
     ? `${formData.latitude},${formData.longitude}`
     : [formData.addressDetail, formData.village, formData.district, formData.city, formData.province].filter(Boolean).join(', ');
   const hasMapPreview = Boolean(mapQuery);
+
+  const attachReferenceFiles = async (files?: FileList | null) => {
+    if (!files?.length) return;
+
+    setError('');
+    const nextFiles: ReferenceFile[] = [];
+
+    for (const file of Array.from(files)) {
+      const validationError = validateReferenceFile(file);
+      if (validationError) {
+        setError(validationError);
+        return;
+      }
+
+      const fileUrl = await readFileAsDataUrl(file);
+      nextFiles.push({
+        fileName: file.name,
+        fileType: file.type || 'application/octet-stream',
+        fileSize: file.size,
+        fileUrl,
+      });
+    }
+
+    const totalSize = [...formData.referenceFiles, ...nextFiles]
+      .reduce((total, file) => total + file.fileSize, 0);
+
+    if (totalSize > S3_TOTAL_LIMIT_BYTES) {
+      setError(`Total upload melebihi limit bucket ${formatBytes(S3_TOTAL_LIMIT_BYTES)}`);
+      return;
+    }
+
+    setFormData((current) => ({
+      ...current,
+      referenceFiles: [...current.referenceFiles, ...nextFiles],
+    }));
+  };
+
+  const removeReferenceFile = (index: number) => {
+    setFormData((current) => ({
+      ...current,
+      referenceFiles: current.referenceFiles.filter((_, fileIndex) => fileIndex !== index),
+    }));
+  };
 
   const handleNext = () => {
     setError('');
@@ -243,12 +294,39 @@ export default function PostJobPage() {
                 </div>
                 <div>
                   <label className="block text-sm text-[#888888] mb-2">Reference Files (Optional)</label>
-                  <div className="border-2 border-dashed border-[#2A2A2A] rounded-lg p-8 text-center hover:border-[#F5C800] transition-colors cursor-pointer">
-                    <p className="text-[#888888]">Click to upload or drag and drop</p>
+                  <label className="block border-2 border-dashed border-[#2A2A2A] rounded-lg p-8 text-center hover:border-[#F5C800] transition-colors cursor-pointer">
+                    <FileUp className="w-8 h-8 text-[#F5C800] mx-auto mb-3" />
+                    <p className="text-[#888888]">Click to upload reference files</p>
                     <p className="text-sm text-[#888888] mt-2">
-                      File project akan diarahkan ke S3 private. Total storage project mengikuti limit bucket {formatBytes(S3_TOTAL_LIMIT_BYTES)}.
+                      Maksimal {formatBytes(REFERENCE_FILE_MAX_BYTES)} per file. Total storage mengikuti limit bucket {formatBytes(S3_TOTAL_LIMIT_BYTES)}.
                     </p>
-                  </div>
+                    <input
+                      type="file"
+                      multiple
+                      className="hidden"
+                      onChange={(event) => attachReferenceFiles(event.target.files)}
+                    />
+                  </label>
+                  {formData.referenceFiles.length > 0 && (
+                    <div className="mt-4 space-y-2">
+                      {formData.referenceFiles.map((file, index) => (
+                        <div key={`${file.fileName}-${index}`} className="flex items-center justify-between gap-3 bg-[#141414] border border-[#2A2A2A] rounded-lg px-4 py-3">
+                          <div>
+                            <div className="text-white text-sm font-bold">{file.fileName}</div>
+                            <div className="text-xs text-[#888888]">{formatBytes(file.fileSize)}</div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => removeReferenceFile(index)}
+                            className="p-2 text-[#888888] hover:text-[#EF4444] transition-colors"
+                            aria-label={`Remove ${file.fileName}`}
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -507,6 +585,10 @@ export default function PostJobPage() {
                     <div>
                       <span className="text-[#888888]">Detail Alamat: </span>
                       <span className="text-white">{formData.addressDetail || 'Not set'}</span>
+                    </div>
+                    <div>
+                      <span className="text-[#888888]">Reference Files: </span>
+                      <span className="text-white">{formData.referenceFiles.length} file</span>
                     </div>
                   </div>
                 </div>

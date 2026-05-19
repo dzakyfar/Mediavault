@@ -199,6 +199,7 @@ exports.updateProfile = async (req, res, next) => {
       email,
       phone,
       city,
+      avatarUrl,
       bio,
       specialty,
       startingPrice,
@@ -227,6 +228,7 @@ exports.updateProfile = async (req, res, next) => {
         ...(email ? { email: email.toLowerCase() } : {}),
         phone: phone ?? undefined,
         city: city ?? undefined,
+        avatarUrl: avatarUrl ?? undefined,
         bio: bio ?? undefined,
         specialty: specialty ?? undefined,
         startingPrice: Number.isFinite(parsedPrice) ? Math.round(parsedPrice) : undefined,
@@ -236,6 +238,52 @@ exports.updateProfile = async (req, res, next) => {
     });
 
     res.json({ user });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.changePassword = async (req, res, next) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+
+    if (!currentPassword || !newPassword) {
+      res.status(400);
+      throw new Error('Password lama dan password baru wajib diisi');
+    }
+
+    if (newPassword.length < 8) {
+      res.status(400);
+      throw new Error('Password baru minimal 8 karakter');
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.id },
+    });
+
+    if (!user) {
+      res.status(404);
+      throw new Error('User tidak ditemukan');
+    }
+
+    if (!user.passwordHash) {
+      res.status(400);
+      throw new Error('Akun Google belum memiliki password lokal');
+    }
+
+    const passwordMatches = await bcrypt.compare(currentPassword, user.passwordHash);
+    if (!passwordMatches) {
+      res.status(401);
+      throw new Error('Password lama tidak sesuai');
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, 12);
+    await prisma.user.update({
+      where: { id: req.user.id },
+      data: { passwordHash },
+    });
+
+    res.json({ message: 'Password berhasil diubah' });
   } catch (error) {
     next(error);
   }

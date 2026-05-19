@@ -78,14 +78,16 @@ Semua password akun dummy:
 12345678
 ```
 
+Seeder saat ini me-reset akun/data demo lama, lalu membuat akun dummy baru beserta portfolio dan review dummy.
+
 Daftar akun:
 
-- `client1@mediavault.test` - role CLIENT
-- `client2@mediavault.test` - role CLIENT
-- `freelancer1@mediavault.test` - role FREELANCER
-- `freelancer2@mediavault.test` - role FREELANCER
-- `freelancer3@mediavault.test` - role FREELANCER, status not available
-- `both@mediavault.test` - role BOTH
+- `rania.client@mediavault.test` - role CLIENT
+- `bima.client@mediavault.test` - role CLIENT
+- `raka.photo@mediavault.test` - role FREELANCER
+- `maya.visual@mediavault.test` - role FREELANCER
+- `dion.studio@mediavault.test` - role FREELANCER, status not available
+- `nadia.hybrid@mediavault.test` - role BOTH
 
 ## Backend Yang Sudah Ada
 
@@ -97,6 +99,7 @@ Endpoint utama:
 - `GET /api/auth/me`
 - `PATCH /api/auth/role`
 - `PATCH /api/auth/profile`
+- `PATCH /api/auth/password`
 - `DELETE /api/auth/me`
 - `GET /api/dashboard/client`
 - `GET /api/dashboard/freelancer`
@@ -107,6 +110,9 @@ Endpoint utama:
 - `PATCH /api/projects/:projectId`
 - `DELETE /api/projects/:projectId`
 - `PATCH /api/projects/:projectId/progress`
+- `POST /api/projects/:projectId/submissions`
+- `PATCH /api/projects/:projectId/submissions/:submissionId`
+- `POST /api/projects/:projectId/review`
 - `POST /api/projects/:projectId/apply`
 - `PATCH /api/projects/applications/:applicationId`
 - `GET /api/freelancers`
@@ -131,6 +137,8 @@ Model Prisma yang sudah ada:
 - `ProjectApplication`
 - `PortfolioItem`
 - `ProjectFile`
+- `FreelancerReview`
+- `ProjectSubmission`
 - `Invoice`
 - `Message`
 - `ProjectHistory`
@@ -153,7 +161,12 @@ Alur penting yang sudah ditangani:
 - Notification menggabungkan notifikasi tersimpan, unread message summary, status project aktif, dan project history.
 - Dashboard activity sudah memakai `ProjectHistory`.
 - Tracking project tersedia melalui status visual `Open`, `In Progress`, `Under Review`, `Waiting Payment`, dan `Completed`.
-- Client dan freelancer dapat melihat timeline/history project; user terkait project dapat memperbarui progress.
+- Client dan freelancer dapat melihat timeline/history project.
+- Freelancer dapat mengirim draft/bukti pekerjaan setengah jadi beserta komentar untuk direview client.
+- Client dapat approve draft atau meminta revisi. Approve memindahkan project ke `WAITING_PAYMENT`; revisi mengembalikan project ke `IN_PROGRESS`.
+- Setelah draft disetujui, client dapat memberi rating dan ulasan untuk freelancer. Karena payment masih di-hold, submit review menjadi tahap penutup sementara dan project masuk `COMPLETED`.
+- Rating dan review freelancer dihitung dari tabel `FreelancerReview` dan tampil di daftar freelancer/detail profile.
+- Post job mendukung reference files dengan batas 100MB per file. Total limit mengikuti target bucket S3 5GB, tetapi penyimpanan lokal saat ini masih inline/base64 untuk development.
 - Freelancer memiliki field `isAvailable` untuk filter available only.
 - Portfolio freelancer sudah memiliki CRUD sederhana dan tersimpan di database.
 
@@ -202,10 +215,25 @@ Perbaikan frontend yang sudah masuk:
 - Notifikasi auto-refresh dan badge notification hanya tampil kalau ada unread count.
 - Filter freelancer sudah bekerja berdasarkan search, category/specialty, dan available only.
 - Client settings sudah bisa update profile dan delete akun.
+- Client settings sudah memiliki push notification toggle lokal dengan toast custom sesuai theme.
+- Client settings sudah memiliki change password dengan captcha sederhana tanpa API eksternal.
+- Delete account memakai modal frontend custom, bukan popup browser.
 - Freelancer settings sudah bisa update profile dan availability.
+- Freelancer settings juga memakai modal delete account custom dan change password yang sama.
 - Freelancer settings sudah bisa delete akun.
-- Portfolio freelancer sudah bisa tambah, edit, dan hapus item.
+- Portfolio freelancer sudah bisa tambah, edit, dan hapus item dengan pilihan kategori dan jasa terstruktur.
+- Hapus portfolio sudah memakai modal frontend custom, bukan `window.confirm`.
+- Dashboard freelancer sudah memiliki recent activity seperti dashboard client.
+- Dashboard client sudah memiliki rekomendasi freelancer dari database.
+- Recent activity client dan freelancer sudah menampilkan tanggal dan jam.
+- Sapaan dashboard menyesuaikan jam lokal, bukan hardcoded `Good morning`.
 - Detail project client/freelancer sudah menampilkan tracking visual dan riwayat update.
+- Detail project client/freelancer sudah memiliki panel Draft Review untuk submit draft, approve, dan request revision.
+- Detail project client/freelancer sudah menampilkan reference files yang diupload saat post job.
+- Client dapat memberi rating/ulasan freelancer dari detail project saat status `Waiting Payment` atau `Completed`.
+- Settings client dan freelancer sudah bisa upload foto profile PNG/JPEG.
+- Find freelancer, Explore, Landing, Dashboard client, dan Profile freelancer sudah menampilkan avatar/rating/review count dari database.
+- Landing page sudah memakai testimonial dummy bertema MediaVault dengan animasi marquee kanan-ke-kiri.
 - Message center sudah bisa mengirim gambar PNG/JPEG maksimal 1MB dan menampilkannya sebagai gambar.
 - Role select memakai redirect replace jika user sudah punya role.
 - Logo MediaVault di dashboard mengarah ke landing page dan tetap mempertahankan session login.
@@ -246,22 +274,22 @@ Secrets production yang perlu dipastikan ada:
 - Pesan belum benar-benar realtime berbasis WebSocket/SSE. Saat ini memakai polling 4 detik.
 - Notification belum memakai channel realtime. Saat ini memakai polling 6-8 detik.
 - Upload file besar belum benar-benar terhubung ke S3 private/presigned URL walaupun model `ProjectFile` sudah ada.
-- Limit bucket S3 5GB sudah dicatat di frontend, tetapi quota belum dihitung otomatis dari S3/backend.
-- Payment/invoice masih belum lengkap sebagai alur pembayaran nyata.
+- Limit bucket S3 5GB sudah dicatat di frontend/backend, tetapi quota belum dihitung otomatis dari S3.
+- Draft review saat ini menyimpan file inline untuk mode local dengan batas 1MB; idealnya nanti dipindah ke S3 private/presigned URL.
+- Payment/invoice/earnings sengaja masih di-hold. Tombol terkait diarahkan sebagai status coming soon/placeholder.
 - Tidak ada automated test frontend/backend.
 - Backend belum memiliki validasi request yang kuat seperti schema validation.
 - Authorization detail masih perlu diperketat untuk beberapa aksi sensitif.
 - CORS masih `app.use(cors())`, belum dibatasi origin production.
 - `cd.yml` backend mengasumsikan repo ada di `/home/ec2-user/mediavault`; ini perlu disesuaikan jika username/path EC2 berbeda.
 - `NODE_ENV=production` di `.env.example` backend kurang cocok untuk local development; untuk local sebaiknya gunakan `development`.
-- Beberapa halaman masih punya konten placeholder dari rancangan awal, terutama payments, earnings, portfolio, dan sebagian detail file.
+- Beberapa halaman masih punya konten placeholder dari rancangan awal, terutama payments dan earnings.
 
 ## Prioritas Berikutnya
 
 1. Implement upload file ke S3 private dengan presigned URL.
-2. Lengkapi portfolio CRUD dan hubungkan ke upload.
-3. Ubah pesan/notifikasi dari polling ke WebSocket atau SSE jika ingin benar-benar realtime.
-4. Lengkapi invoice/payment flow sesuai kebutuhan project.
-5. Tambahkan test minimal untuk auth, project apply/accept/reject, message, dan notification.
-6. Kunci konfigurasi production: CORS origin, JWT secret kuat, EC2 path, domain/API URL, dan database production.
-7. Review UI halaman placeholder supaya seluruh flow terasa konsisten.
+2. Ubah pesan/notifikasi dari polling ke WebSocket atau SSE jika ingin benar-benar realtime.
+3. Lengkapi invoice/payment/earnings flow sesuai kebutuhan project.
+4. Tambahkan test minimal untuk auth, project apply/accept/reject, draft review, freelancer review, message, dan notification.
+5. Kunci konfigurasi production: CORS origin, JWT secret kuat, EC2 path, domain/API URL, dan database production.
+6. Review UI halaman placeholder payment/earnings supaya seluruh flow terasa konsisten saat fitur finansial mulai dikerjakan.
