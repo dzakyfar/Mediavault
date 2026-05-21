@@ -29,6 +29,11 @@ interface Project {
   }>;
 }
 
+const normalizeProject = (project: Project): Project => ({
+  ...project,
+  pendingOffers: project.pendingOffers || [],
+});
+
 export default function ClientProjects() {
   const [activeTab, setActiveTab] = useState('all');
   const [projects, setProjects] = useState<Project[]>([]);
@@ -50,7 +55,7 @@ export default function ClientProjects() {
   const loadProjects = () => {
     setLoading(true);
     apiRequest<{ projects: Project[] }>('/projects/mine?as=client')
-      .then((response) => setProjects(response.projects))
+      .then((response) => setProjects((response.projects || []).map(normalizeProject)))
       .catch((err) => setError(err instanceof Error ? err.message : 'Gagal memuat project'))
       .finally(() => setLoading(false));
   };

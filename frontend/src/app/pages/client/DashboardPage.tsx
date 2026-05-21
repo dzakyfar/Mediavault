@@ -48,6 +48,16 @@ interface ClientDashboardResponse {
   recommendedFreelancers: FreelancerCard[];
 }
 
+const normalizeDashboard = (dashboard: ClientDashboardResponse): ClientDashboardResponse => ({
+  ...dashboard,
+  projects: (dashboard.projects || []).map((project) => ({
+    ...project,
+    pendingOffers: project.pendingOffers || [],
+  })),
+  activities: dashboard.activities || [],
+  recommendedFreelancers: dashboard.recommendedFreelancers || [],
+});
+
 export default function ClientDashboard() {
   const [dashboard, setDashboard] = useState<ClientDashboardResponse | null>(null);
   const [error, setError] = useState('');
@@ -58,7 +68,7 @@ export default function ClientDashboard() {
 
   const loadDashboard = () => {
     apiRequest<ClientDashboardResponse>('/dashboard/client')
-      .then(setDashboard)
+      .then((response) => setDashboard(normalizeDashboard(response)))
       .catch((err) => setError(err instanceof Error ? err.message : 'Gagal memuat dashboard'));
   };
 

@@ -36,6 +36,24 @@ interface FreelancerProfile {
   }>;
 }
 
+const normalizeFreelancerProfile = (freelancer: Partial<FreelancerProfile>): FreelancerProfile => ({
+  ...freelancer,
+  id: freelancer.id || '',
+  name: freelancer.name || freelancer.fullName || 'Freelancer',
+  fullName: freelancer.fullName || freelancer.name || 'Freelancer',
+  avatarUrl: freelancer.avatarUrl || null,
+  specialty: freelancer.specialty || 'Jasa kreatif',
+  services: freelancer.services || [],
+  bio: freelancer.bio || 'Profile freelancer belum dilengkapi.',
+  rating: freelancer.rating ?? null,
+  reviewCount: freelancer.reviewCount || 0,
+  price: freelancer.price || 'Rp 0',
+  city: freelancer.city || '-',
+  available: freelancer.available ?? true,
+  portfolioItems: freelancer.portfolioItems || [],
+  reviews: freelancer.reviews || [],
+});
+
 export default function FreelancerProfilePage() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -59,11 +77,12 @@ export default function FreelancerProfilePage() {
     if (!id) return;
     apiRequest<{ freelancer: FreelancerProfile }>(`/freelancers/${id}`, { auth: false })
       .then((response) => {
-        setFreelancer(response.freelancer);
+        const nextFreelancer = normalizeFreelancerProfile(response.freelancer);
+        setFreelancer(nextFreelancer);
         setOrderData((current) => ({
           ...current,
-          serviceType: response.freelancer.services[0] || '',
-          city: response.freelancer.city === '-' ? '' : response.freelancer.city,
+          serviceType: nextFreelancer.services[0] || '',
+          city: nextFreelancer.city === '-' ? '' : nextFreelancer.city,
         }));
       })
       .catch((err) => setError(err instanceof Error ? err.message : 'Gagal memuat profile freelancer'))
@@ -88,7 +107,7 @@ export default function FreelancerProfilePage() {
         method: 'POST',
         body: JSON.stringify(orderData),
       });
-      navigate('/dashboard/client/messages');
+      navigate(`/dashboard/client/messages?peerId=${id}&peerName=${encodeURIComponent(freelancer?.fullName || 'Freelancer')}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Gagal memesan jasa');
     }
@@ -280,7 +299,10 @@ export default function FreelancerProfilePage() {
                   >
                     {isOwnProfile ? 'Profile Sendiri' : 'Kirim Pesanan'}
                   </button>
-                  <Link to={user ? '/dashboard/client/messages' : '/login'} className="w-full flex items-center justify-center gap-2 border border-[#888888] text-white rounded-lg py-3 hover:border-[#F5C800] hover:text-[#F5C800] transition-colors">
+                  <Link
+                    to={user ? `/dashboard/client/messages?peerId=${freelancer.id}&peerName=${encodeURIComponent(freelancer.fullName)}` : '/login'}
+                    className="w-full flex items-center justify-center gap-2 border border-[#888888] text-white rounded-lg py-3 hover:border-[#F5C800] hover:text-[#F5C800] transition-colors"
+                  >
                     <MessageCircle className="w-4 h-4" />
                     Message
                   </Link>
