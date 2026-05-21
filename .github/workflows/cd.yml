@@ -78,4 +78,13 @@ jobs:
               && pm2 restart mediavault-backend --update-env \
               || pm2 start server.js --name mediavault-backend --update-env
             pm2 save
-            curl -f http://localhost:5000/api/health
+            for i in {1..30}; do
+              if curl -fsS http://127.0.0.1:5000/api/health; then
+                exit 0
+              fi
+              sleep 2
+            done
+
+            pm2 status
+            pm2 logs mediavault-backend --lines 80 --nostream
+            exit 1
