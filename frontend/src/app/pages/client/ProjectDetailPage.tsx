@@ -32,6 +32,10 @@ interface ProjectDetail {
   pendingOffers: Array<{
     id: string;
     freelancer: string;
+    freelancerFullName: string;
+    freelancerId: string;
+    freelancerSpecialty: string | null;
+    rating: string | null;
     serviceType: string | null;
     message: string | null;
   }>;
@@ -77,6 +81,9 @@ export default function ClientProjectDetail() {
     rating: '5',
     comment: '',
   });
+  const [confirmingOffer, setConfirmingOffer] = useState<ProjectDetail['pendingOffers'][number] | null>(null);
+  const [confirmText, setConfirmText] = useState('');
+  const [showAllApplicants, setShowAllApplicants] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -86,15 +93,61 @@ export default function ClientProjectDetail() {
       .finally(() => setLoading(false));
   }, [id]);
 
-  const respondOffer = async (applicationId: string, action: 'accept' | 'decline') => {
-    if (!id) return;
-    await apiRequest(`/projects/applications/${applicationId}`, {
-      method: 'PATCH',
-      body: JSON.stringify({ action }),
-    });
-    const response = await apiRequest<{ project: ProjectDetail }>(`/projects/${id}`);
-    setProject(response.project);
+  const confirmOffer = async () => {
+    if (!id || !confirmingOffer || confirmText.trim().toLowerCase() !== 'konfirmasi') return;
+
+    try {
+      setError('');
+      await apiRequest(`/projects/applications/${confirmingOffer.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ action: 'accept' }),
+      });
+      const response = await apiRequest<{ project: ProjectDetail }>(`/projects/${id}`);
+      setProject(response.project);
+      setConfirmingOffer(null);
+      setConfirmText('');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Gagal mengkonfirmasi freelancer');
+    }
   };
+
+  const openConfirm = (offer: ProjectDetail['pendingOffers'][number]) => {
+    setConfirmingOffer(offer);
+    setConfirmText('');
+  };
+
+  const ApplicantCard = ({ offer }: { offer: ProjectDetail['pendingOffers'][number] }) => (
+    <div className="min-w-[280px] bg-[#141414] rounded-lg p-4 border border-[#2A2A2A]">
+      <div className="flex items-start justify-between gap-3 mb-3">
+        <div>
+          <div className="font-bold text-white">{offer.freelancerFullName || offer.freelancer}</div>
+          <div className="text-sm text-[#888888]">{offer.freelancerSpecialty || offer.serviceType || project?.serviceType || 'Jasa kreatif'}</div>
+        </div>
+        <span className="text-sm text-[#F5C800]">{offer.rating ? `★ ${offer.rating}` : 'Baru'}</span>
+      </div>
+      {offer.message && <p className="text-sm text-[#888888] mb-4 line-clamp-2">{offer.message}</p>}
+      <div className="flex flex-wrap gap-2">
+        <Link
+          to="/dashboard/client/messages"
+          className="px-3 py-2 border border-[#888888] text-white rounded-lg text-sm hover:border-[#F5C800] hover:text-[#F5C800] transition-colors"
+        >
+          Message
+        </Link>
+        <Link
+          to={`/freelancer/${offer.freelancerId}`}
+          className="px-3 py-2 border border-[#888888] text-white rounded-lg text-sm hover:border-[#F5C800] hover:text-[#F5C800] transition-colors"
+        >
+          View Profile
+        </Link>
+        <button
+          onClick={() => openConfirm(offer)}
+          className="px-3 py-2 bg-[#F5C800] text-black rounded-lg text-sm font-bold hover:shadow-[0_0_10px_rgba(245,200,0,0.4)] transition-all"
+        >
+          Confirm
+        </button>
+      </div>
+    </div>
+  );
 
   const submitFreelancerReview = async () => {
     if (!id) return;
@@ -178,6 +231,27 @@ export default function ClientProjectDetail() {
                 </div>
               </div>
             </div>
+
+            {project.pendingOffers.length > 0 && (
+              <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-8">
+                <div className="flex items-center justify-between gap-4 mb-4">
+                  <h2 className="text-3xl" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>Freelancer Requests</h2>
+                  {project.pendingOffers.length > 3 && (
+                    <button
+                      onClick={() => setShowAllApplicants(true)}
+                      className="px-4 py-2 border border-[#888888] text-white rounded-lg text-sm hover:border-[#F5C800] hover:text-[#F5C800] transition-colors"
+                    >
+                      View All
+                    </button>
+                  )}
+                </div>
+                <div className="flex gap-3 overflow-x-auto pb-2">
+                  {project.pendingOffers.slice(0, 3).map((offer) => (
+                    <ApplicantCard key={offer.id} offer={offer} />
+                  ))}
+                </div>
+              </div>
+            )}
 
             <ProjectTracker
               projectId={project.id}
@@ -278,33 +352,65 @@ export default function ClientProjectDetail() {
               </div>
             )}
 
-            {project.pendingOffers.length > 0 && (
-              <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-8">
-                <h2 className="text-3xl mb-4" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>Pending Freelancer Requests</h2>
-                <div className="space-y-3">
-                  {project.pendingOffers.map((offer) => (
-                    <div key={offer.id} className="flex items-center justify-between gap-4 bg-[#141414] rounded-lg p-4">
-                      <div>
-                        <div className="font-bold text-white">{offer.freelancer}</div>
-                        <div className="text-sm text-[#888888]">{offer.serviceType || project.serviceType || 'Jasa kreatif'}</div>
-                        {offer.message && <p className="text-sm text-[#888888] mt-1">{offer.message}</p>}
-                      </div>
-                      <div className="flex gap-2">
-                        <button onClick={() => respondOffer(offer.id, 'accept')} className="px-4 py-2 bg-[#22C55E] text-white rounded-lg text-sm font-bold">
-                          Accept Offer
-                        </button>
-                        <button onClick={() => respondOffer(offer.id, 'decline')} className="px-4 py-2 border border-[#EF4444] text-[#EF4444] rounded-lg text-sm">
-                          Decline
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
         )}
       </div>
+
+      {showAllApplicants && project && (
+        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
+          <div className="w-full max-w-4xl max-h-[85vh] overflow-y-auto bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-6">
+            <div className="flex items-center justify-between gap-4 mb-5">
+              <h2 className="text-3xl" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>All Freelancer Requests</h2>
+              <button
+                onClick={() => setShowAllApplicants(false)}
+                className="px-4 py-2 border border-[#888888] text-white rounded-lg text-sm hover:border-[#F5C800] hover:text-[#F5C800] transition-colors"
+              >
+                Close
+              </button>
+            </div>
+            <div className="grid md:grid-cols-2 gap-3">
+              {project.pendingOffers.map((offer) => (
+                <ApplicantCard key={offer.id} offer={offer} />
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {confirmingOffer && (
+        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
+          <div className="w-full max-w-lg bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-6">
+            <h2 className="text-3xl mb-3" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>
+              Confirm Freelancer
+            </h2>
+            <p className="text-[#888888] mb-4">
+              Anda yakin ingin mempekerjakan {confirmingOffer.freelancerFullName || confirmingOffer.freelancer}? Tulis "konfirmasi" di bawah untuk melanjutkan.
+            </p>
+            <input
+              type="text"
+              value={confirmText}
+              onChange={(event) => setConfirmText(event.target.value)}
+              className="w-full bg-[#141414] border border-[#2A2A2A] rounded-lg px-4 py-3 text-white placeholder-[#888888] focus:border-[#F5C800] focus:outline-none"
+              placeholder="konfirmasi"
+            />
+            <div className="flex justify-end gap-3 mt-5">
+              <button
+                onClick={() => setConfirmingOffer(null)}
+                className="px-5 py-2 border border-[#888888] text-white rounded-lg text-sm hover:border-[#F5C800] hover:text-[#F5C800] transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmOffer}
+                disabled={confirmText.trim().toLowerCase() !== 'konfirmasi'}
+                className="px-5 py-2 bg-[#F5C800] text-black font-bold rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Ya, saya yakin
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </DashboardLayout>
   );
 }
