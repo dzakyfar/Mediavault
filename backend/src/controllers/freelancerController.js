@@ -10,6 +10,7 @@ exports.listFreelancers = async (req, res, next) => {
       select: {
         id: true,
         fullName: true,
+        avatarUrl: true,
         specialty: true,
         city: true,
         startingPrice: true,
@@ -19,17 +20,34 @@ exports.listFreelancers = async (req, res, next) => {
       take: 24,
     });
 
+    const reviewStats = freelancers.length
+      ? await prisma.freelancerReview.groupBy({
+        by: ['freelancerId'],
+        where: { freelancerId: { in: freelancers.map((freelancer) => freelancer.id) } },
+        _avg: { rating: true },
+        _count: { id: true },
+      })
+      : [];
+
+    const reviewMap = new Map(reviewStats.map((stat) => [stat.freelancerId, stat]));
+
     res.json({
-      freelancers: freelancers.map((freelancer) => ({
+      freelancers: freelancers.map((freelancer) => {
+        const stat = reviewMap.get(freelancer.id);
+
+        return {
         id: freelancer.id,
         name: shortName(freelancer.fullName),
         fullName: freelancer.fullName,
+        avatarUrl: freelancer.avatarUrl,
         specialty: freelancer.specialty || 'Belum mengisi spesialisasi',
-        rating: null,
+        rating: stat?._avg.rating ? stat._avg.rating.toFixed(1) : null,
+        reviewCount: stat?._count.id || 0,
         price: formatCurrency(freelancer.startingPrice || 0),
         city: freelancer.city || '-',
         available: freelancer.isAvailable,
-      })),
+      };
+      }),
     });
   } catch (error) {
     next(error);
@@ -46,6 +64,7 @@ exports.getFreelancerById = async (req, res, next) => {
       select: {
         id: true,
         fullName: true,
+        avatarUrl: true,
         email: true,
         specialty: true,
         city: true,
@@ -57,6 +76,7 @@ exports.getFreelancerById = async (req, res, next) => {
             id: true,
             title: true,
             category: true,
+            serviceType: true,
             description: true,
             fileUrl: true,
           },
@@ -70,6 +90,19 @@ exports.getFreelancerById = async (req, res, next) => {
       throw new Error('Freelancer tidak ditemukan');
     }
 
+    const [reviewStats, reviews] = await Promise.all([
+      prisma.freelancerReview.aggregate({
+        where: { freelancerId: freelancer.id },
+        _avg: { rating: true },
+        _count: { id: true },
+      }),
+      prisma.freelancerReview.findMany({
+        where: { freelancerId: freelancer.id },
+        orderBy: { createdAt: 'desc' },
+        take: 6,
+      }),
+    ]);
+
     const services = (freelancer.specialty || 'Photography')
       .split(/[|,]/)
       .map((service) => service.trim())
@@ -80,14 +113,22 @@ exports.getFreelancerById = async (req, res, next) => {
         id: freelancer.id,
         name: shortName(freelancer.fullName),
         fullName: freelancer.fullName,
+        avatarUrl: freelancer.avatarUrl,
         specialty: freelancer.specialty || 'Belum mengisi spesialisasi',
         services: services.length ? services : ['Photography'],
         bio: freelancer.bio || 'Freelancer ini belum menulis bio, tetapi profile tetap bisa dihubungi.',
-        rating: null,
+        rating: reviewStats._avg.rating ? reviewStats._avg.rating.toFixed(1) : null,
+        reviewCount: reviewStats._count.id,
         price: formatCurrency(freelancer.startingPrice || 0),
         city: freelancer.city || '-',
         available: freelancer.isAvailable,
         portfolioItems: freelancer.portfolioItems,
+        reviews: reviews.map((review) => ({
+          id: review.id,
+          rating: review.rating,
+          comment: review.comment,
+          createdAt: review.createdAt,
+        })),
       },
     });
   } catch (error) {
@@ -131,6 +172,11 @@ exports.orderFreelancerService = async (req, res, next) => {
       throw new Error('Freelancer tidak ditemukan');
     }
 
+    if (freelancer.id === req.user.id) {
+      res.status(400);
+      throw new Error('Tidak bisa memesan jasa dari akun sendiri');
+    }
+
     const amount = Number(budget);
     const project = await prisma.project.create({
       data: {
@@ -168,6 +214,15 @@ exports.orderFreelancerService = async (req, res, next) => {
           senderId: req.user.id,
           receiverId: freelancer.id,
           body: `Saya ingin memesan jasa ${serviceType}: ${title}. ${description}`,
+        },
+      }),
+      prisma.projectHistory.create({
+        data: {
+          projectId: project.id,
+          actorId: req.user.id,
+          title: 'Pesanan jasa dibuat',
+          body: `${req.user.fullName} memesan jasa ${serviceType} ke ${freelancer.fullName}`,
+          eventType: 'DIRECT_ORDER_CREATED',
         },
       }),
     ]);

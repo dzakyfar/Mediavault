@@ -2,8 +2,14 @@ const express = require('express');
 const {
   listMyProjects,
   createProject,
+  updateProject,
+  deleteProject,
   listOpenProjects,
   getProjectById,
+  updateProjectProgress,
+  submitProjectReview,
+  reviewProjectSubmission,
+  reviewFreelancer,
   applyToProject,
   respondToApplication,
   confirmProjectByFreelancer,
@@ -16,6 +22,12 @@ router.get('/mine', protect, listMyProjects);
 router.post('/', protect, requireRole('CLIENT', 'BOTH'), createProject);
 router.get('/open', protect, requireRole('FREELANCER', 'BOTH'), listOpenProjects);
 router.get('/:projectId', protect, getProjectById);
+router.patch('/:projectId', protect, requireRole('CLIENT', 'BOTH'), updateProject);
+router.delete('/:projectId', protect, requireRole('CLIENT', 'BOTH'), deleteProject);
+router.patch('/:projectId/progress', protect, updateProjectProgress);
+router.post('/:projectId/submissions', protect, requireRole('FREELANCER', 'BOTH'), submitProjectReview);
+router.patch('/:projectId/submissions/:submissionId', protect, requireRole('CLIENT', 'BOTH'), reviewProjectSubmission);
+router.post('/:projectId/review', protect, requireRole('CLIENT', 'BOTH'), reviewFreelancer);
 router.post('/:projectId/apply', protect, requireRole('FREELANCER', 'BOTH'), applyToProject);
 router.patch('/:projectId/freelancer-confirm', protect, requireRole('FREELANCER', 'BOTH'), confirmProjectByFreelancer);
 router.patch('/applications/:applicationId', protect, requireRole('CLIENT', 'BOTH'), respondToApplication);

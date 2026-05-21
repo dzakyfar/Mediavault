@@ -27,6 +27,7 @@ interface FreelancerDashboardResponse {
   };
   projects: Project[];
   requests: Project[];
+  activities: Array<{ text: string; time: string }>;
 }
 
 export default function FreelancerDashboard() {
@@ -49,6 +50,7 @@ export default function FreelancerDashboard() {
 
   const projects = dashboard?.projects ?? [];
   const newRequests = dashboard?.requests ?? [];
+  const activities = dashboard?.activities ?? [];
 
   return (
     <DashboardLayout userType="freelancer">
@@ -116,17 +118,17 @@ export default function FreelancerDashboard() {
                   </div>
 
                   <div className="flex items-center justify-between">
-                    <div className="text-sm text-[#888888]">📅 Due: {project.due}</div>
+                    <div className="text-sm text-[#888888]">Due: {project.due}</div>
                     <div className="flex gap-2">
                       <Link
                         to={`/dashboard/freelancer/projects/${project.id}`}
-                        className="px-4 py-2 border border-[#888888] rounded-lg text-sm hover:border-[#F5C800] hover:text-[#F5C800] transition-colors"
+                        className="px-4 py-2 border border-[#888888] text-white rounded-lg text-sm hover:border-[#F5C800] hover:text-[#F5C800] transition-colors"
                       >
                         View
                       </Link>
                       <Link
                         to="/dashboard/freelancer/messages"
-                        className="px-4 py-2 border border-[#888888] rounded-lg text-sm hover:border-[#F5C800] hover:text-[#F5C800] transition-colors"
+                        className="px-4 py-2 border border-[#888888] text-white rounded-lg text-sm hover:border-[#F5C800] hover:text-[#F5C800] transition-colors"
                       >
                         Message
                       </Link>
@@ -143,7 +145,7 @@ export default function FreelancerDashboard() {
                 New Requests
               </h2>
               <Link to="/dashboard/freelancer/requests" className="text-[#F5C800] hover:underline font-bold">
-                See All →
+                See All
               </Link>
             </div>
             <div className="space-y-4">
@@ -204,6 +206,25 @@ export default function FreelancerDashboard() {
             >
               View Public Profile
             </Link>
+            <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-6">
+              <h3 className="text-2xl font-bold mb-4" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>
+                Recent Activity
+              </h3>
+              <div className="space-y-4">
+                {activities.length === 0 && (
+                  <p className="text-sm text-[#888888]">Belum ada aktivitas dari database.</p>
+                )}
+                {activities.map((activity, index) => (
+                  <div key={index} className="flex gap-3">
+                    <div className="flex-shrink-0 w-2 h-2 rounded-full mt-2 bg-[#F5C800]" />
+                    <div>
+                      <p className="text-sm text-white">{activity.text}</p>
+                      <p className="text-xs text-[#888888] mt-1">{activity.time}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       </div>
