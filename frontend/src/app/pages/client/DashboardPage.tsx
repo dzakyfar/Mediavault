@@ -28,8 +28,10 @@ interface DashboardProject {
 interface FreelancerCard {
   id: string;
   name: string;
+  avatarUrl?: string | null;
   specialty: string;
   rating: string | null;
+  reviewCount: number;
   price: string;
   available: boolean;
 }
@@ -139,7 +141,7 @@ export default function ClientDashboard() {
                         <div className="font-bold text-white">{project.freelancer}</div>
                         <div className="text-sm text-[#888888]">{project.title}</div>
                         <div className="text-xs text-[#888888] mt-1">
-                          {project.serviceType || 'Jasa kreatif'} • {project.city || '-'}
+                          {project.serviceType || 'Jasa kreatif'} - {project.city || '-'}
                         </div>
                       </div>
                   </div>
@@ -162,11 +164,11 @@ export default function ClientDashboard() {
                 </div>
 
                 <div className="flex items-center justify-between">
-                  <div className="text-sm text-[#888888]">📅 Pelaksanaan: {project.eventDate} • Deadline: {project.due}</div>
+                  <div className="text-sm text-[#888888]">Pelaksanaan: {project.eventDate} - Deadline: {project.due}</div>
                   <div className="flex gap-2">
                     <Link
                       to={`/dashboard/client/projects/${project.id}`}
-                      className="px-4 py-2 border border-[#888888] rounded-lg text-sm hover:border-[#F5C800] hover:text-[#F5C800] transition-colors"
+                      className="px-4 py-2 border border-[#888888] text-white rounded-lg text-sm hover:border-[#F5C800] hover:text-[#F5C800] transition-colors"
                     >
                       View
                     </Link>
@@ -205,7 +207,9 @@ export default function ClientDashboard() {
               {recommendedFreelancers.map((freelancer) => (
                 <div key={freelancer.id} className="bg-[#141414] rounded-xl p-4 border border-[#2A2A2A] hover:border-[#F5C800] transition-all">
                   <div className="relative w-full aspect-square bg-[#1A1A1A] rounded-lg mb-3 flex items-center justify-center">
-                    <Camera className="w-8 h-8 text-[#888888]" />
+                    {freelancer.avatarUrl
+                      ? <img src={freelancer.avatarUrl} alt={freelancer.name} className="w-full h-full object-cover rounded-lg" />
+                      : <Camera className="w-8 h-8 text-[#888888]" />}
                     {/* Status Badge */}
                     <div className="absolute top-2 right-2">
                       {freelancer.available ? (
@@ -226,11 +230,12 @@ export default function ClientDashboard() {
                   <div className="flex items-center gap-1 mb-2 text-sm">
                     <Star className="w-4 h-4 text-[#F5C800] fill-current" />
                     <span>{freelancer.rating ?? 'Baru'}</span>
+                    {freelancer.reviewCount > 0 && <span className="text-[#888888]">({freelancer.reviewCount})</span>}
                   </div>
                   <p className="text-[#F5C800] font-bold text-sm mb-3">From {freelancer.price}</p>
                   <Link
                     to={`/freelancer/${freelancer.id}`}
-                    className="block w-full px-3 py-2 border border-[#888888] rounded-lg text-sm text-center hover:border-[#F5C800] hover:text-[#F5C800] transition-colors"
+                    className="block w-full px-3 py-2 border border-[#888888] text-white rounded-lg text-sm text-center hover:border-[#F5C800] hover:text-[#F5C800] transition-colors"
                   >
                     View Profile
                   </Link>

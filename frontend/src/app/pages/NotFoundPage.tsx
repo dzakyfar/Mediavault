@@ -38,11 +38,11 @@ export default function NotFoundPage() {
           <p className="text-sm text-[#888888] mb-2">Quick Links:</p>
           <div className="flex flex-wrap gap-2 justify-center">
             <Link to="/explore" className="text-[#F5C800] hover:underline text-sm">Explore</Link>
-            <span className="text-[#888888]">•</span>
+            <span className="text-[#888888]">/</span>
             <Link to="/pricing" className="text-[#F5C800] hover:underline text-sm">Pricing</Link>
-            <span className="text-[#888888]">•</span>
+            <span className="text-[#888888]">/</span>
             <Link to="/login" className="text-[#F5C800] hover:underline text-sm">Login</Link>
-            <span className="text-[#888888]">•</span>
+            <span className="text-[#888888]">/</span>
             <Link to="/register" className="text-[#F5C800] hover:underline text-sm">Register</Link>
           </div>
         </div>

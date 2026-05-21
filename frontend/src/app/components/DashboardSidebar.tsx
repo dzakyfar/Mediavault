@@ -40,14 +40,16 @@ export default function DashboardSidebar({ userType, userName }: DashboardSideba
   return (
     <div className="w-60 h-screen fixed left-0 top-0 bg-[#141414] border-r border-[#2A2A2A] flex flex-col">
       <div className="p-6">
-        <div className="flex items-center gap-2 mb-8">
+        <Link to="/" className="flex items-center gap-2 mb-8">
           <Zap className="w-6 h-6 text-[#F5C800]" />
           <span className="text-xl font-bold" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>MediaVault</span>
-        </div>
+        </Link>
 
         <div className="flex items-center gap-3 mb-8">
-          <div className="w-12 h-12 rounded-full bg-[#1A1A1A] flex items-center justify-center text-[#F5C800] font-bold">
-            {userName.charAt(0)}
+          <div className="w-12 h-12 rounded-full bg-[#1A1A1A] overflow-hidden flex items-center justify-center text-[#F5C800] font-bold">
+            {user?.avatarUrl
+              ? <img src={user.avatarUrl} alt={userName} className="w-full h-full object-cover" />
+              : userName.charAt(0)}
           </div>
           <div>
             <div className="font-bold text-white">{userName}</div>

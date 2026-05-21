@@ -20,6 +20,14 @@ const statusColor = {
   CANCELLED: 'bg-[#EF4444] text-white',
 };
 
+const projectStages = [
+  { status: 'OPEN', label: 'Open', progress: 0 },
+  { status: 'IN_PROGRESS', label: 'In Progress', progress: 25 },
+  { status: 'UNDER_REVIEW', label: 'Under Review', progress: 60 },
+  { status: 'WAITING_PAYMENT', label: 'Waiting Payment', progress: 85 },
+  { status: 'COMPLETED', label: 'Completed', progress: 100 },
+];
+
 const currency = new Intl.NumberFormat('id-ID', {
   style: 'currency',
   currency: 'IDR',
@@ -37,6 +45,17 @@ const formatDate = (date) => {
     day: '2-digit',
     month: 'short',
     year: 'numeric',
+  }).format(date);
+};
+
+const formatDateTime = (date) => {
+  if (!date) return '-';
+  return new Intl.DateTimeFormat('id-ID', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
   }).format(date);
 };
 
@@ -88,6 +107,45 @@ const serializeProject = (project) => ({
     rating: null,
     createdAt: formatDate(application.createdAt),
   })) || [],
+  tracking: projectStages.map((stage) => ({
+    ...stage,
+    done: project.progress >= stage.progress || project.status === stage.status,
+    active: project.status === stage.status,
+  })),
+  histories: project.histories?.map((history) => ({
+    id: history.id,
+    title: history.title,
+    body: history.body,
+    eventType: history.eventType,
+    createdAt: formatDate(history.createdAt),
+  })) || [],
+  submissions: project.submissions?.map((submission) => ({
+    id: submission.id,
+    comment: submission.comment,
+    fileUrl: submission.fileUrl,
+    fileName: submission.fileName,
+    fileType: submission.fileType,
+    fileSize: submission.fileSize,
+    status: submission.status,
+    reviewComment: submission.reviewComment,
+    reviewedAt: submission.reviewedAt ? formatDateTime(submission.reviewedAt) : null,
+    createdAt: formatDateTime(submission.createdAt),
+    isPending: submission.status === 'PENDING',
+  })) || [],
+  referenceFiles: project.files?.map((file) => ({
+    id: file.id,
+    fileName: file.fileName,
+    fileUrl: file.fileKey,
+    contentType: file.contentType,
+    size: file.size,
+    createdAt: formatDateTime(file.createdAt),
+  })) || [],
+  review: project.reviews?.[0] ? {
+    id: project.reviews[0].id,
+    rating: project.reviews[0].rating,
+    comment: project.reviews[0].comment,
+    createdAt: formatDateTime(project.reviews[0].createdAt),
+  } : null,
 });
 
 module.exports = {

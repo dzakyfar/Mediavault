@@ -124,8 +124,8 @@ export default function ClientProjects() {
                     </div>
                     by {project.freelancer}
                   </div>
-                  <span>📍 {project.city || '-'}</span>
-                  <span>🎯 {project.serviceType || project.category}</span>
+                  <span>Location: {project.city || '-'}</span>
+                  <span>Service: {project.serviceType || project.category}</span>
                 </div>
               </div>
               <span className={`px-4 py-2 rounded-full text-sm font-bold ${project.statusColor}`}>
@@ -148,25 +148,22 @@ export default function ClientProjects() {
 
             <div className="flex items-center justify-between flex-wrap gap-4">
               <div className="flex gap-6 text-sm">
-                <span className="text-[#888888]">📅 Pelaksanaan: {project.eventDate}</span>
-                <span className="text-[#888888]">⏳ Deadline: {project.due}</span>
-                <span className="text-[#888888]">📁 {project.files} Files Uploaded</span>
-                <span className="text-[#888888]">💳 {project.amount}</span>
+                <span className="text-[#888888]">Pelaksanaan: {project.eventDate}</span>
+                <span className="text-[#888888]">Deadline: {project.due}</span>
+                <span className="text-[#888888]">{project.files} Files Uploaded</span>
+                <span className="text-[#888888]">{project.amount}</span>
               </div>
               <div className="flex gap-2">
                 <Link
                   to={`/dashboard/client/projects/${project.id}`}
-                  className="px-4 py-2 border border-[#888888] rounded-lg text-sm hover:border-[#F5C800] hover:text-[#F5C800] transition-colors"
+                  className="px-4 py-2 border border-[#888888] text-white rounded-lg text-sm hover:border-[#F5C800] hover:text-[#F5C800] transition-colors"
                 >
                   View Detail
                 </Link>
                 {project.status === 'Waiting Payment' && (
-                  <Link
-                    to="/dashboard/client/payments"
-                    className="px-4 py-2 bg-[#F5C800] text-black font-bold rounded-lg text-sm hover:shadow-[0_0_10px_rgba(245,200,0,0.4)] transition-all"
-                  >
-                    Pay Now
-                  </Link>
+                  <span className="px-4 py-2 bg-[#2A2A2A] text-[#888888] font-bold rounded-lg text-sm cursor-not-allowed">
+                    Payment Soon
+                  </span>
                 )}
               </div>
             </div>

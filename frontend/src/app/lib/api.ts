@@ -4,6 +4,7 @@ export interface CurrentUser {
   id: string;
   fullName: string;
   email: string;
+  avatarUrl?: string | null;
   role: UserRole | null;
   phone?: string | null;
   city?: string | null;
@@ -15,6 +16,7 @@ export interface CurrentUser {
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 const TOKEN_KEY = 'mediavault_token';
+const API_TIMEOUT_MS = 120000;
 
 export const getStoredToken = () => localStorage.getItem(TOKEN_KEY);
 
@@ -33,6 +35,8 @@ interface ApiOptions extends RequestInit {
 export async function apiRequest<T>(path: string, options: ApiOptions = {}): Promise<T> {
   const token = getStoredToken();
   const headers = new Headers(options.headers);
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), API_TIMEOUT_MS);
 
   if (!headers.has('Content-Type') && options.body) {
     headers.set('Content-Type', 'application/json');
@@ -42,10 +46,22 @@ export async function apiRequest<T>(path: string, options: ApiOptions = {}): Pro
     headers.set('Authorization', `Bearer ${token}`);
   }
 
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    ...options,
-    headers,
-  });
+  let response: Response;
+
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, {
+      ...options,
+      headers,
+      signal: options.signal || controller.signal,
+    });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new Error('Request timeout. Pastikan backend berjalan dan VITE_API_URL sudah benar.');
+    }
+    throw error;
+  } finally {
+    window.clearTimeout(timeout);
+  }
 
   const contentType = response.headers.get('content-type') || '';
   const payload = contentType.includes('application/json')

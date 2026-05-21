@@ -18,8 +18,11 @@ interface AuthContextValue {
   loading: boolean;
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<CurrentUser>;
+  loginWithGoogle: (credential: string) => Promise<CurrentUser>;
   register: (payload: { fullName: string; email: string; password: string }) => Promise<CurrentUser>;
   updateRole: (role: UserRole) => Promise<CurrentUser>;
+  updateProfile: (payload: Partial<CurrentUser>) => Promise<CurrentUser>;
+  deleteAccount: () => Promise<void>;
   logout: () => void;
 }
 
@@ -89,6 +92,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
       setUser(response.user);
       return response.user;
+    },
+    async loginWithGoogle(credential) {
+      const response = await apiRequest<AuthResponse>('/auth/google', {
+        method: 'POST',
+        auth: false,
+        body: JSON.stringify({ credential }),
+      });
+      setStoredToken(response.token);
+      setUser(response.user);
+      return response.user;
+    },
+    async updateProfile(payload) {
+      const response = await apiRequest<{ user: CurrentUser }>('/auth/profile', {
+        method: 'PATCH',
+        body: JSON.stringify(payload),
+      });
+      setUser(response.user);
+      return response.user;
+    },
+    async deleteAccount() {
+      await apiRequest('/auth/me', { method: 'DELETE' });
+      clearStoredToken();
+      setUser(null);
     },
     logout() {
       clearStoredToken();

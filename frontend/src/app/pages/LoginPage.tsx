@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router';
 import { Zap, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { dashboardPathForRole } from '../lib/api';
+import { requestGoogleCredential } from '../lib/googleAuth';
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
@@ -11,7 +12,7 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { login, loginWithGoogle } = useAuth();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,6 +29,20 @@ export default function LoginPage() {
       navigate(dashboardPathForRole(user.role));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login gagal');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    try {
+      setError('');
+      setSubmitting(true);
+      const credential = await requestGoogleCredential();
+      const user = await loginWithGoogle(credential);
+      navigate(dashboardPathForRole(user.role));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Login Google gagal');
     } finally {
       setSubmitting(false);
     }
@@ -69,7 +84,12 @@ export default function LoginPage() {
             </Link>
           </p>
 
-          <button className="w-full bg-white text-black font-bold py-3 rounded-full mb-6 hover:bg-gray-100 transition-colors flex items-center justify-center gap-2">
+          <button
+            type="button"
+            onClick={handleGoogleLogin}
+            disabled={submitting}
+            className="w-full bg-white text-black border border-[#2A2A2A] font-bold py-3 rounded-full mb-6 hover:bg-gray-100 transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
+          >
             <span>G</span>
             Continue with Google
           </button>
@@ -114,7 +134,7 @@ export default function LoginPage() {
 
             <div className="flex justify-end mb-6">
               <a href="#" className="text-[#888888] text-sm hover:text-[#F5C800] transition-colors">
-                Forgot passworrrd?
+                Forgot password?
               </a>
             </div>
 

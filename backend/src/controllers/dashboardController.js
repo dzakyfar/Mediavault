@@ -1,9 +1,17 @@
 const prisma = require('../config/prisma');
-const { formatCurrency, serializeProject } = require('../utils/formatters');
+const { formatCurrency, serializeProject, shortName } = require('../utils/formatters');
+
+const formatActivityTime = (date) => new Intl.DateTimeFormat('id-ID', {
+  day: '2-digit',
+  month: 'short',
+  year: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit',
+}).format(date);
 
 exports.getClientDashboard = async (req, res, next) => {
   try {
-    const [projects, unreadMessages, pendingInvoices] = await Promise.all([
+    const [projects, unreadMessages, pendingInvoices, histories, freelancers] = await Promise.all([
       prisma.project.findMany({
         where: { clientId: req.user.id },
         include: {
@@ -40,7 +48,42 @@ exports.getClientDashboard = async (req, res, next) => {
         },
         _sum: { amount: true },
       }),
+      prisma.projectHistory.findMany({
+        where: { project: { clientId: req.user.id } },
+        include: { project: { select: { title: true } } },
+        orderBy: { createdAt: 'desc' },
+        take: 6,
+      }),
+      prisma.user.findMany({
+        where: {
+          role: { in: ['FREELANCER', 'BOTH'] },
+          id: { not: req.user.id },
+        },
+        select: {
+          id: true,
+          fullName: true,
+          avatarUrl: true,
+          specialty: true,
+          startingPrice: true,
+          isAvailable: true,
+        },
+        orderBy: [
+          { isAvailable: 'desc' },
+          { createdAt: 'desc' },
+        ],
+        take: 4,
+      }),
     ]);
+
+    const reviewStats = freelancers.length
+      ? await prisma.freelancerReview.groupBy({
+        by: ['freelancerId'],
+        where: { freelancerId: { in: freelancers.map((freelancer) => freelancer.id) } },
+        _avg: { rating: true },
+        _count: { id: true },
+      })
+      : [];
+    const reviewMap = new Map(reviewStats.map((stat) => [stat.freelancerId, stat]));
 
     const activeProjects = projects.filter((project) =>
       ['OPEN', 'IN_PROGRESS', 'CONFIRMED', 'UNDER_REVIEW', 'WAITING_PAYMENT'].includes(project.status)
@@ -56,8 +99,24 @@ exports.getClientDashboard = async (req, res, next) => {
         unreadMessages,
       },
       projects: projects.map(serializeProject),
-      activities: [],
-      recommendedFreelancers: [],
+      activities: histories.map((history) => ({
+        text: history.body || history.title,
+        time: formatActivityTime(history.createdAt),
+      })),
+      recommendedFreelancers: freelancers.map((freelancer) => {
+        const stat = reviewMap.get(freelancer.id);
+
+        return {
+          id: freelancer.id,
+          name: shortName(freelancer.fullName),
+          avatarUrl: freelancer.avatarUrl,
+          specialty: freelancer.specialty || 'Belum mengisi spesialisasi',
+          rating: stat?._avg.rating ? stat._avg.rating.toFixed(1) : null,
+          reviewCount: stat?._count.id || 0,
+          price: formatCurrency(freelancer.startingPrice || 0),
+          available: freelancer.isAvailable,
+        };
+      }),
     });
   } catch (error) {
     next(error);
@@ -66,7 +125,7 @@ exports.getClientDashboard = async (req, res, next) => {
 
 exports.getFreelancerDashboard = async (req, res, next) => {
   try {
-    const [projects, openRequests, unreadMessages, pendingInvoices] = await Promise.all([
+    const [projects, openRequests, unreadMessages, pendingInvoices, histories] = await Promise.all([
       prisma.project.findMany({
         where: { freelancerId: req.user.id },
         include: {
@@ -125,6 +184,12 @@ exports.getFreelancerDashboard = async (req, res, next) => {
         },
         _sum: { amount: true },
       }),
+      prisma.projectHistory.findMany({
+        where: { project: { freelancerId: req.user.id } },
+        include: { project: { select: { title: true } } },
+        orderBy: { createdAt: 'desc' },
+        take: 6,
+      }),
     ]);
 
     res.json({
@@ -136,7 +201,10 @@ exports.getFreelancerDashboard = async (req, res, next) => {
       },
       projects: projects.map(serializeProject),
       requests: openRequests.map(serializeProject),
-      activities: [],
+      activities: histories.map((history) => ({
+        text: history.body || history.title,
+        time: formatActivityTime(history.createdAt),
+      })),
     });
   } catch (error) {
     next(error);
