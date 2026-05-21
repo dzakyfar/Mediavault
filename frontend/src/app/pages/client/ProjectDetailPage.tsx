@@ -70,6 +70,15 @@ interface ProjectDetail {
   } | null;
 }
 
+const normalizeProjectDetail = (project: ProjectDetail): ProjectDetail => ({
+  ...project,
+  pendingOffers: project.pendingOffers || [],
+  tracking: project.tracking || [],
+  histories: project.histories || [],
+  submissions: project.submissions || [],
+  referenceFiles: project.referenceFiles || [],
+});
+
 export default function ClientProjectDetail() {
   const { id } = useParams();
   const [project, setProject] = useState<ProjectDetail | null>(null);
@@ -88,7 +97,7 @@ export default function ClientProjectDetail() {
   useEffect(() => {
     if (!id) return;
     apiRequest<{ project: ProjectDetail }>(`/projects/${id}`)
-      .then((response) => setProject(response.project))
+      .then((response) => setProject(normalizeProjectDetail(response.project)))
       .catch((err) => setError(err instanceof Error ? err.message : 'Gagal memuat detail project'))
       .finally(() => setLoading(false));
   }, [id]);
@@ -103,7 +112,7 @@ export default function ClientProjectDetail() {
         body: JSON.stringify({ action: 'accept' }),
       });
       const response = await apiRequest<{ project: ProjectDetail }>(`/projects/${id}`);
-      setProject(response.project);
+      setProject(normalizeProjectDetail(response.project));
       setConfirmingOffer(null);
       setConfirmText('');
     } catch (err) {
@@ -162,7 +171,7 @@ export default function ClientProjectDetail() {
           comment: reviewForm.comment,
         }),
       });
-      setProject(response.project);
+      setProject(normalizeProjectDetail(response.project));
       setReviewForm({ rating: '5', comment: '' });
     } catch (err) {
       setReviewError(err instanceof Error ? err.message : 'Gagal menyimpan ulasan');
