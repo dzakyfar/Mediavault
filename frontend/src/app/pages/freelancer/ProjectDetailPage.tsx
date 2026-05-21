@@ -52,6 +52,14 @@ interface ProjectDetail {
   }>;
 }
 
+const normalizeProjectDetail = (project: ProjectDetail): ProjectDetail => ({
+  ...project,
+  tracking: project.tracking || [],
+  histories: project.histories || [],
+  submissions: project.submissions || [],
+  referenceFiles: project.referenceFiles || [],
+});
+
 export default function FreelancerProjectDetail() {
   const { id } = useParams();
   const [project, setProject] = useState<ProjectDetail | null>(null);
@@ -61,7 +69,7 @@ export default function FreelancerProjectDetail() {
   useEffect(() => {
     if (!id) return;
     apiRequest<{ project: ProjectDetail }>(`/projects/${id}`)
-      .then((response) => setProject(response.project))
+      .then((response) => setProject(normalizeProjectDetail(response.project)))
       .catch((err) => setError(err instanceof Error ? err.message : 'Gagal memuat detail project'))
       .finally(() => setLoading(false));
   }, [id]);
