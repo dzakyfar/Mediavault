@@ -10,7 +10,16 @@ exports.getClientDashboard = async (req, res, next) => {
           freelancer: { select: { fullName: true } },
           applications: {
             where: { status: 'PENDING' },
-            include: { freelancer: { select: { fullName: true } } },
+            include: {
+              freelancer: {
+                select: {
+                  id: true,
+                  fullName: true,
+                  specialty: true,
+                  startingPrice: true,
+                },
+              },
+            },
             orderBy: { createdAt: 'desc' },
           },
           _count: { select: { files: true } },
@@ -34,7 +43,7 @@ exports.getClientDashboard = async (req, res, next) => {
     ]);
 
     const activeProjects = projects.filter((project) =>
-      ['OPEN', 'IN_PROGRESS', 'UNDER_REVIEW', 'WAITING_PAYMENT'].includes(project.status)
+      ['OPEN', 'IN_PROGRESS', 'CONFIRMED', 'UNDER_REVIEW', 'WAITING_PAYMENT'].includes(project.status)
     );
 
     const filesReady = projects.reduce((total, project) => total + project._count.files, 0);
@@ -64,7 +73,16 @@ exports.getFreelancerDashboard = async (req, res, next) => {
           client: { select: { fullName: true } },
           applications: {
             where: { status: 'PENDING' },
-            include: { freelancer: { select: { fullName: true } } },
+            include: {
+              freelancer: {
+                select: {
+                  id: true,
+                  fullName: true,
+                  specialty: true,
+                  startingPrice: true,
+                },
+              },
+            },
           },
           _count: { select: { files: true } },
         },
@@ -74,15 +92,21 @@ exports.getFreelancerDashboard = async (req, res, next) => {
       prisma.project.findMany({
         where: {
           status: 'OPEN',
-          applications: {
-            none: { freelancerId: req.user.id },
-          },
         },
         include: {
           client: { select: { fullName: true } },
           applications: {
             where: { status: 'PENDING' },
-            include: { freelancer: { select: { fullName: true } } },
+            include: {
+              freelancer: {
+                select: {
+                  id: true,
+                  fullName: true,
+                  specialty: true,
+                  startingPrice: true,
+                },
+              },
+            },
           },
         },
         orderBy: { createdAt: 'desc' },
@@ -105,7 +129,7 @@ exports.getFreelancerDashboard = async (req, res, next) => {
 
     res.json({
       stats: {
-        activeProjects: projects.filter((project) => project.status === 'IN_PROGRESS').length,
+        activeProjects: projects.filter((project) => ['IN_PROGRESS', 'CONFIRMED'].includes(project.status)).length,
         pendingPayment: formatCurrency(pendingInvoices._sum.amount || 0),
         openRequests: openRequests.length,
         unreadMessages,

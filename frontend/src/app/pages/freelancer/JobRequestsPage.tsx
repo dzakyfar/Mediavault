@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router';
 import DashboardLayout from '../../components/DashboardLayout';
 import EmptyState from '../../components/EmptyState';
+import { useAuth } from '../../context/AuthContext';
 import { apiRequest } from '../../lib/api';
 
 interface RequestProject {
@@ -15,6 +15,12 @@ interface RequestProject {
   city: string | null;
   serviceType: string | null;
   address: string | null;
+  pendingOffers: Array<{
+    id: string;
+    freelancerId: string;
+    status: string;
+    message: string | null;
+  }>;
 }
 
 export default function FreelancerJobRequests() {
@@ -24,18 +30,27 @@ export default function FreelancerJobRequests() {
   const [requests, setRequests] = useState<RequestProject[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const navigate = useNavigate();
+  const [success, setSuccess] = useState('');
+  const [selectedRequest, setSelectedRequest] = useState<RequestProject | null>(null);
+  const [requestMessage, setRequestMessage] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const { user } = useAuth();
 
   const tabs = [
     { id: 'all', label: 'All' },
     { id: 'new', label: 'New' },
   ];
 
-  useEffect(() => {
+  const loadOpenProjects = () => {
+    setLoading(true);
     apiRequest<{ projects: RequestProject[] }>('/projects/open')
       .then((response) => setRequests(response.projects))
       .catch((err) => setError(err instanceof Error ? err.message : 'Gagal memuat job request'))
       .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    loadOpenProjects();
   }, []);
 
   const filteredRequests = requests.filter((request) => {
@@ -46,18 +61,33 @@ export default function FreelancerJobRequests() {
     return matchesQuery && matchesCategory;
   });
 
-  const requestJob = async (request: RequestProject) => {
+  const openRequestModal = (request: RequestProject) => {
+    setError('');
+    setSuccess('');
+    setSelectedRequest(request);
+    setRequestMessage(`Saya ingin request job "${request.title}" untuk jasa ${request.serviceType || request.category}.`);
+  };
+
+  const submitRequestJob = async () => {
+    if (!selectedRequest) return;
+
     try {
-      await apiRequest(`/projects/${request.id}/apply`, {
+      setSubmitting(true);
+      await apiRequest(`/projects/${selectedRequest.id}/apply`, {
         method: 'POST',
         body: JSON.stringify({
-          serviceType: request.serviceType || request.category,
-          message: `Saya ingin request job "${request.title}" untuk jasa ${request.serviceType || request.category}.`,
+          serviceType: selectedRequest.serviceType || selectedRequest.category,
+          message: requestMessage.trim() || undefined,
         }),
       });
-      navigate('/dashboard/freelancer/messages');
+      setSelectedRequest(null);
+      setRequestMessage('');
+      setSuccess('Request job terkirim. Job tetap tampil sampai client memilih freelancer.');
+      await loadOpenProjects();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Gagal request job');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -109,12 +139,21 @@ export default function FreelancerJobRequests() {
         </div>
       )}
 
+      {success && (
+        <div className="mb-6 p-4 bg-[#22C55E]/10 border border-[#22C55E] rounded-lg text-[#22C55E]">
+          {success}
+        </div>
+      )}
+
       <div className="space-y-4">
         {loading && <EmptyState title="Memuat request" description="Mengambil job terbuka dari database." />}
         {!loading && filteredRequests.length === 0 && (
           <EmptyState title="Belum ada request" description="Job request dari client akan tampil di sini setelah ada project OPEN di database." />
         )}
-        {filteredRequests.map((request) => (
+        {filteredRequests.map((request) => {
+          const alreadyRequested = request.pendingOffers?.some((offer) => offer.freelancerId === user?.id);
+
+          return (
           <div key={request.id} className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-6 hover:border-l-4 hover:border-l-[#F5C800] transition-all">
             <div className="flex items-start justify-between mb-4">
               <div>
@@ -143,16 +182,57 @@ export default function FreelancerJobRequests() {
               </div>
               <div className="flex gap-2">
                 <button
-                  onClick={() => requestJob(request)}
-                  className="px-6 py-2 bg-[#F5C800] text-black font-bold rounded-lg hover:shadow-[0_0_10px_rgba(245,200,0,0.4)] transition-all"
+                  onClick={() => openRequestModal(request)}
+                  disabled={alreadyRequested}
+                  className={`px-6 py-2 font-bold rounded-lg transition-all ${
+                    alreadyRequested
+                      ? 'bg-[#2A2A2A] text-[#888888] cursor-not-allowed'
+                      : 'bg-[#F5C800] text-black hover:shadow-[0_0_10px_rgba(245,200,0,0.4)]'
+                  }`}
                 >
-                  Request Job
+                  {alreadyRequested ? 'Requested' : 'Request Job'}
                 </button>
               </div>
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
+
+      {selectedRequest && (
+        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
+          <div className="w-full max-w-lg bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-6">
+            <h2 className="text-3xl mb-2" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>
+              Request Job
+            </h2>
+            <p className="text-[#888888] mb-4">
+              Kirim pesan singkat ke client untuk job {selectedRequest.title}.
+            </p>
+            <textarea
+              value={requestMessage}
+              onChange={(event) => setRequestMessage(event.target.value)}
+              rows={5}
+              className="w-full bg-[#141414] border border-[#2A2A2A] rounded-lg px-4 py-3 text-white placeholder-[#888888] focus:border-[#F5C800] focus:outline-none"
+              placeholder="Tulis pesan untuk client..."
+            />
+            <div className="flex justify-end gap-3 mt-5">
+              <button
+                onClick={() => setSelectedRequest(null)}
+                className="px-5 py-2 border border-[#888888] rounded-lg text-sm hover:border-[#F5C800] hover:text-[#F5C800] transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={submitRequestJob}
+                disabled={submitting}
+                className="px-5 py-2 bg-[#F5C800] text-black font-bold rounded-lg text-sm disabled:opacity-60"
+              >
+                {submitting ? 'Sending...' : 'Send Request'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </DashboardLayout>
   );
 }

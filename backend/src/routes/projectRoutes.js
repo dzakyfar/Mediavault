@@ -6,6 +6,7 @@ const {
   getProjectById,
   applyToProject,
   respondToApplication,
+  confirmProjectByFreelancer,
 } = require('../controllers/projectController');
 const { protect, requireRole } = require('../middleware/authMiddleware');
 
@@ -16,6 +17,7 @@ router.post('/', protect, requireRole('CLIENT', 'BOTH'), createProject);
 router.get('/open', protect, requireRole('FREELANCER', 'BOTH'), listOpenProjects);
 router.get('/:projectId', protect, getProjectById);
 router.post('/:projectId/apply', protect, requireRole('FREELANCER', 'BOTH'), applyToProject);
+router.patch('/:projectId/freelancer-confirm', protect, requireRole('FREELANCER', 'BOTH'), confirmProjectByFreelancer);
 router.patch('/applications/:applicationId', protect, requireRole('CLIENT', 'BOTH'), respondToApplication);
 
 module.exports = router;
