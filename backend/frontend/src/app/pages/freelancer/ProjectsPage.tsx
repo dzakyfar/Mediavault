@@ -129,13 +129,10 @@ export default function FreelancerProjects() {
                   View Detail
                 </Link>
                 {project.status === 'In Progress' && (
-                  <Link
-                    to={`/dashboard/freelancer/projects/${project.id}`}
-                    className="flex items-center gap-2 px-4 py-2 bg-[#F5C800] text-black font-bold rounded-lg text-sm hover:shadow-[0_0_10px_rgba(245,200,0,0.4)] transition-all"
-                  >
+                  <button className="flex items-center gap-2 px-4 py-2 bg-[#F5C800] text-black font-bold rounded-lg text-sm hover:shadow-[0_0_10px_rgba(245,200,0,0.4)] transition-all">
                     <Upload className="w-4 h-4" />
                     Upload Draft
-                  </Link>
+                  </button>
                 )}
                 {project.status === 'Completed' && (
                   <span className="px-4 py-2 bg-[#2A2A2A] text-[#888888] font-bold rounded-lg text-sm cursor-not-allowed">
