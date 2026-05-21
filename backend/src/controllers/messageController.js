@@ -147,31 +147,30 @@ exports.sendMessage = async (req, res, next) => {
 
     const cleanBody = body.trim() || (imageUrl ? 'Mengirim gambar' : '');
 
-    const [message] = await prisma.$transaction([
-      prisma.message.create({
-        data: {
-          senderId: req.user.id,
-          receiverId,
-          body: cleanBody,
-          imageUrl: imageUrl || null,
-          imageName: imageName || null,
-          imageMime: imageMime || null,
-          imageSize: Number.isFinite(Number(imageSize)) ? Number(imageSize) : null,
-        },
-        include: {
-          sender: { select: { id: true, fullName: true } },
-          receiver: { select: { id: true, fullName: true } },
-        },
-      }),
-      prisma.notification.create({
-        data: {
-          userId: receiverId,
-          type: 'MESSAGE',
-          title: 'Pesan baru',
-          body: `${req.user.fullName}: ${cleanBody.slice(0, 120)}`,
-        },
-      }),
-    ]);
+    const message = await prisma.message.create({
+      data: {
+        senderId: req.user.id,
+        receiverId,
+        body: cleanBody,
+        imageUrl: imageUrl || null,
+        imageName: imageName || null,
+        imageMime: imageMime || null,
+        imageSize: Number.isFinite(Number(imageSize)) ? Number(imageSize) : null,
+      },
+      include: {
+        sender: { select: { id: true, fullName: true } },
+        receiver: { select: { id: true, fullName: true } },
+      },
+    });
+
+    await prisma.notification.create({
+      data: {
+        userId: receiverId,
+        type: 'MESSAGE',
+        title: 'Pesan baru',
+        body: `${req.user.fullName}: ${cleanBody.slice(0, 120)}`,
+      },
+    }).catch(() => undefined);
 
     res.status(201).json({ message: serializeMessage(message, req.user.id) });
   } catch (error) {
