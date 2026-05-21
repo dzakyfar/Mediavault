@@ -19,7 +19,16 @@ const projectInclude = {
   freelancer: { select: { fullName: true } },
   applications: {
     where: { status: 'PENDING' },
-    include: { freelancer: { select: { fullName: true } } },
+    include: {
+      freelancer: {
+        select: {
+          id: true,
+          fullName: true,
+          specialty: true,
+          startingPrice: true,
+        },
+      },
+    },
     orderBy: { createdAt: 'desc' },
   },
   files: true,
@@ -268,20 +277,22 @@ exports.listOpenProjects = async (req, res, next) => {
     const projects = await prisma.project.findMany({
       where: {
         status: 'OPEN',
-        clientId: { not: req.user.id },
-        applications: {
-          none: {
-            freelancerId: req.user.id,
-            status: { in: ['PENDING', 'ACCEPTED'] },
-          },
-        },
       },
       include: {
         client: { select: { fullName: true } },
         freelancer: { select: { fullName: true } },
         applications: {
           where: { status: 'PENDING' },
-          include: { freelancer: { select: { fullName: true } } },
+          include: {
+            freelancer: {
+              select: {
+                id: true,
+                fullName: true,
+                specialty: true,
+                startingPrice: true,
+              },
+            },
+          },
         },
         _count: { select: { files: true } },
       },
@@ -645,17 +656,26 @@ exports.applyToProject = async (req, res, next) => {
       throw new Error('Job tidak tersedia untuk direquest');
     }
 
-    if (project.clientId === req.user.id) {
-      res.status(400);
-      throw new Error('Tidak bisa request job milik akun sendiri');
-    }
-
     const existingApplication = await prisma.projectApplication.findUnique({
       where: {
         projectId_freelancerId: {
           projectId,
           freelancerId: req.user.id,
         },
+      },
+    });
+
+    if (existingApplication) {
+      res.status(409);
+      throw new Error('Anda sudah request job ini');
+    }
+
+    const application = await prisma.projectApplication.create({
+      data: {
+        projectId,
+        freelancerId: req.user.id,
+        message: message || `Saya tertarik mengambil job ${project.title}`,
+        serviceType,
       },
     });
 
@@ -739,6 +759,11 @@ exports.respondToApplication = async (req, res, next) => {
     if (!application || application.project.clientId !== req.user.id) {
       res.status(404);
       throw new Error('Offer tidak ditemukan');
+    }
+
+    if (application.status !== 'PENDING' || application.project.status !== 'OPEN') {
+      res.status(400);
+      throw new Error('Offer sudah diproses atau job tidak lagi open');
     }
 
     if (action === 'accept') {
@@ -830,6 +855,56 @@ exports.respondToApplication = async (req, res, next) => {
     await prisma.$transaction(rejectTransaction);
 
     res.json({ message: 'Offer ditolak' });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.confirmProjectByFreelancer = async (req, res, next) => {
+  try {
+    const { projectId } = req.params;
+
+    const project = await prisma.project.findUnique({
+      where: { id: projectId },
+      select: {
+        id: true,
+        title: true,
+        clientId: true,
+        freelancerId: true,
+        status: true,
+      },
+    });
+
+    if (!project || project.freelancerId !== req.user.id) {
+      res.status(404);
+      throw new Error('Project tidak ditemukan');
+    }
+
+    if (project.status !== 'IN_PROGRESS') {
+      res.status(400);
+      throw new Error('Project belum menunggu persetujuan freelancer');
+    }
+
+    const [updatedProject] = await prisma.$transaction([
+      prisma.project.update({
+        where: { id: projectId },
+        data: {
+          status: 'CONFIRMED',
+          progress: 15,
+        },
+        include: projectInclude,
+      }),
+      prisma.notification.create({
+        data: {
+          userId: project.clientId,
+          type: 'PROJECT',
+          title: 'Freelancer menyetujui project',
+          body: `${req.user.fullName} menyetujui project ${project.title}`,
+        },
+      }),
+    ]);
+
+    res.json({ project: serializeProject(updatedProject) });
   } catch (error) {
     next(error);
   }
