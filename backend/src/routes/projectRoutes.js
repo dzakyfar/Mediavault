@@ -12,6 +12,7 @@ const {
   reviewFreelancer,
   applyToProject,
   respondToApplication,
+  confirmProjectByFreelancer,
 } = require('../controllers/projectController');
 const { protect, requireRole } = require('../middleware/authMiddleware');
 
@@ -28,6 +29,7 @@ router.post('/:projectId/submissions', protect, requireRole('FREELANCER', 'BOTH'
 router.patch('/:projectId/submissions/:submissionId', protect, requireRole('CLIENT', 'BOTH'), reviewProjectSubmission);
 router.post('/:projectId/review', protect, requireRole('CLIENT', 'BOTH'), reviewFreelancer);
 router.post('/:projectId/apply', protect, requireRole('FREELANCER', 'BOTH'), applyToProject);
+router.patch('/:projectId/freelancer-confirm', protect, requireRole('FREELANCER', 'BOTH'), confirmProjectByFreelancer);
 router.patch('/applications/:applicationId', protect, requireRole('CLIENT', 'BOTH'), respondToApplication);
 
 module.exports = router;

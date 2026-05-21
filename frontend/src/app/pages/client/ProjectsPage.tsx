@@ -9,6 +9,7 @@ interface Project {
   id: string;
   freelancer: string;
   title: string;
+  category: string;
   serviceType: string | null;
   status: string;
   rawStatus: string;
@@ -52,18 +53,6 @@ export default function ClientProjects() {
       .then((response) => setProjects(response.projects))
       .catch((err) => setError(err instanceof Error ? err.message : 'Gagal memuat project'))
       .finally(() => setLoading(false));
-  };
-
-  const respondOffer = async (applicationId: string, action: 'accept' | 'decline') => {
-    try {
-      await apiRequest(`/projects/applications/${applicationId}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ action }),
-      });
-      await loadProjects();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Gagal memproses offer');
-    }
   };
 
   const filteredProjects = activeTab === 'all'
@@ -171,12 +160,6 @@ export default function ClientProjects() {
                 >
                   View Detail
                 </Link>
-                <Link
-                  to="/dashboard/client/messages"
-                  className="px-4 py-2 border border-[#888888] text-white rounded-lg text-sm hover:border-[#F5C800] hover:text-[#F5C800] transition-colors"
-                >
-                  Send Message
-                </Link>
                 {project.status === 'Waiting Payment' && (
                   <span className="px-4 py-2 bg-[#2A2A2A] text-[#888888] font-bold rounded-lg text-sm cursor-not-allowed">
                     Payment Soon
@@ -186,31 +169,17 @@ export default function ClientProjects() {
             </div>
 
             {project.pendingOffers.length > 0 && (
-              <div className="mt-5 pt-5 border-t border-[#2A2A2A] space-y-3">
-                <h4 className="font-bold text-white">Freelancer Requests</h4>
-                {project.pendingOffers.map((offer) => (
-                  <div key={offer.id} className="flex items-center justify-between gap-4 bg-[#141414] rounded-lg p-4">
-                    <div>
-                      <div className="font-bold text-white">{offer.freelancer}</div>
-                      <div className="text-sm text-[#888888]">{offer.serviceType || project.serviceType || 'Jasa kreatif'}</div>
-                      {offer.message && <p className="text-sm text-[#888888] mt-1">{offer.message}</p>}
-                    </div>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => respondOffer(offer.id, 'accept')}
-                        className="px-4 py-2 bg-[#22C55E] text-white rounded-lg text-sm font-bold hover:bg-[#16A34A] transition-colors"
-                      >
-                        Accept Offer
-                      </button>
-                      <button
-                        onClick={() => respondOffer(offer.id, 'decline')}
-                        className="px-4 py-2 border border-[#EF4444] text-[#EF4444] rounded-lg text-sm hover:bg-[#EF4444] hover:text-white transition-colors"
-                      >
-                        Decline
-                      </button>
-                    </div>
-                  </div>
-                ))}
+              <div className="mt-5 pt-5 border-t border-[#2A2A2A] flex items-center justify-between gap-4 bg-[#141414] rounded-lg p-4">
+                <div>
+                  <h4 className="font-bold text-white">{project.pendingOffers.length} freelancer request job ini</h4>
+                  <p className="text-sm text-[#888888]">Buka detail untuk message, lihat profil, dan confirm freelancer.</p>
+                </div>
+                <Link
+                  to={`/dashboard/client/projects/${project.id}`}
+                  className="px-4 py-2 bg-[#F5C800] text-black font-bold rounded-lg text-sm hover:shadow-[0_0_10px_rgba(245,200,0,0.4)] transition-all"
+                >
+                  Review
+                </Link>
               </div>
             )}
           </div>

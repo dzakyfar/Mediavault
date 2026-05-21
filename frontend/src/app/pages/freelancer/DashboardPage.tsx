@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router';
+import { Link } from 'react-router';
 import { Briefcase, DollarSign, FileText, Eye, Camera } from 'lucide-react';
 import DashboardLayout from '../../components/DashboardLayout';
 import EmptyState from '../../components/EmptyState';
@@ -12,6 +12,7 @@ interface Project {
   status: string;
   statusColor: string;
   progress: number;
+  rawStatus?: string;
   due: string;
   amount?: string;
   category?: string;
@@ -33,7 +34,6 @@ interface FreelancerDashboardResponse {
 export default function FreelancerDashboard() {
   const [dashboard, setDashboard] = useState<FreelancerDashboardResponse | null>(null);
   const [error, setError] = useState('');
-  const navigate = useNavigate();
 
   useEffect(() => {
     apiRequest<FreelancerDashboardResponse>('/dashboard/freelancer')
@@ -52,21 +52,6 @@ export default function FreelancerDashboard() {
   const projects = dashboard?.projects ?? [];
   const newRequests = dashboard?.requests ?? [];
   const activities = dashboard?.activities ?? [];
-
-  const requestJob = async (request: Project) => {
-    try {
-      await apiRequest(`/projects/${request.id}/apply`, {
-        method: 'POST',
-        body: JSON.stringify({
-          serviceType: request.serviceType || request.category,
-          message: `Saya ingin request job "${request.title}".`,
-        }),
-      });
-      navigate('/dashboard/freelancer/messages');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Gagal request job');
-    }
-  };
 
   return (
     <DashboardLayout userType="freelancer">
@@ -185,12 +170,12 @@ export default function FreelancerDashboard() {
                       <p className="text-xs text-[#888888]">Deadline {request.due}</p>
                     </div>
                     <div className="flex gap-2">
-                      <button
-                        onClick={() => requestJob(request)}
+                      <Link
+                        to="/dashboard/freelancer/requests"
                         className="px-4 py-2 bg-[#F5C800] text-black font-bold rounded-lg hover:shadow-[0_0_10px_rgba(245,200,0,0.4)] transition-all"
                       >
                         Request Job
-                      </button>
+                      </Link>
                     </div>
                   </div>
                 </div>

@@ -44,7 +44,7 @@ export default function ProjectReviewPanel({
   const [error, setError] = useState('');
 
   const pendingSubmission = submissions.find((submission) => submission.status === 'PENDING');
-  const canSubmitDraft = userType === 'freelancer' && ['In Progress', 'Under Review'].includes(projectStatus);
+  const canSubmitDraft = userType === 'freelancer' && ['Confirmed', 'In Progress', 'Under Review'].includes(projectStatus);
 
   const attachFile = async (file?: File) => {
     if (!file) return;
