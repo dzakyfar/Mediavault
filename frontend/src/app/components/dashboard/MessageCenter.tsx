@@ -1,4 +1,5 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router';
 import { ImagePlus, RefreshCw, Send, X } from 'lucide-react';
 import EmptyState from '../EmptyState';
 import { apiRequest } from '../../lib/api';
@@ -36,6 +37,9 @@ interface MessagesResponse {
 }
 
 export default function MessageCenter({ userType }: { userType: 'client' | 'freelancer' }) {
+  const [searchParams] = useSearchParams();
+  const requestedPeerId = searchParams.get('peerId') || '';
+  const requestedPeerName = searchParams.get('peerName') || 'Conversation';
   const [messages, setMessages] = useState<Message[]>([]);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activePeerId, setActivePeerId] = useState('');
@@ -55,10 +59,26 @@ export default function MessageCenter({ userType }: { userType: 'client' | 'free
     try {
       const response = await apiRequest<MessagesResponse>('/messages');
       const nextMessages = Array.isArray(response.messages) ? response.messages : [];
-      const nextConversations = Array.isArray(response.conversations) ? response.conversations : [];
+      const backendConversations = Array.isArray(response.conversations) ? response.conversations : [];
+      const nextConversations = requestedPeerId && !backendConversations.some((conversation) => conversation.peerId === requestedPeerId)
+        ? [
+          {
+            peerId: requestedPeerId,
+            peerName: requestedPeerName,
+            lastMessage: 'Mulai percakapan',
+            lastMessageAt: new Date().toISOString(),
+            unreadCount: 0,
+          },
+          ...backendConversations,
+        ]
+        : backendConversations;
       setMessages(nextMessages);
       setConversations(nextConversations);
       setActivePeerId((current) => {
+        if (requestedPeerId && nextConversations.some((conversation) => conversation.peerId === requestedPeerId)) {
+          return requestedPeerId;
+        }
+
         if (current && nextConversations.some((conversation) => conversation.peerId === current)) {
           return current;
         }
@@ -77,7 +97,7 @@ export default function MessageCenter({ userType }: { userType: 'client' | 'free
     loadMessages();
     const interval = window.setInterval(() => loadMessages(true), 4000);
     return () => window.clearInterval(interval);
-  }, []);
+  }, [requestedPeerId, requestedPeerName]);
 
   useEffect(() => {
     if (!activePeerId) return;

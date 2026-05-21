@@ -137,7 +137,7 @@ export default function ClientProjectDetail() {
       {offer.message && <p className="text-sm text-[#888888] mb-4 line-clamp-2">{offer.message}</p>}
       <div className="flex flex-wrap gap-2">
         <Link
-          to="/dashboard/client/messages"
+          to={`/dashboard/client/messages?peerId=${offer.freelancerId}&peerName=${encodeURIComponent(offer.freelancerFullName || offer.freelancer || 'Freelancer')}`}
           className="px-3 py-2 border border-[#888888] text-white rounded-lg text-sm hover:border-[#F5C800] hover:text-[#F5C800] transition-colors"
         >
           Message
