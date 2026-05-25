@@ -18,6 +18,14 @@ interface Freelancer {
 
 export default function LandingPage() {
   const [topFreelancers, setTopFreelancers] = useState<Freelancer[]>([]);
+  const shotCategories = [
+    { name: 'Wedding', image: '/catalog/wedding.jpg' },
+    { name: 'Product', image: '/catalog/product.jpg' },
+    { name: 'Fashion', image: '/catalog/fashion.jpg' },
+    { name: 'Corporate', image: '/catalog/corporate.jpg' },
+    { name: 'Concert', image: '/catalog/concert.jpg' },
+    { name: 'Real Estate', image: '/catalog/real-estate.jpg' },
+  ];
   const testimonials = [
     {
       name: 'Rania Putri',
@@ -208,21 +216,20 @@ export default function LandingPage() {
             What Do You Need Shot?
           </h2>
           <div className="grid md:grid-cols-3 gap-6">
-            {[
-              { name: 'Wedding' },
-              { name: 'Product' },
-              { name: 'Fashion' },
-              { name: 'Corporate' },
-              { name: 'Concert' },
-              { name: 'Real Estate' }
-            ].map((category, i) => (
+            {shotCategories.map((category, i) => (
               <Link
                 key={i}
                 to={`/explore?category=${category.name.toLowerCase()}`}
-                className="relative h-64 rounded-xl overflow-hidden group cursor-pointer block"
+                className="relative h-64 rounded-xl overflow-hidden group cursor-pointer block bg-[#1A1A1A]"
               >
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-black/20"></div>
-                <div className="absolute inset-0 bg-[#1A1A1A] group-hover:scale-105 transition-transform duration-300"></div>
+                <img
+                  src={category.image}
+                  alt={`${category.name} photography service`}
+                  className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                  loading="lazy"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-black/10"></div>
+                <div className="absolute inset-0 border border-white/10 rounded-xl group-hover:border-[#F5C800]/70 transition-colors"></div>
                 <div className="absolute bottom-6 left-6 right-6 flex items-end justify-between z-10">
                   <h3 className="text-3xl font-bold" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>
                     {category.name}
