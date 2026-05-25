@@ -70,6 +70,24 @@ jobs:
             cd /home/ec2-user/mediavault/Mediavault
             git fetch origin main
             git pull --ff-only origin main
+            if command -v docker >/dev/null 2>&1; then
+              if docker compose version >/dev/null 2>&1; then
+                docker compose up -d db
+              elif command -v docker-compose >/dev/null 2>&1; then
+                docker-compose up -d db
+              fi
+            fi
+            for i in {1..30}; do
+              if docker exec mediavault-db-dev pg_isready -U mediavault -d mediavault_dev >/dev/null 2>&1; then
+                break
+              fi
+              sleep 2
+              if [ "$i" = "30" ]; then
+                echo "Database is not ready on EC2. Check docker compose db service or PROD_DATABASE_URL."
+                docker ps || true
+                exit 1
+              fi
+            done
             cd backend
             cat > .env <<'EOF'
             DATABASE_URL="${{ secrets.PROD_DATABASE_URL }}"
