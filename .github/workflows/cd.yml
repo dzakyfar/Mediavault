@@ -93,13 +93,19 @@ jobs:
               DOCKER="sudo docker"
             fi
 
+            DB_USER="${{ secrets.PROD_POSTGRES_USER }}"
+            DB_PASSWORD="${{ secrets.PROD_POSTGRES_PASSWORD }}"
+            DB_NAME="${{ secrets.PROD_POSTGRES_DB }}"
+            DB_USER="${DB_USER:-mediavault}"
+            DB_NAME="${DB_NAME:-mediavault_dev}"
+
             if ! $DOCKER ps -a --format '{{.Names}}' | grep -qx mediavault-db-dev; then
               $DOCKER run -d \
                 --name mediavault-db-dev \
                 --restart unless-stopped \
-                -e POSTGRES_USER=mediavault \
-                -e POSTGRES_PASSWORD=mediavaultpass \
-                -e POSTGRES_DB=mediavault_dev \
+                -e POSTGRES_USER="$DB_USER" \
+                -e POSTGRES_PASSWORD="$DB_PASSWORD" \
+                -e POSTGRES_DB="$DB_NAME" \
                 -p 5433:5432 \
                 -v mediavault_postgres_data:/var/lib/postgresql/data \
                 postgres:15-alpine
@@ -108,7 +114,7 @@ jobs:
             fi
 
             for i in {1..30}; do
-              if $DOCKER exec mediavault-db-dev pg_isready -U mediavault -d mediavault_dev >/dev/null 2>&1; then
+              if $DOCKER exec mediavault-db-dev pg_isready -U "$DB_USER" -d "$DB_NAME" >/dev/null 2>&1; then
                 break
               fi
               sleep 2
