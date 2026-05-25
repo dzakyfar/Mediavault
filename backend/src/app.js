@@ -9,6 +9,7 @@ const notificationRoutes = require('./routes/notificationRoutes');
 const portfolioRoutes = require('./routes/portfolioRoutes');
 const uploadRoutes = require('./routes/uploadRoutes');
 const errorMiddleware = require('./middleware/errorMiddleware');
+const { isS3Configured } = require('./utils/s3Storage');
 
 const app = express();
 
@@ -29,7 +30,11 @@ app.use('/api/uploads', uploadRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'OK', message: 'Backend MediaVault berjalan' });
+  res.json({
+    status: 'OK',
+    message: 'Backend MediaVault berjalan',
+    mediaStorage: isS3Configured() ? 's3' : 'not_configured',
+  });
 });
 
 // Error handling

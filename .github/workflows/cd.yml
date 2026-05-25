@@ -99,6 +99,27 @@ jobs:
             DB_USER="${DB_USER:-mediavault}"
             DB_NAME="${DB_NAME:-mediavault_dev}"
 
+            if [ -z "$DB_PASSWORD" ]; then
+              echo "PROD_POSTGRES_PASSWORD is required for the persistent PostgreSQL container."
+              exit 1
+            fi
+
+            REQUIRED_PROD_DATABASE_URL='${{ secrets.PROD_DATABASE_URL }}'
+            REQUIRED_JWT_SECRET='${{ secrets.JWT_SECRET }}'
+            REQUIRED_AWS_REGION='${{ secrets.AWS_REGION }}'
+            REQUIRED_AWS_S3_BUCKET='${{ secrets.AWS_S3_BUCKET_MEDIA }}'
+            REQUIRED_AWS_ACCESS_KEY_ID='${{ secrets.AWS_MEDIA_ACCESS_KEY_ID }}'
+            REQUIRED_AWS_SECRET_ACCESS_KEY='${{ secrets.AWS_MEDIA_SECRET_ACCESS_KEY }}'
+
+            for REQUIRED_NAME in REQUIRED_PROD_DATABASE_URL REQUIRED_JWT_SECRET REQUIRED_AWS_REGION REQUIRED_AWS_S3_BUCKET REQUIRED_AWS_ACCESS_KEY_ID REQUIRED_AWS_SECRET_ACCESS_KEY; do
+              if [ -z "${!REQUIRED_NAME}" ]; then
+                echo "$REQUIRED_NAME is empty. Check GitHub repository secrets before deploying."
+                exit 1
+              fi
+            done
+
+            echo "Backend deploy target: database=$DB_NAME user=$DB_USER media_bucket=$REQUIRED_AWS_S3_BUCKET region=$REQUIRED_AWS_REGION"
+
             if ! $DOCKER ps -a --format '{{.Names}}' | grep -qx mediavault-db-dev; then
               $DOCKER run -d \
                 --name mediavault-db-dev \

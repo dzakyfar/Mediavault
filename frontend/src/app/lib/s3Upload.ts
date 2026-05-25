@@ -28,16 +28,25 @@ export async function uploadFileToS3(file: File, scope: UploadScope): Promise<Up
     }),
   });
 
-  const uploadResponse = await fetch(presign.uploadUrl, {
-    method: 'PUT',
-    headers: {
-      'Content-Type': file.type || 'application/octet-stream',
-    },
-    body: file,
-  });
+  let uploadResponse: Response;
+
+  try {
+    uploadResponse = await fetch(presign.uploadUrl, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': file.type || 'application/octet-stream',
+      },
+      body: file,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Network error';
+    throw new Error(`Gagal upload file ke S3. Cek CORS bucket, region, dan koneksi. Detail: ${message}`);
+  }
 
   if (!uploadResponse.ok) {
-    throw new Error('Gagal upload file ke S3');
+    const responseText = await uploadResponse.text().catch(() => '');
+    const detail = responseText ? ` Detail: ${responseText.slice(0, 180)}` : '';
+    throw new Error(`Gagal upload file ke S3 (${uploadResponse.status}).${detail}`);
   }
 
   return {
