@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router';
 import { Zap, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { dashboardPathForRole } from '../lib/api';
-import { requestGoogleCredential } from '../lib/googleAuth';
+import GoogleSignInButton from '../components/GoogleSignInButton';
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
@@ -34,11 +34,10 @@ export default function LoginPage() {
     }
   };
 
-  const handleGoogleLogin = async () => {
+  const handleGoogleLogin = async (credential: string) => {
     try {
       setError('');
       setSubmitting(true);
-      const credential = await requestGoogleCredential();
       const user = await loginWithGoogle(credential);
       navigate(dashboardPathForRole(user.role));
     } catch (err) {
@@ -84,15 +83,7 @@ export default function LoginPage() {
             </Link>
           </p>
 
-          <button
-            type="button"
-            onClick={handleGoogleLogin}
-            disabled={submitting}
-            className="w-full bg-white text-black border border-[#2A2A2A] font-bold py-3 rounded-full mb-6 hover:bg-gray-100 transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
-          >
-            <span>G</span>
-            Continue with Google
-          </button>
+          <GoogleSignInButton disabled={submitting} text="signin_with" onCredential={handleGoogleLogin} />
 
           <div className="flex items-center gap-4 mb-6">
             <div className="flex-1 h-px bg-[#2A2A2A]"></div>

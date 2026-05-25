@@ -27,6 +27,7 @@ jobs:
         run: npm run build
         env:
           VITE_API_URL: ${{ secrets.PROD_API_URL }}
+          VITE_GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
       - name: Deploy to S3
         uses: jakejarvis/s3-sync-action@v0.5.1
         with:

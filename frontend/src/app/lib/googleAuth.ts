@@ -7,7 +7,20 @@ type GoogleAccounts = {
     initialize: (options: {
       client_id: string;
       callback: (response: GoogleCredentialResponse) => void;
+      cancel_on_tap_outside?: boolean;
     }) => void;
+    renderButton: (
+      parent: HTMLElement,
+      options: {
+        theme?: 'outline' | 'filled_blue' | 'filled_black';
+        size?: 'large' | 'medium' | 'small';
+        type?: 'standard' | 'icon';
+        shape?: 'rectangular' | 'pill' | 'circle' | 'square';
+        text?: 'signin_with' | 'signup_with' | 'continue_with' | 'signin';
+        width?: number;
+      }
+    ) => void;
+    disableAutoSelect: () => void;
     prompt: (callback?: (notification: GooglePromptNotification) => void) => void;
   };
 };
@@ -100,5 +113,43 @@ export async function requestGoogleCredential() {
         reject(new Error(`Google Login ditutup: ${notification.getDismissedReason?.() || 'unknown reason'}`));
       }
     });
+  });
+}
+
+export async function renderGoogleButton(
+  parent: HTMLElement,
+  callback: (credential: string) => void,
+  options: { text?: 'signin_with' | 'signup_with' | 'continue_with'; width?: number } = {}
+) {
+  const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+
+  if (!clientId) {
+    throw new Error('VITE_GOOGLE_CLIENT_ID belum dikonfigurasi');
+  }
+
+  await loadGoogleIdentityScript();
+
+  if (!window.google?.accounts) {
+    throw new Error('Google Login gagal dimuat');
+  }
+
+  parent.innerHTML = '';
+  window.google.accounts.id.initialize({
+    client_id: clientId,
+    cancel_on_tap_outside: true,
+    callback: (response) => {
+      if (response.credential) {
+        callback(response.credential);
+      }
+    },
+  });
+  window.google.accounts.id.disableAutoSelect();
+  window.google.accounts.id.renderButton(parent, {
+    theme: 'outline',
+    size: 'large',
+    type: 'standard',
+    shape: 'pill',
+    text: options.text || 'continue_with',
+    width: options.width || 384,
   });
 }
