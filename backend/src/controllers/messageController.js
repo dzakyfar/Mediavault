@@ -1,6 +1,7 @@
 const prisma = require('../config/prisma');
 const { shortName } = require('../utils/formatters');
 const { validateInlineImage } = require('../utils/uploadLimits');
+const { resolveMessageMedia } = require('../utils/mediaUrls');
 
 const serializeMessage = (message, currentUserId) => ({
   id: message.id,
@@ -21,6 +22,9 @@ const serializeMessage = (message, currentUserId) => ({
     ? shortName(message.receiver.fullName)
     : shortName(message.sender.fullName),
 });
+
+const serializeMessageWithMedia = async (message, currentUserId) =>
+  resolveMessageMedia(serializeMessage(message, currentUserId));
 
 exports.listMessages = async (req, res, next) => {
   try {
@@ -63,9 +67,9 @@ exports.listMessages = async (req, res, next) => {
       }),
     ]);
 
-    const serializedMessages = messages
-      .map((message) => serializeMessage(message, req.user.id))
-      .reverse();
+    const serializedMessages = (await Promise.all(
+      messages.map((message) => serializeMessageWithMedia(message, req.user.id))
+    )).reverse();
 
     const conversationMap = new Map();
     messages.forEach((message) => {
@@ -172,7 +176,7 @@ exports.sendMessage = async (req, res, next) => {
       },
     }).catch(() => undefined);
 
-    res.status(201).json({ message: serializeMessage(message, req.user.id) });
+    res.status(201).json({ message: await serializeMessageWithMedia(message, req.user.id) });
   } catch (error) {
     next(error);
   }

@@ -1,5 +1,6 @@
 const prisma = require('../config/prisma');
 const { formatCurrency, serializeProject, shortName } = require('../utils/formatters');
+const { resolveMediaUrl } = require('../utils/mediaUrls');
 
 const formatActivityTime = (date) => new Intl.DateTimeFormat('id-ID', {
   day: '2-digit',
@@ -104,20 +105,20 @@ exports.getClientDashboard = async (req, res, next) => {
         text: history.body || history.title,
         time: formatActivityTime(history.createdAt),
       })),
-      recommendedFreelancers: freelancers.map((freelancer) => {
+      recommendedFreelancers: await Promise.all(freelancers.map(async (freelancer) => {
         const stat = reviewMap.get(freelancer.id);
 
         return {
           id: freelancer.id,
           name: shortName(freelancer.fullName),
-          avatarUrl: freelancer.avatarUrl,
+          avatarUrl: await resolveMediaUrl(freelancer.avatarUrl),
           specialty: freelancer.specialty || 'Belum mengisi spesialisasi',
           rating: stat?._avg.rating ? stat._avg.rating.toFixed(1) : null,
           reviewCount: stat?._count.id || 0,
           price: formatCurrency(freelancer.startingPrice || 0),
           available: freelancer.isAvailable,
         };
-      }),
+      })),
     });
   } catch (error) {
     next(error);

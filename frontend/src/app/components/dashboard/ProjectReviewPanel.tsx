@@ -1,7 +1,8 @@
 import { FormEvent, useState } from 'react';
 import { FileUp, Send, X } from 'lucide-react';
 import { apiRequest } from '../../lib/api';
-import { PROJECT_SUBMISSION_MAX_BYTES, readFileAsDataUrl, validateSubmissionFile } from '../../lib/uploadLimits';
+import { PROJECT_SUBMISSION_MAX_BYTES, validateSubmissionFile } from '../../lib/uploadLimits';
+import { uploadFileToS3 } from '../../lib/s3Upload';
 
 export interface ProjectSubmission {
   id: string;
@@ -35,7 +36,8 @@ export default function ProjectReviewPanel({
   const [comment, setComment] = useState('');
   const [reviewComment, setReviewComment] = useState('');
   const [fileDraft, setFileDraft] = useState<{
-    url: string;
+    key: string;
+    previewUrl: string;
     name: string;
     type: string;
     size: number;
@@ -54,12 +56,13 @@ export default function ProjectReviewPanel({
       return;
     }
 
-    const url = await readFileAsDataUrl(file);
+    const uploaded = await uploadFileToS3(file, 'project-submission');
     setFileDraft({
-      url,
-      name: file.name,
-      type: file.type,
-      size: file.size,
+      key: uploaded.key,
+      previewUrl: uploaded.url,
+      name: uploaded.fileName,
+      type: uploaded.fileType,
+      size: uploaded.fileSize,
     });
     setError('');
   };
@@ -78,7 +81,7 @@ export default function ProjectReviewPanel({
         method: 'POST',
         body: JSON.stringify({
           comment,
-          fileUrl: fileDraft.url,
+          fileUrl: fileDraft.key,
           fileName: fileDraft.name,
           fileType: fileDraft.type,
           fileSize: fileDraft.size,
@@ -176,9 +179,9 @@ export default function ProjectReviewPanel({
             <label className="inline-flex items-center gap-2 px-4 py-3 border border-[#888888] text-white rounded-lg hover:border-[#F5C800] hover:text-[#F5C800] cursor-pointer transition-colors">
               <FileUp className="w-4 h-4" />
               Upload draft
-              <input type="file" accept="image/png,image/jpeg,application/pdf" className="hidden" onChange={(event) => attachFile(event.target.files?.[0])} />
+              <input type="file" accept="image/png,image/jpeg,application/pdf,video/mp4,video/quicktime,video/webm" className="hidden" onChange={(event) => attachFile(event.target.files?.[0])} />
             </label>
-            <span className="text-sm text-[#888888]">PNG, JPEG, atau PDF. Maksimal 1MB sementara mode local.</span>
+            <span className="text-sm text-[#888888]">PNG, JPEG, PDF, MP4, MOV, atau WebM. Maksimal 500MB.</span>
           </div>
 
           {fileDraft && (

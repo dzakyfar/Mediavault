@@ -6,7 +6,8 @@ import ConfirmDialog from '../../components/dashboard/ConfirmDialog';
 import SmoothToast from '../../components/dashboard/SmoothToast';
 import { useAuth } from '../../context/AuthContext';
 import { apiRequest } from '../../lib/api';
-import { readFileAsDataUrl, validateImageFile } from '../../lib/uploadLimits';
+import { validateImageFile } from '../../lib/uploadLimits';
+import { uploadFileToS3 } from '../../lib/s3Upload';
 
 const PUSH_KEY = 'mediavault_push_notifications';
 
@@ -38,6 +39,7 @@ export default function ClientSettings() {
     city: '',
     avatarUrl: '',
   });
+  const [avatarPreview, setAvatarPreview] = useState('');
 
   const notificationPermission = typeof Notification === 'undefined' ? 'unsupported' : Notification.permission;
   const captchaValid = useMemo(() => passwordForm.captchaAnswer.trim() === captcha.answer, [captcha.answer, passwordForm.captchaAnswer]);
@@ -49,8 +51,9 @@ export default function ClientSettings() {
       email: user.email,
       phone: user.phone || '',
       city: user.city || '',
-      avatarUrl: user.avatarUrl || '',
+      avatarUrl: user.avatarKey || user.avatarUrl || '',
     });
+    setAvatarPreview(user.avatarUrl || '');
   }, [user]);
 
   useEffect(() => {
@@ -166,8 +169,9 @@ export default function ClientSettings() {
     }
 
     try {
-      const avatarUrl = await readFileAsDataUrl(file);
-      setFormData((current) => ({ ...current, avatarUrl }));
+      const uploaded = await uploadFileToS3(file, 'avatar');
+      setFormData((current) => ({ ...current, avatarUrl: uploaded.key }));
+      setAvatarPreview(uploaded.url);
       showToast('Foto profile siap disimpan', 'success');
     } catch {
       showToast('Gagal membaca foto profile', 'error');
@@ -207,8 +211,8 @@ export default function ClientSettings() {
             <label className="block text-sm text-[#888888] mb-2">Profile Photo</label>
             <div className="flex items-center gap-4">
               <div className="w-20 h-20 rounded-full bg-[#141414] overflow-hidden flex items-center justify-center text-[#F5C800] text-2xl font-bold">
-                {formData.avatarUrl
-                  ? <img src={formData.avatarUrl} alt="Profile" className="w-full h-full object-cover" />
+                {avatarPreview
+                  ? <img src={avatarPreview} alt="Profile" className="w-full h-full object-cover" />
                   : (formData.fullName || 'U').charAt(0)}
               </div>
               <label className="px-4 py-2 bg-[#141414] border border-[#2A2A2A] rounded-lg hover:border-[#F5C800] transition-colors cursor-pointer inline-flex items-center gap-2">

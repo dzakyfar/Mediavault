@@ -4,7 +4,8 @@ import { ArrowLeft, ArrowRight, Check, FileUp, MapPin, X } from 'lucide-react';
 import DashboardLayout from '../components/DashboardLayout';
 import { apiRequest } from '../lib/api';
 import { findCity, findDistrict, findProvince, locationOptions } from '../lib/locationOptions';
-import { formatBytes, readFileAsDataUrl, REFERENCE_FILE_MAX_BYTES, S3_TOTAL_LIMIT_BYTES, validateReferenceFile } from '../lib/uploadLimits';
+import { formatBytes, REFERENCE_FILE_MAX_BYTES, S3_TOTAL_LIMIT_BYTES, validateReferenceFile } from '../lib/uploadLimits';
+import { uploadFileToS3 } from '../lib/s3Upload';
 
 interface ReferenceFile {
   fileName: string;
@@ -73,12 +74,12 @@ export default function PostJobPage() {
         return;
       }
 
-      const fileUrl = await readFileAsDataUrl(file);
+      const uploaded = await uploadFileToS3(file, 'project-reference');
       nextFiles.push({
-        fileName: file.name,
-        fileType: file.type || 'application/octet-stream',
-        fileSize: file.size,
-        fileUrl,
+        fileName: uploaded.fileName,
+        fileType: uploaded.fileType,
+        fileSize: uploaded.fileSize,
+        fileUrl: uploaded.key,
       });
     }
 

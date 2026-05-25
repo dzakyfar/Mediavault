@@ -7,6 +7,7 @@ const freelancerRoutes = require('./routes/freelancerRoutes');
 const messageRoutes = require('./routes/messageRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const portfolioRoutes = require('./routes/portfolioRoutes');
+const uploadRoutes = require('./routes/uploadRoutes');
 const errorMiddleware = require('./middleware/errorMiddleware');
 
 const app = express();
@@ -24,6 +25,7 @@ app.use('/api/freelancers', freelancerRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/portfolio', portfolioRoutes);
+app.use('/api/uploads', uploadRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

@@ -1,5 +1,6 @@
 const prisma = require('../config/prisma');
 const { formatCurrency, shortName } = require('../utils/formatters');
+const { resolveMediaUrl, resolvePortfolioMedia } = require('../utils/mediaUrls');
 
 exports.listFreelancers = async (req, res, next) => {
   try {
@@ -32,22 +33,22 @@ exports.listFreelancers = async (req, res, next) => {
     const reviewMap = new Map(reviewStats.map((stat) => [stat.freelancerId, stat]));
 
     res.json({
-      freelancers: freelancers.map((freelancer) => {
+      freelancers: await Promise.all(freelancers.map(async (freelancer) => {
         const stat = reviewMap.get(freelancer.id);
 
         return {
-        id: freelancer.id,
-        name: shortName(freelancer.fullName),
-        fullName: freelancer.fullName,
-        avatarUrl: freelancer.avatarUrl,
-        specialty: freelancer.specialty || 'Belum mengisi spesialisasi',
-        rating: stat?._avg.rating ? stat._avg.rating.toFixed(1) : null,
-        reviewCount: stat?._count.id || 0,
-        price: formatCurrency(freelancer.startingPrice || 0),
-        city: freelancer.city || '-',
-        available: freelancer.isAvailable,
-      };
-      }),
+          id: freelancer.id,
+          name: shortName(freelancer.fullName),
+          fullName: freelancer.fullName,
+          avatarUrl: await resolveMediaUrl(freelancer.avatarUrl),
+          specialty: freelancer.specialty || 'Belum mengisi spesialisasi',
+          rating: stat?._avg.rating ? stat._avg.rating.toFixed(1) : null,
+          reviewCount: stat?._count.id || 0,
+          price: formatCurrency(freelancer.startingPrice || 0),
+          city: freelancer.city || '-',
+          available: freelancer.isAvailable,
+        };
+      })),
     });
   } catch (error) {
     next(error);
@@ -113,7 +114,7 @@ exports.getFreelancerById = async (req, res, next) => {
         id: freelancer.id,
         name: shortName(freelancer.fullName),
         fullName: freelancer.fullName,
-        avatarUrl: freelancer.avatarUrl,
+        avatarUrl: await resolveMediaUrl(freelancer.avatarUrl),
         specialty: freelancer.specialty || 'Belum mengisi spesialisasi',
         services: services.length ? services : ['Photography'],
         bio: freelancer.bio || 'Freelancer ini belum menulis bio, tetapi profile tetap bisa dihubungi.',
@@ -122,7 +123,7 @@ exports.getFreelancerById = async (req, res, next) => {
         price: formatCurrency(freelancer.startingPrice || 0),
         city: freelancer.city || '-',
         available: freelancer.isAvailable,
-        portfolioItems: freelancer.portfolioItems,
+        portfolioItems: await Promise.all(freelancer.portfolioItems.map(resolvePortfolioMedia)),
         reviews: reviews.map((review) => ({
           id: review.id,
           rating: review.rating,

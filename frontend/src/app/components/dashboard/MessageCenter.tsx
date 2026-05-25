@@ -3,7 +3,8 @@ import { useSearchParams } from 'react-router';
 import { ImagePlus, RefreshCw, Send, X } from 'lucide-react';
 import EmptyState from '../EmptyState';
 import { apiRequest } from '../../lib/api';
-import { MESSAGE_IMAGE_MAX_BYTES, readFileAsDataUrl, validateImageFile } from '../../lib/uploadLimits';
+import { MESSAGE_IMAGE_MAX_BYTES, validateImageFile } from '../../lib/uploadLimits';
+import { uploadFileToS3 } from '../../lib/s3Upload';
 
 interface Message {
   id: string;
@@ -45,7 +46,8 @@ export default function MessageCenter({ userType }: { userType: 'client' | 'free
   const [activePeerId, setActivePeerId] = useState('');
   const [draft, setDraft] = useState('');
   const [imageDraft, setImageDraft] = useState<{
-    url: string;
+    key: string;
+    previewUrl: string;
     name: string;
     mime: string;
     size: number;
@@ -124,7 +126,7 @@ export default function MessageCenter({ userType }: { userType: 'client' | 'free
         body: JSON.stringify({
           receiverId: activePeerId,
           body: draft,
-          imageUrl: imageDraft?.url,
+          imageUrl: imageDraft?.key,
           imageName: imageDraft?.name,
           imageMime: imageDraft?.mime,
           imageSize: imageDraft?.size,
@@ -149,12 +151,13 @@ export default function MessageCenter({ userType }: { userType: 'client' | 'free
     }
 
     try {
-      const url = await readFileAsDataUrl(file);
+      const uploaded = await uploadFileToS3(file, 'message-image');
       setImageDraft({
-        url,
-        name: file.name,
-        mime: file.type,
-        size: file.size,
+        key: uploaded.key,
+        previewUrl: uploaded.url,
+        name: uploaded.fileName,
+        mime: uploaded.fileType,
+        size: uploaded.fileSize,
       });
       setError('');
     } catch (err) {
@@ -256,7 +259,7 @@ export default function MessageCenter({ userType }: { userType: 'client' | 'free
             <form onSubmit={sendMessage} className="p-5 border-t border-[#2A2A2A] space-y-3">
               {imageDraft && (
                 <div className="flex items-center gap-3 bg-[#1A1A1A] border border-[#2A2A2A] rounded-lg p-3">
-                  <img src={imageDraft.url} alt={imageDraft.name} className="w-16 h-16 rounded object-cover" />
+                  <img src={imageDraft.previewUrl} alt={imageDraft.name} className="w-16 h-16 rounded object-cover" />
                   <div className="flex-1">
                     <div className="font-bold text-white">{imageDraft.name}</div>
                     <div className="text-sm text-[#888888]">PNG/JPEG, maksimal 1MB</div>

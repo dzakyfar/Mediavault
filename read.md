@@ -128,6 +128,8 @@ Endpoint utama:
 - `GET /api/notifications`
 - `PATCH /api/notifications/read-all`
 - `PATCH /api/notifications/:notificationId/read`
+- `POST /api/uploads/presign`
+- `GET /api/uploads/download-url`
 - `GET /api/health`
 
 Model Prisma yang sudah ada:
@@ -166,7 +168,9 @@ Alur penting yang sudah ditangani:
 - Client dapat approve draft atau meminta revisi. Approve memindahkan project ke `WAITING_PAYMENT`; revisi mengembalikan project ke `IN_PROGRESS`.
 - Setelah draft disetujui, client dapat memberi rating dan ulasan untuk freelancer. Karena payment masih di-hold, submit review menjadi tahap penutup sementara dan project masuk `COMPLETED`.
 - Rating dan review freelancer dihitung dari tabel `FreelancerReview` dan tampil di daftar freelancer/detail profile.
-- Post job mendukung reference files dengan batas 100MB per file. Total limit mengikuti target bucket S3 5GB, tetapi penyimpanan lokal saat ini masih inline/base64 untuk development.
+- Upload media baru memakai S3 private via presigned URL. Database menyimpan S3 object key dan metadata file.
+- Post job mendukung reference files dengan batas 100MB per file. File dikirim langsung ke S3, lalu bisa diakses ulang melalui presigned download URL.
+- Draft/submission project mendukung PNG, JPEG, PDF, MP4, MOV, dan WebM dengan batas 500MB per file melalui S3.
 - Freelancer memiliki field `isAvailable` untuk filter available only.
 - Portfolio freelancer sudah memiliki CRUD sederhana dan tersimpan di database.
 
@@ -235,6 +239,7 @@ Perbaikan frontend yang sudah masuk:
 - Find freelancer, Explore, Landing, Dashboard client, dan Profile freelancer sudah menampilkan avatar/rating/review count dari database.
 - Landing page sudah memakai testimonial dummy bertema MediaVault dengan animasi marquee kanan-ke-kiri.
 - Message center sudah bisa mengirim gambar PNG/JPEG maksimal 1MB dan menampilkannya sebagai gambar.
+- Upload avatar, portfolio, message image, reference file, dan draft/submission project sudah diarahkan ke S3 untuk upload baru.
 - Role select memakai redirect replace jika user sudah punya role.
 - Logo MediaVault di dashboard mengarah ke landing page dan tetap mempertahankan session login.
 - Navbar/footer landing page sudah dibersihkan dari menu yang diminta dihapus.
@@ -273,9 +278,9 @@ Secrets production yang perlu dipastikan ada:
 
 - Pesan belum benar-benar realtime berbasis WebSocket/SSE. Saat ini memakai polling 4 detik.
 - Notification belum memakai channel realtime. Saat ini memakai polling 6-8 detik.
-- Upload file besar belum benar-benar terhubung ke S3 private/presigned URL walaupun model `ProjectFile` sudah ada.
-- Limit bucket S3 5GB sudah dicatat di frontend/backend, tetapi quota belum dihitung otomatis dari S3.
-- Draft review saat ini menyimpan file inline untuk mode local dengan batas 1MB; idealnya nanti dipindah ke S3 private/presigned URL.
+- Data media lama yang sudah terlanjur tersimpan sebagai base64 di database belum dimigrasikan otomatis ke S3.
+- Limit bucket S3 5GB sudah dicatat di frontend/backend, tetapi quota pemakaian bucket belum dihitung otomatis dari S3.
+- Presigned download URL bersifat sementara; jika halaman dibuka sangat lama, user perlu refresh untuk mendapat URL baru.
 - Payment/invoice/earnings sengaja masih di-hold. Tombol terkait diarahkan sebagai status coming soon/placeholder.
 - Tidak ada automated test frontend/backend.
 - Backend belum memiliki validasi request yang kuat seperti schema validation.
@@ -287,9 +292,9 @@ Secrets production yang perlu dipastikan ada:
 
 ## Prioritas Berikutnya
 
-1. Implement upload file ke S3 private dengan presigned URL.
+1. Tambahkan perhitungan quota S3 dan cleanup orphan object jika user upload tetapi tidak menyimpan form.
 2. Ubah pesan/notifikasi dari polling ke WebSocket atau SSE jika ingin benar-benar realtime.
 3. Lengkapi invoice/payment/earnings flow sesuai kebutuhan project.
-4. Tambahkan test minimal untuk auth, project apply/accept/reject, draft review, freelancer review, message, dan notification.
+4. Tambahkan test minimal untuk auth, project apply/accept/reject, draft review, freelancer review, message, notification, dan presigned upload.
 5. Kunci konfigurasi production: CORS origin, JWT secret kuat, EC2 path, domain/API URL, dan database production.
 6. Review UI halaman placeholder payment/earnings supaya seluruh flow terasa konsisten saat fitur finansial mulai dikerjakan.

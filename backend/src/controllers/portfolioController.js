@@ -1,7 +1,8 @@
 const prisma = require('../config/prisma');
 const { validateInlineImage } = require('../utils/uploadLimits');
+const { resolvePortfolioMedia } = require('../utils/mediaUrls');
 
-const serializePortfolioItem = (item) => ({
+const serializePortfolioItem = async (item) => resolvePortfolioMedia({
   id: item.id,
   title: item.title,
   category: item.category,
@@ -22,7 +23,7 @@ exports.listMyPortfolio = async (req, res, next) => {
       orderBy: { createdAt: 'desc' },
     });
 
-    res.json({ items: items.map(serializePortfolioItem) });
+    res.json({ items: await Promise.all(items.map(serializePortfolioItem)) });
   } catch (error) {
     next(error);
   }
@@ -62,7 +63,7 @@ exports.createPortfolioItem = async (req, res, next) => {
       },
     });
 
-    res.status(201).json({ item: serializePortfolioItem(item) });
+    res.status(201).json({ item: await serializePortfolioItem(item) });
   } catch (error) {
     next(error);
   }
@@ -107,7 +108,7 @@ exports.updatePortfolioItem = async (req, res, next) => {
       },
     });
 
-    res.json({ item: serializePortfolioItem(item) });
+    res.json({ item: await serializePortfolioItem(item) });
   } catch (error) {
     next(error);
   }

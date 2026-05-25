@@ -1,6 +1,7 @@
 const prisma = require('../config/prisma');
 const { serializeProject } = require('../utils/formatters');
 const { validateReferenceFiles, validateSubmissionFile } = require('../utils/uploadLimits');
+const { resolveProjectMedia } = require('../utils/mediaUrls');
 
 const parseBudget = (value) => {
   if (value === undefined || value === null || value === '') return null;
@@ -50,6 +51,11 @@ const createProjectHistory = (projectId, actorId, title, body, eventType) =>
     data: { projectId, actorId, title, body, eventType },
   });
 
+const serializeProjectWithMedia = async (project) => resolveProjectMedia(serializeProject(project));
+
+const serializeProjectsWithMedia = async (projects) =>
+  Promise.all(projects.map((project) => serializeProjectWithMedia(project)));
+
 const allowedProgressStatuses = ['IN_PROGRESS', 'CONFIRMED', 'UNDER_REVIEW', 'WAITING_PAYMENT', 'COMPLETED'];
 const statusProgress = {
   IN_PROGRESS: 25,
@@ -73,7 +79,7 @@ exports.listMyProjects = async (req, res, next) => {
       orderBy: { updatedAt: 'desc' },
     });
 
-    res.json({ projects: projects.map(serializeProject) });
+    res.json({ projects: await serializeProjectsWithMedia(projects) });
   } catch (error) {
     next(error);
   }
@@ -173,7 +179,7 @@ exports.createProject = async (req, res, next) => {
       'PROJECT_CREATED'
     );
 
-    res.status(201).json({ project: serializeProject(project) });
+    res.status(201).json({ project: await serializeProjectWithMedia(project) });
   } catch (error) {
     next(error);
   }
@@ -247,7 +253,7 @@ exports.updateProject = async (req, res, next) => {
       'PROJECT_UPDATED'
     );
 
-    res.json({ project: serializeProject(updatedProject) });
+    res.json({ project: await serializeProjectWithMedia(updatedProject) });
   } catch (error) {
     next(error);
   }
@@ -304,7 +310,7 @@ exports.listOpenProjects = async (req, res, next) => {
       orderBy: { createdAt: 'desc' },
     });
 
-    res.json({ projects: projects.map(serializeProject) });
+    res.json({ projects: await serializeProjectsWithMedia(projects) });
   } catch (error) {
     next(error);
   }
@@ -329,7 +335,7 @@ exports.getProjectById = async (req, res, next) => {
       throw new Error('Project tidak ditemukan');
     }
 
-    res.json({ project: serializeProject(project) });
+    res.json({ project: await serializeProjectWithMedia(project) });
   } catch (error) {
     next(error);
   }
@@ -393,7 +399,7 @@ exports.updateProjectProgress = async (req, res, next) => {
       }),
     ]);
 
-    res.json({ project: serializeProject(updatedProject) });
+    res.json({ project: await serializeProjectWithMedia(updatedProject) });
   } catch (error) {
     next(error);
   }
@@ -474,7 +480,7 @@ exports.submitProjectReview = async (req, res, next) => {
       }),
     ]);
 
-    res.status(201).json({ submission, project: serializeProject(updatedProject) });
+    res.status(201).json({ submission, project: await serializeProjectWithMedia(updatedProject) });
   } catch (error) {
     next(error);
   }
@@ -559,7 +565,7 @@ exports.reviewProjectSubmission = async (req, res, next) => {
       }),
     ]);
 
-    res.json({ project: serializeProject(updatedProject) });
+    res.json({ project: await serializeProjectWithMedia(updatedProject) });
   } catch (error) {
     next(error);
   }
@@ -640,7 +646,7 @@ exports.reviewFreelancer = async (req, res, next) => {
       }),
     ]);
 
-    res.json({ project: serializeProject(updatedProject) });
+    res.json({ project: await serializeProjectWithMedia(updatedProject) });
   } catch (error) {
     next(error);
   }
@@ -809,7 +815,7 @@ exports.respondToApplication = async (req, res, next) => {
         ),
       ]);
 
-      res.json({ project: serializeProject(updatedProject) });
+      res.json({ project: await serializeProjectWithMedia(updatedProject) });
       return;
     }
 
@@ -907,7 +913,7 @@ exports.confirmProjectByFreelancer = async (req, res, next) => {
       ),
     ]);
 
-    res.json({ project: serializeProject(updatedProject) });
+    res.json({ project: await serializeProjectWithMedia(updatedProject) });
   } catch (error) {
     next(error);
   }

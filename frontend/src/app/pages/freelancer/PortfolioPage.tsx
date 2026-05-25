@@ -5,8 +5,9 @@ import EmptyState from '../../components/EmptyState';
 import ConfirmDialog from '../../components/dashboard/ConfirmDialog';
 import SmoothToast from '../../components/dashboard/SmoothToast';
 import { apiRequest } from '../../lib/api';
-import { MESSAGE_IMAGE_MAX_BYTES, readFileAsDataUrl, validateImageFile } from '../../lib/uploadLimits';
+import { MESSAGE_IMAGE_MAX_BYTES, validateImageFile } from '../../lib/uploadLimits';
 import { getServicesForCategory, serviceCatalog } from '../../lib/serviceCatalog';
+import { uploadFileToS3 } from '../../lib/s3Upload';
 
 interface PortfolioItem {
   id: string;
@@ -15,6 +16,7 @@ interface PortfolioItem {
   serviceType: string | null;
   description: string | null;
   fileUrl: string | null;
+  fileKey?: string | null;
   fileName: string | null;
   fileType: string | null;
   fileSize: number | null;
@@ -27,6 +29,7 @@ const emptyForm = {
   serviceType: '',
   description: '',
   fileUrl: '',
+  previewUrl: '',
   fileName: '',
   fileType: '',
   fileSize: 0,
@@ -66,13 +69,14 @@ export default function FreelancerPortfolio() {
       return;
     }
 
-    const fileUrl = await readFileAsDataUrl(file);
+    const uploaded = await uploadFileToS3(file, 'portfolio');
     setForm((current) => ({
       ...current,
-      fileUrl,
-      fileName: file.name,
-      fileType: file.type,
-      fileSize: file.size,
+      fileUrl: uploaded.key,
+      previewUrl: uploaded.url,
+      fileName: uploaded.fileName,
+      fileType: uploaded.fileType,
+      fileSize: uploaded.fileSize,
     }));
     setError('');
   };
@@ -84,7 +88,8 @@ export default function FreelancerPortfolio() {
       category: item.category || '',
       serviceType: item.serviceType || '',
       description: item.description || '',
-      fileUrl: item.fileUrl || '',
+      fileUrl: item.fileKey || item.fileUrl || '',
+      previewUrl: item.fileUrl || '',
       fileName: item.fileName || '',
       fileType: item.fileType || '',
       fileSize: item.fileSize || 0,
@@ -227,8 +232,8 @@ export default function FreelancerPortfolio() {
           <span className="text-sm text-[#888888]">Maksimal 1MB per gambar.</span>
         </div>
 
-        {form.fileUrl && (
-          <img src={form.fileUrl} alt={form.fileName} className="mt-4 max-h-56 rounded-lg object-contain bg-[#141414]" />
+        {form.previewUrl && (
+          <img src={form.previewUrl} alt={form.fileName} className="mt-4 max-h-56 rounded-lg object-contain bg-[#141414]" />
         )}
 
         <button

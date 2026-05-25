@@ -2,6 +2,7 @@ const bcrypt = require('bcryptjs');
 const { OAuth2Client } = require('google-auth-library');
 const prisma = require('../config/prisma');
 const generateToken = require('../utils/generateToken');
+const { resolveUserMedia } = require('../utils/mediaUrls');
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
@@ -61,7 +62,7 @@ exports.register = async (req, res, next) => {
     });
 
     res.status(201).json({
-      user,
+      user: await resolveUserMedia(user),
       token: generateToken(user),
     });
   } catch (error) {
@@ -102,7 +103,7 @@ exports.login = async (req, res, next) => {
     const { passwordHash, ...user } = userWithPassword;
 
     res.json({
-      user,
+      user: await resolveUserMedia(user),
       token: generateToken(user),
     });
   } catch (error) {
@@ -159,7 +160,7 @@ exports.googleLogin = async (req, res, next) => {
       });
 
     res.json({
-      user,
+      user: await resolveUserMedia(user),
       token: generateToken(user),
     });
   } catch (error) {
@@ -167,8 +168,8 @@ exports.googleLogin = async (req, res, next) => {
   }
 };
 
-exports.me = (req, res) => {
-  res.json({ user: req.user });
+exports.me = async (req, res) => {
+  res.json({ user: await resolveUserMedia(req.user) });
 };
 
 exports.updateRole = async (req, res, next) => {
@@ -186,7 +187,7 @@ exports.updateRole = async (req, res, next) => {
       select: publicUserSelect,
     });
 
-    res.json({ user });
+    res.json({ user: await resolveUserMedia(user) });
   } catch (error) {
     next(error);
   }
@@ -237,7 +238,7 @@ exports.updateProfile = async (req, res, next) => {
       select: publicUserSelect,
     });
 
-    res.json({ user });
+    res.json({ user: await resolveUserMedia(user) });
   } catch (error) {
     next(error);
   }
