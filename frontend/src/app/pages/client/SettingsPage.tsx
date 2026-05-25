@@ -173,8 +173,8 @@ export default function ClientSettings() {
       setFormData((current) => ({ ...current, avatarUrl: uploaded.key }));
       setAvatarPreview(uploaded.url);
       showToast('Foto profile siap disimpan', 'success');
-    } catch {
-      showToast('Gagal membaca foto profile', 'error');
+    } catch (uploadError) {
+      showToast(uploadError instanceof Error ? uploadError.message : 'Gagal upload foto profile', 'error');
     }
   };
 

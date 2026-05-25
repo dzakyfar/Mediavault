@@ -1,12 +1,18 @@
 import { apiRequest } from './api';
 
 export type UploadScope = 'avatar' | 'message-image' | 'portfolio' | 'project-reference' | 'project-submission';
+const BACKEND_DIRECT_FALLBACK_MAX_BYTES = 5 * 1024 * 1024;
 
 interface PresignResponse {
   key: string;
   uploadUrl: string;
   downloadUrl: string | null;
   expiresIn: number;
+}
+
+interface DirectUploadResponse {
+  key: string;
+  downloadUrl: string | null;
 }
 
 export interface UploadedFileRef {
@@ -17,43 +23,70 @@ export interface UploadedFileRef {
   fileSize: number;
 }
 
-export async function uploadFileToS3(file: File, scope: UploadScope): Promise<UploadedFileRef> {
-  const presign = await apiRequest<PresignResponse>('/uploads/presign', {
+const fileToDataUrl = (file: File) => new Promise<string>((resolve, reject) => {
+  const reader = new FileReader();
+  reader.onload = () => resolve(String(reader.result || ''));
+  reader.onerror = () => reject(new Error('Gagal membaca file upload'));
+  reader.readAsDataURL(file);
+});
+
+async function uploadFileViaBackend(file: File, scope: UploadScope): Promise<UploadedFileRef> {
+  const response = await apiRequest<DirectUploadResponse>('/uploads/direct', {
     method: 'POST',
     body: JSON.stringify({
       fileName: file.name,
       fileType: file.type || 'application/octet-stream',
       fileSize: file.size,
       scope,
+      dataUrl: await fileToDataUrl(file),
     }),
   });
 
-  let uploadResponse: Response;
+  return {
+    key: response.key,
+    url: response.downloadUrl || URL.createObjectURL(file),
+    fileName: file.name,
+    fileType: file.type || 'application/octet-stream',
+    fileSize: file.size,
+  };
+}
 
+export async function uploadFileToS3(file: File, scope: UploadScope): Promise<UploadedFileRef> {
   try {
-    uploadResponse = await fetch(presign.uploadUrl, {
+    const presign = await apiRequest<PresignResponse>('/uploads/presign', {
+      method: 'POST',
+      body: JSON.stringify({
+        fileName: file.name,
+        fileType: file.type || 'application/octet-stream',
+        fileSize: file.size,
+        scope,
+      }),
+    });
+
+    const uploadResponse = await fetch(presign.uploadUrl, {
       method: 'PUT',
       headers: {
         'Content-Type': file.type || 'application/octet-stream',
       },
       body: file,
     });
+
+    if (!uploadResponse.ok) {
+      throw new Error(`S3 direct upload failed with status ${uploadResponse.status}`);
+    }
+
+    return {
+      key: presign.key,
+      url: presign.downloadUrl || URL.createObjectURL(file),
+      fileName: file.name,
+      fileType: file.type || 'application/octet-stream',
+      fileSize: file.size,
+    };
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Network error';
-    throw new Error(`Gagal upload file ke S3. Cek CORS bucket, region, dan koneksi. Detail: ${message}`);
-  }
+    if (file.size > BACKEND_DIRECT_FALLBACK_MAX_BYTES) {
+      throw error instanceof Error ? error : new Error('Gagal upload file ke S3');
+    }
 
-  if (!uploadResponse.ok) {
-    const responseText = await uploadResponse.text().catch(() => '');
-    const detail = responseText ? ` Detail: ${responseText.slice(0, 180)}` : '';
-    throw new Error(`Gagal upload file ke S3 (${uploadResponse.status}).${detail}`);
+    return uploadFileViaBackend(file, scope);
   }
-
-  return {
-    key: presign.key,
-    url: presign.downloadUrl || URL.createObjectURL(file),
-    fileName: file.name,
-    fileType: file.type || 'application/octet-stream',
-    fileSize: file.size,
-  };
 }

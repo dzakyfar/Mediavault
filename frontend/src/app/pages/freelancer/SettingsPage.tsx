@@ -92,8 +92,11 @@ export default function FreelancerSettings() {
       setFormData((current) => ({ ...current, avatarUrl: uploaded.key }));
       setAvatarPreview(uploaded.url);
       setToast({ message: 'Foto profile siap disimpan', type: 'success' });
-    } catch {
-      setToast({ message: 'Gagal membaca foto profile', type: 'error' });
+    } catch (uploadError) {
+      setToast({
+        message: uploadError instanceof Error ? uploadError.message : 'Gagal upload foto profile',
+        type: 'error',
+      });
     }
   };
 

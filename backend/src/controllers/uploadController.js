@@ -12,6 +12,7 @@ const {
   createPresignedUpload,
   isS3Configured,
   isS3ObjectKey,
+  uploadObject,
 } = require('../utils/s3Storage');
 
 const scopeConfig = {
@@ -85,6 +86,73 @@ exports.createUploadUrl = async (req, res, next) => {
       uploadUrl,
       downloadUrl,
       expiresIn: 300,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.uploadDirect = async (req, res, next) => {
+  try {
+    if (!isS3Configured()) {
+      res.status(503);
+      throw new Error('S3 belum dikonfigurasi. Isi AWS_REGION, AWS_S3_BUCKET, AWS_ACCESS_KEY_ID, dan AWS_SECRET_ACCESS_KEY.');
+    }
+
+    const { fileName, fileType, fileSize, scope, dataUrl } = req.body;
+    const config = scopeConfig[scope];
+
+    if (!config) {
+      res.status(400);
+      throw new Error('Scope upload tidak valid');
+    }
+
+    if (!fileName || !fileType || !Number.isFinite(Number(fileSize)) || !dataUrl) {
+      res.status(400);
+      throw new Error('Nama file, tipe file, ukuran file, dan data file wajib dikirim');
+    }
+
+    if (Number(fileSize) > config.maxBytes) {
+      res.status(400);
+      throw new Error(`Ukuran file melebihi batas ${Math.round(config.maxBytes / 1024 / 1024)}MB`);
+    }
+
+    if (Number(fileSize) > S3_TOTAL_LIMIT_BYTES) {
+      res.status(400);
+      throw new Error('Ukuran file melebihi limit bucket 5GB');
+    }
+
+    if (config.allowedTypes && !config.allowedTypes.includes(fileType)) {
+      res.status(400);
+      throw new Error('Tipe file tidak didukung untuk upload ini');
+    }
+
+    const expectedPrefix = `data:${fileType};base64,`;
+    if (!String(dataUrl).startsWith(expectedPrefix)) {
+      res.status(400);
+      throw new Error('Format data file tidak valid');
+    }
+
+    const base64 = String(dataUrl).slice(expectedPrefix.length);
+    const buffer = Buffer.from(base64, 'base64');
+
+    if (buffer.length > config.maxBytes || buffer.length > S3_TOTAL_LIMIT_BYTES) {
+      res.status(400);
+      throw new Error('Ukuran file tidak valid');
+    }
+
+    const key = createObjectKey({
+      scope,
+      userId: req.user.id,
+      fileName,
+    });
+
+    await uploadObject({ key, body: buffer, contentType: fileType });
+    const downloadUrl = await createPresignedDownload(key);
+
+    res.status(201).json({
+      key,
+      downloadUrl,
     });
   } catch (error) {
     next(error);

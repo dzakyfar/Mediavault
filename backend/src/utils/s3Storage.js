@@ -87,6 +87,21 @@ const createPresignedDownload = async (key) => {
   return getSignedUrl(s3Client, command, { expiresIn: 60 * 15 });
 };
 
+const uploadObject = async ({ key, body, contentType }) => {
+  if (!isS3Configured()) {
+    throw new Error('S3 belum dikonfigurasi di backend');
+  }
+
+  const command = new PutObjectCommand({
+    Bucket: bucket,
+    Key: key,
+    Body: body,
+    ContentType: contentType || 'application/octet-stream',
+  });
+
+  await s3Client.send(command);
+};
+
 module.exports = {
   allowedScopes,
   createObjectKey,
@@ -94,4 +109,5 @@ module.exports = {
   createPresignedUpload,
   isS3Configured,
   isS3ObjectKey,
+  uploadObject,
 };
