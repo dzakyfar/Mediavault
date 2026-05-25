@@ -70,21 +70,51 @@ jobs:
             cd /home/ec2-user/mediavault/Mediavault
             git fetch origin main
             git pull --ff-only origin main
-            if command -v docker >/dev/null 2>&1; then
-              if docker compose version >/dev/null 2>&1; then
-                docker compose up -d db
-              elif command -v docker-compose >/dev/null 2>&1; then
-                docker-compose up -d db
+
+            if ! command -v docker >/dev/null 2>&1; then
+              if command -v dnf >/dev/null 2>&1; then
+                sudo dnf install -y docker
+              elif command -v yum >/dev/null 2>&1; then
+                sudo yum install -y docker
+              elif command -v apt-get >/dev/null 2>&1; then
+                sudo apt-get update
+                sudo apt-get install -y docker.io
+              else
+                echo "Docker is not installed and no supported package manager was found."
+                exit 1
               fi
             fi
+
+            sudo systemctl enable docker >/dev/null 2>&1 || true
+            sudo systemctl start docker
+
+            DOCKER="docker"
+            if ! docker ps >/dev/null 2>&1; then
+              DOCKER="sudo docker"
+            fi
+
+            if ! $DOCKER ps -a --format '{{.Names}}' | grep -qx mediavault-db-dev; then
+              $DOCKER run -d \
+                --name mediavault-db-dev \
+                --restart unless-stopped \
+                -e POSTGRES_USER=mediavault \
+                -e POSTGRES_PASSWORD=mediavaultpass \
+                -e POSTGRES_DB=mediavault_dev \
+                -p 5433:5432 \
+                -v mediavault_postgres_data:/var/lib/postgresql/data \
+                postgres:15-alpine
+            else
+              $DOCKER start mediavault-db-dev
+            fi
+
             for i in {1..30}; do
-              if docker exec mediavault-db-dev pg_isready -U mediavault -d mediavault_dev >/dev/null 2>&1; then
+              if $DOCKER exec mediavault-db-dev pg_isready -U mediavault -d mediavault_dev >/dev/null 2>&1; then
                 break
               fi
               sleep 2
               if [ "$i" = "30" ]; then
                 echo "Database is not ready on EC2. Check docker compose db service or PROD_DATABASE_URL."
-                docker ps || true
+                $DOCKER ps || true
                 exit 1
               fi
             done
