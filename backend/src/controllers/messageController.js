@@ -24,20 +24,44 @@ const serializeMessage = (message, currentUserId) => ({
 
 exports.listMessages = async (req, res, next) => {
   try {
-    const messages = await prisma.message.findMany({
-      where: {
-        OR: [
-          { senderId: req.user.id },
-          { receiverId: req.user.id },
-        ],
-      },
-      include: {
-        sender: { select: { id: true, fullName: true } },
-        receiver: { select: { id: true, fullName: true } },
-      },
-      orderBy: { createdAt: 'desc' },
-      take: 50,
-    });
+    const [messages, applications] = await Promise.all([
+      prisma.message.findMany({
+        where: {
+          OR: [
+            { senderId: req.user.id },
+            { receiverId: req.user.id },
+          ],
+        },
+        include: {
+          sender: { select: { id: true, fullName: true } },
+          receiver: { select: { id: true, fullName: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 50,
+      }),
+      prisma.projectApplication.findMany({
+        where: {
+          status: { in: ['PENDING', 'ACCEPTED'] },
+          OR: [
+            { freelancerId: req.user.id },
+            { project: { clientId: req.user.id } },
+          ],
+        },
+        include: {
+          freelancer: { select: { id: true, fullName: true } },
+          project: {
+            select: {
+              id: true,
+              title: true,
+              clientId: true,
+              client: { select: { id: true, fullName: true } },
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 50,
+      }),
+    ]);
 
     const serializedMessages = messages
       .map((message) => serializeMessage(message, req.user.id))
@@ -63,9 +87,28 @@ exports.listMessages = async (req, res, next) => {
       }
     });
 
+    applications.forEach((application) => {
+      const isClient = application.project.clientId === req.user.id;
+      const peer = isClient ? application.freelancer : application.project.client;
+
+      if (!peer || conversationMap.has(peer.id)) {
+        return;
+      }
+
+      conversationMap.set(peer.id, {
+        peerId: peer.id,
+        peerName: shortName(peer.fullName),
+        lastMessage: application.message || `Request job: ${application.project.title}`,
+        lastMessageAt: application.createdAt,
+        unreadCount: 0,
+      });
+    });
+
     res.json({
       messages: serializedMessages,
-      conversations: Array.from(conversationMap.values()),
+      conversations: Array.from(conversationMap.values()).sort(
+        (a, b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime()
+      ),
     });
   } catch (error) {
     next(error);
@@ -104,31 +147,30 @@ exports.sendMessage = async (req, res, next) => {
 
     const cleanBody = body.trim() || (imageUrl ? 'Mengirim gambar' : '');
 
-    const [message] = await prisma.$transaction([
-      prisma.message.create({
-        data: {
-          senderId: req.user.id,
-          receiverId,
-          body: cleanBody,
-          imageUrl: imageUrl || null,
-          imageName: imageName || null,
-          imageMime: imageMime || null,
-          imageSize: Number.isFinite(Number(imageSize)) ? Number(imageSize) : null,
-        },
-        include: {
-          sender: { select: { id: true, fullName: true } },
-          receiver: { select: { id: true, fullName: true } },
-        },
-      }),
-      prisma.notification.create({
-        data: {
-          userId: receiverId,
-          type: 'MESSAGE',
-          title: 'Pesan baru',
-          body: `${req.user.fullName}: ${cleanBody.slice(0, 120)}`,
-        },
-      }),
-    ]);
+    const message = await prisma.message.create({
+      data: {
+        senderId: req.user.id,
+        receiverId,
+        body: cleanBody,
+        imageUrl: imageUrl || null,
+        imageName: imageName || null,
+        imageMime: imageMime || null,
+        imageSize: Number.isFinite(Number(imageSize)) ? Number(imageSize) : null,
+      },
+      include: {
+        sender: { select: { id: true, fullName: true } },
+        receiver: { select: { id: true, fullName: true } },
+      },
+    });
+
+    await prisma.notification.create({
+      data: {
+        userId: receiverId,
+        type: 'MESSAGE',
+        title: 'Pesan baru',
+        body: `${req.user.fullName}: ${cleanBody.slice(0, 120)}`,
+      },
+    }).catch(() => undefined);
 
     res.status(201).json({ message: serializeMessage(message, req.user.id) });
   } catch (error) {

@@ -66,11 +66,25 @@ jobs:
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            cd /home/ec2-user/mediavault
-            git pull origin main
+            set -e
+            cd /home/ec2-user/mediavault/Mediavault
+            git fetch origin main
+            git pull --ff-only origin main
             cd backend
             npm ci
             npx prisma generate
             npx prisma migrate deploy
-            pm2 restart mediavault-backend || pm2 start server.js --name mediavault-backend
+            pm2 describe mediavault-backend >/dev/null \
+              && pm2 restart mediavault-backend --update-env \
+              || pm2 start server.js --name mediavault-backend --update-env
             pm2 save
+            for i in {1..30}; do
+              if curl -fsS http://127.0.0.1:5000/api/health; then
+                exit 0
+              fi
+              sleep 2
+            done
+
+            pm2 status
+            pm2 logs mediavault-backend --lines 80 --nostream
+            exit 1

@@ -2,6 +2,7 @@ const projectStatusLabel = {
   DRAFT: 'Draft',
   OPEN: 'Open',
   IN_PROGRESS: 'In Progress',
+  CONFIRMED: 'Confirmed',
   UNDER_REVIEW: 'Under Review',
   WAITING_PAYMENT: 'Waiting Payment',
   COMPLETED: 'Completed',
@@ -12,6 +13,7 @@ const statusColor = {
   DRAFT: 'bg-[#888888] text-white',
   OPEN: 'bg-[#22C55E] text-white',
   IN_PROGRESS: 'bg-[#F5C800] text-black',
+  CONFIRMED: 'bg-[#3B82F6] text-white',
   UNDER_REVIEW: 'bg-[#3B82F6] text-white',
   WAITING_PAYMENT: 'bg-[#F97316] text-white',
   COMPLETED: 'bg-[#22C55E] text-white',
@@ -20,7 +22,8 @@ const statusColor = {
 
 const projectStages = [
   { status: 'OPEN', label: 'Open', progress: 0 },
-  { status: 'IN_PROGRESS', label: 'In Progress', progress: 25 },
+  { status: 'IN_PROGRESS', label: 'Waiting Freelancer', progress: 10 },
+  { status: 'CONFIRMED', label: 'Confirmed', progress: 25 },
   { status: 'UNDER_REVIEW', label: 'Under Review', progress: 60 },
   { status: 'WAITING_PAYMENT', label: 'Waiting Payment', progress: 85 },
   { status: 'COMPLETED', label: 'Completed', progress: 100 },
@@ -99,6 +102,11 @@ const serializeProject = (project) => ({
     status: application.status,
     freelancerId: application.freelancerId,
     freelancer: application.freelancer ? shortName(application.freelancer.fullName) : 'Freelancer',
+    freelancerFullName: application.freelancer?.fullName || 'Freelancer',
+    freelancerSpecialty: application.freelancer?.specialty || null,
+    freelancerStartingPrice: application.freelancer?.startingPrice || null,
+    freelancerAvatarUrl: application.freelancer?.avatarUrl || null,
+    rating: null,
     createdAt: formatDate(application.createdAt),
   })) || [],
   tracking: projectStages.map((stage) => ({

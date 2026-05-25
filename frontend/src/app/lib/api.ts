@@ -64,12 +64,13 @@ export async function apiRequest<T>(path: string, options: ApiOptions = {}): Pro
   }
 
   const contentType = response.headers.get('content-type') || '';
-  const payload = contentType.includes('application/json')
-    ? await response.json()
-    : null;
+  const isJson = contentType.includes('application/json');
+  const payload = isJson ? await response.json() : null;
+  const textPayload = isJson ? '' : await response.text().catch(() => '');
 
   if (!response.ok) {
-    throw new Error(payload?.message || 'Request gagal');
+    const message = payload?.message || textPayload?.slice(0, 160);
+    throw new Error(message || `Request gagal (${response.status})`);
   }
 
   return payload as T;
