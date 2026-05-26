@@ -28,6 +28,17 @@ interface FreelancerProfile {
     description: string | null;
     fileUrl: string | null;
   }>;
+  offerings: Array<{
+    id: string;
+    title: string;
+    price: number;
+    priceFormatted: string;
+    description: string | null;
+    benefits: string[];
+    toolsSpec: string | null;
+    capacityPersons: number | null;
+    relatedSpecs: string[];
+  }>;
   reviews: Array<{
     id: string;
     rating: number;
@@ -51,6 +62,7 @@ const normalizeFreelancerProfile = (freelancer: Partial<FreelancerProfile>): Fre
   city: freelancer.city || '-',
   available: freelancer.available ?? true,
   portfolioItems: freelancer.portfolioItems || [],
+  offerings: freelancer.offerings || [],
   reviews: freelancer.reviews || [],
 });
 
@@ -107,7 +119,7 @@ export default function FreelancerProfilePage() {
         method: 'POST',
         body: JSON.stringify(orderData),
       });
-      navigate(`/dashboard/client/messages?peerId=${id}&peerName=${encodeURIComponent(freelancer?.fullName || 'Freelancer')}`);
+      navigate('/dashboard/client/projects');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Gagal memesan jasa');
     }
@@ -178,6 +190,36 @@ export default function FreelancerProfilePage() {
               <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-8">
                 <h2 className="text-3xl mb-4" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>About</h2>
                 <p className="text-[#888888] leading-relaxed">{freelancer.bio}</p>
+              </div>
+
+              <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-8">
+                <h2 className="text-3xl mb-4" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>Paket Tersedia</h2>
+                {freelancer.offerings.length === 0 ? (
+                  <EmptyState title="Belum ada paket" description="Freelancer ini belum mempublikasikan paket siap pesan." />
+                ) : (
+                  <div className="grid md:grid-cols-2 gap-4">
+                    {freelancer.offerings.map((offering) => (
+                      <div key={offering.id} className="bg-[#141414] border border-[#2A2A2A] rounded-lg p-5">
+                        <div className="flex items-start justify-between gap-3 mb-3">
+                          <h3 className="text-xl font-bold">{offering.title}</h3>
+                          <span className="text-[#F5C800] font-bold whitespace-nowrap">{offering.priceFormatted}</span>
+                        </div>
+                        {offering.description && <p className="text-sm text-[#888888] mb-3">{offering.description}</p>}
+                        {offering.benefits.length > 0 && (
+                          <ul className="space-y-2 text-sm text-[#D6D6D6]">
+                            {offering.benefits.slice(0, 5).map((benefit) => (
+                              <li key={benefit}>- {benefit}</li>
+                            ))}
+                          </ul>
+                        )}
+                        <div className="mt-4 space-y-1 text-sm text-[#888888]">
+                          {offering.toolsSpec && <div>Alat: {offering.toolsSpec}</div>}
+                          {offering.capacityPersons && <div>Kapasitas: hingga {offering.capacityPersons} orang</div>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-8">

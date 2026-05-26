@@ -3,9 +3,13 @@ const projectStatusLabel = {
   OPEN: 'Open',
   IN_PROGRESS: 'In Progress',
   CONFIRMED: 'Confirmed',
+  PAID: 'Paid',
   UNDER_REVIEW: 'Under Review',
   WAITING_PAYMENT: 'Waiting Payment',
+  DELIVERED: 'Delivered',
   COMPLETED: 'Completed',
+  AUTO_COMPLETED: 'Auto Completed',
+  DISPUTED: 'Disputed',
   CANCELLED: 'Cancelled',
 };
 
@@ -14,18 +18,23 @@ const statusColor = {
   OPEN: 'bg-[#22C55E] text-white',
   IN_PROGRESS: 'bg-[#F5C800] text-black',
   CONFIRMED: 'bg-[#3B82F6] text-white',
+  PAID: 'bg-[#22C55E] text-white',
   UNDER_REVIEW: 'bg-[#3B82F6] text-white',
   WAITING_PAYMENT: 'bg-[#F97316] text-white',
+  DELIVERED: 'bg-[#8B5CF6] text-white',
   COMPLETED: 'bg-[#22C55E] text-white',
+  AUTO_COMPLETED: 'bg-[#22C55E] text-white',
+  DISPUTED: 'bg-[#EF4444] text-white',
   CANCELLED: 'bg-[#EF4444] text-white',
 };
 
 const projectStages = [
   { status: 'OPEN', label: 'Open', progress: 0 },
-  { status: 'IN_PROGRESS', label: 'Waiting Freelancer', progress: 10 },
-  { status: 'CONFIRMED', label: 'Confirmed', progress: 25 },
+  { status: 'WAITING_PAYMENT', label: 'Waiting Payment', progress: 20 },
+  { status: 'PAID', label: 'Paid', progress: 30 },
+  { status: 'IN_PROGRESS', label: 'In Progress', progress: 45 },
   { status: 'UNDER_REVIEW', label: 'Under Review', progress: 60 },
-  { status: 'WAITING_PAYMENT', label: 'Waiting Payment', progress: 85 },
+  { status: 'DELIVERED', label: 'Delivered', progress: 85 },
   { status: 'COMPLETED', label: 'Completed', progress: 100 },
 ];
 
@@ -147,6 +156,17 @@ const serializeProject = (project) => ({
     rating: project.reviews[0].rating,
     comment: project.reviews[0].comment,
     createdAt: formatDateTime(project.reviews[0].createdAt),
+  } : null,
+  latestPayment: project.payments?.[0] ? {
+    id: project.payments[0].id,
+    klikqrisOrderId: project.payments[0].klikqrisOrderId,
+    status: project.payments[0].status,
+    totalAmount: project.payments[0].totalAmount,
+    totalAmountFormatted: formatCurrency(project.payments[0].totalAmount),
+    qrisUrl: project.payments[0].qrisUrl,
+    directUrl: project.payments[0].directUrl,
+    expiredAt: project.payments[0].expiredAt,
+    paidAt: project.payments[0].paidAt,
   } : null,
 });
 

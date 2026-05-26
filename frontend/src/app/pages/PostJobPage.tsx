@@ -20,7 +20,9 @@ export default function PostJobPage() {
   const [formData, setFormData] = useState({
     title: searchParams.get('service') ? `Pesan jasa ${searchParams.get('service')}` : '',
     category: searchParams.get('service') || '',
+    customCategory: '',
     serviceType: searchParams.get('service') || '',
+    customServiceType: '',
     description: '',
     budget: '',
     eventDate: '',
@@ -106,7 +108,9 @@ export default function PostJobPage() {
 
   const handleNext = () => {
     setError('');
-    if (step === 1 && (!formData.title || !formData.category || !formData.serviceType || !formData.description)) {
+    const categoryReady = formData.category && (formData.category !== 'other' || formData.customCategory.trim());
+    const serviceReady = formData.serviceType && (formData.serviceType !== 'other' || formData.customServiceType.trim());
+    if (step === 1 && (!formData.title || !categoryReady || !serviceReady || !formData.description)) {
       setError('Judul, kategori, jasa, dan deskripsi wajib diisi');
       return;
     }
@@ -192,7 +196,11 @@ export default function PostJobPage() {
       setError('');
       await apiRequest('/projects', {
         method: 'POST',
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          ...formData,
+          category: formData.category === 'other' ? formData.customCategory.trim() : formData.category,
+          serviceType: formData.serviceType === 'other' ? formData.customServiceType.trim() : formData.serviceType,
+        }),
       });
       navigate('/dashboard/client/projects');
     } catch (err) {
@@ -268,8 +276,21 @@ export default function PostJobPage() {
                     <option value="corporate">Corporate</option>
                     <option value="concert">Concert</option>
                     <option value="real-estate">Real Estate</option>
+                    <option value="other">Other</option>
                   </select>
                 </div>
+                {formData.category === 'other' && (
+                  <div>
+                    <label className="block text-sm text-[#888888] mb-2">Tuliskan kategori yang kamu butuhkan:</label>
+                    <input
+                      type="text"
+                      value={formData.customCategory}
+                      onChange={(e) => setFormData({ ...formData, customCategory: e.target.value })}
+                      placeholder="Contoh: Graduation, company profile, interior"
+                      className="w-full bg-[#141414] border border-[#2A2A2A] rounded-lg px-4 py-3 text-white placeholder-[#888888] focus:border-[#F5C800] focus:outline-none focus:ring-2 focus:ring-[#F5C800]/20 transition-all"
+                    />
+                  </div>
+                )}
                 <div>
                   <label className="block text-sm text-[#888888] mb-2">Jasa yang dibutuhkan</label>
                   <select
@@ -281,8 +302,21 @@ export default function PostJobPage() {
                     {serviceOptions.map((service) => (
                       <option key={service} value={service}>{service}</option>
                     ))}
+                    <option value="other">Other</option>
                   </select>
                 </div>
+                {formData.serviceType === 'other' && (
+                  <div>
+                    <label className="block text-sm text-[#888888] mb-2">Tuliskan jenis jasa yang kamu butuhkan:</label>
+                    <input
+                      type="text"
+                      value={formData.customServiceType}
+                      onChange={(e) => setFormData({ ...formData, customServiceType: e.target.value })}
+                      placeholder="Contoh: Live streaming, drone pilot, retouching"
+                      className="w-full bg-[#141414] border border-[#2A2A2A] rounded-lg px-4 py-3 text-white placeholder-[#888888] focus:border-[#F5C800] focus:outline-none focus:ring-2 focus:ring-[#F5C800]/20 transition-all"
+                    />
+                  </div>
+                )}
                 <div>
                   <label className="block text-sm text-[#888888] mb-2">Description</label>
                   <textarea

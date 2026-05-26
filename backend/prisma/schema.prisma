@@ -11,6 +11,7 @@ enum UserRole {
   CLIENT
   FREELANCER
   BOTH
+  ADMIN
 }
 
 enum ProjectStatus {
@@ -18,9 +19,13 @@ enum ProjectStatus {
   OPEN
   IN_PROGRESS
   CONFIRMED
+  PAID
   UNDER_REVIEW
   WAITING_PAYMENT
+  DELIVERED
   COMPLETED
+  AUTO_COMPLETED
+  DISPUTED
   CANCELLED
 }
 
@@ -41,6 +46,20 @@ enum ProjectSubmissionStatus {
   PENDING
   APPROVED
   REVISION_REQUESTED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  EXPIRED
+  FAILED
+}
+
+enum WithdrawalStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
 }
 
 model User {
@@ -66,6 +85,9 @@ model User {
   sentMessages   Message[]            @relation("SentMessages")
   receivedMessages Message[]          @relation("ReceivedMessages")
   notifications  Notification[]
+  offerings      Offering[]
+  wallet         Wallet?
+  withdrawals    Withdrawal[]
 }
 
 model Project {
@@ -89,6 +111,9 @@ model Project {
   deadline      DateTime?
   status        ProjectStatus        @default(OPEN)
   progress      Int                  @default(0)
+  deliveredAt   DateTime?
+  autoReleaseAt DateTime?
+  completedAt   DateTime?
   clientId      String
   freelancerId  String?
   createdAt     DateTime             @default(now())
@@ -98,9 +123,28 @@ model Project {
   applications  ProjectApplication[]
   files         ProjectFile[]
   invoices      Invoice[]
+  payments      Payment[]
   histories     ProjectHistory[]
   submissions   ProjectSubmission[]
   reviews       FreelancerReview[]
+}
+
+model Offering {
+  id              String   @id @default(cuid())
+  freelancerId    String
+  title           String
+  price           Int
+  description     String?
+  benefits        String[]
+  toolsSpec       String?
+  capacityPersons Int?
+  relatedSpecs    String[]
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  freelancer      User     @relation(fields: [freelancerId], references: [id], onDelete: Cascade)
+
+  @@index([freelancerId, isActive])
 }
 
 model ProjectApplication {
@@ -183,6 +227,54 @@ model Invoice {
   status    String   @default("PENDING")
   createdAt DateTime @default(now())
   project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model Payment {
+  id              String        @id @default(cuid())
+  projectId       String
+  klikqrisOrderId String        @unique
+  amountRequest   Int
+  amountPaid      Int?
+  baseAmount      Int
+  adminFeeClient  Int
+  totalAmount     Int
+  qrisUrl         String?
+  directUrl       String?
+  signature       String
+  status          PaymentStatus @default(PENDING)
+  expiredAt       DateTime?
+  paidAt          DateTime?
+  gatewayResponse Json?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  project         Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, status])
+}
+
+model Wallet {
+  userId    String   @id
+  balance   Int      @default(0)
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Withdrawal {
+  id            String           @id @default(cuid())
+  freelancerId  String
+  amount        Int
+  adminFee      Int
+  netAmount     Int
+  bankName      String?
+  accountNumber String?
+  accountName   String?
+  status        WithdrawalStatus @default(PENDING)
+  processedAt   DateTime?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  freelancer    User             @relation(fields: [freelancerId], references: [id], onDelete: Cascade)
+
+  @@index([freelancerId, status])
 }
 
 model Message {

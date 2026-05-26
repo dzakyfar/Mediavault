@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router';
-import { Star } from 'lucide-react';
+import { RefreshCcw, Star, X } from 'lucide-react';
 import DashboardLayout from '../../components/DashboardLayout';
 import EmptyState from '../../components/EmptyState';
 import ProjectTracker from '../../components/dashboard/ProjectTracker';
@@ -68,6 +68,28 @@ interface ProjectDetail {
     comment: string;
     createdAt: string;
   } | null;
+  latestPayment: PaymentDetail | null;
+}
+
+interface PaymentDetail {
+  id: string;
+  projectId: string;
+  klikqrisOrderId: string;
+  amountRequest: number;
+  amountRequestFormatted: string;
+  amountPaid: number | null;
+  amountPaidFormatted: string;
+  baseAmount: number;
+  baseAmountFormatted: string;
+  adminFeeClient: number;
+  adminFeeClientFormatted: string;
+  totalAmount: number;
+  totalAmountFormatted: string;
+  qrisUrl: string | null;
+  directUrl: string | null;
+  status: string;
+  expiredAt: string | null;
+  paidAt: string | null;
 }
 
 const normalizeProjectDetail = (project: ProjectDetail): ProjectDetail => ({
@@ -90,39 +112,82 @@ export default function ClientProjectDetail() {
     rating: '5',
     comment: '',
   });
-  const [confirmingOffer, setConfirmingOffer] = useState<ProjectDetail['pendingOffers'][number] | null>(null);
-  const [confirmText, setConfirmText] = useState('');
   const [showAllApplicants, setShowAllApplicants] = useState(false);
+  const [acceptingOfferId, setAcceptingOfferId] = useState('');
+  const [payment, setPayment] = useState<PaymentDetail | null>(null);
+  const [paymentOpen, setPaymentOpen] = useState(false);
+  const [paymentLoading, setPaymentLoading] = useState(false);
+  const [paymentError, setPaymentError] = useState('');
 
   useEffect(() => {
     if (!id) return;
     apiRequest<{ project: ProjectDetail }>(`/projects/${id}`)
-      .then((response) => setProject(normalizeProjectDetail(response.project)))
+      .then((response) => {
+        const nextProject = normalizeProjectDetail(response.project);
+        setProject(nextProject);
+        if (nextProject.latestPayment) setPayment(nextProject.latestPayment);
+      })
       .catch((err) => setError(err instanceof Error ? err.message : 'Gagal memuat detail project'))
       .finally(() => setLoading(false));
   }, [id]);
 
-  const confirmOffer = async () => {
-    if (!id || !confirmingOffer || confirmText.trim().toLowerCase() !== 'konfirmasi') return;
+  useEffect(() => {
+    if (!paymentOpen || !payment || payment.status !== 'PENDING') return undefined;
+
+    const interval = window.setInterval(async () => {
+      try {
+        const response = await apiRequest<{ payment: PaymentDetail }>(`/payments/${payment.klikqrisOrderId}/status`);
+        setPayment(response.payment);
+        if (response.payment.status === 'PAID' && id) {
+          const projectResponse = await apiRequest<{ project: ProjectDetail }>(`/projects/${id}`);
+          setProject(normalizeProjectDetail(projectResponse.project));
+        }
+      } catch (err) {
+        setPaymentError(err instanceof Error ? err.message : 'Gagal memperbarui status pembayaran');
+      }
+    }, 5000);
+
+    return () => window.clearInterval(interval);
+  }, [id, payment, paymentOpen]);
+
+  const createOrOpenPayment = async () => {
+    if (!id) return;
 
     try {
+      setPaymentLoading(true);
+      setPaymentError('');
+      const response = await apiRequest<{ payment: PaymentDetail }>(`/payments/projects/${id}/create`, {
+        method: 'POST',
+      });
+      setPayment(response.payment);
+      setPaymentOpen(true);
+    } catch (err) {
+      setPaymentError(err instanceof Error ? err.message : 'Gagal membuat QRIS pembayaran');
+    } finally {
+      setPaymentLoading(false);
+    }
+  };
+
+  const confirmOffer = async (offer: ProjectDetail['pendingOffers'][number]) => {
+    if (!id) return;
+
+    try {
+      setAcceptingOfferId(offer.id);
       setError('');
-      await apiRequest(`/projects/applications/${confirmingOffer.id}`, {
+      setPaymentError('');
+      await apiRequest(`/projects/applications/${offer.id}`, {
         method: 'PATCH',
         body: JSON.stringify({ action: 'accept' }),
       });
       const response = await apiRequest<{ project: ProjectDetail }>(`/projects/${id}`);
-      setProject(normalizeProjectDetail(response.project));
-      setConfirmingOffer(null);
-      setConfirmText('');
+      const nextProject = normalizeProjectDetail(response.project);
+      setProject(nextProject);
+      await createOrOpenPayment();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Gagal mengkonfirmasi freelancer');
+    } finally {
+      setAcceptingOfferId('');
     }
-  };
-
-  const openConfirm = (offer: ProjectDetail['pendingOffers'][number]) => {
-    setConfirmingOffer(offer);
-    setConfirmText('');
   };
 
   const ApplicantCard = ({ offer }: { offer: ProjectDetail['pendingOffers'][number] }) => (
@@ -149,10 +214,11 @@ export default function ClientProjectDetail() {
           View Profile
         </Link>
         <button
-          onClick={() => openConfirm(offer)}
+          onClick={() => confirmOffer(offer)}
+          disabled={acceptingOfferId === offer.id}
           className="px-3 py-2 bg-[#F5C800] text-black rounded-lg text-sm font-bold hover:shadow-[0_0_10px_rgba(245,200,0,0.4)] transition-all"
         >
-          Confirm
+          {acceptingOfferId === offer.id ? 'Processing...' : 'Confirm & Pay'}
         </button>
       </div>
     </div>
@@ -262,6 +328,30 @@ export default function ClientProjectDetail() {
               </div>
             )}
 
+            {['Waiting Payment'].includes(project.status) && (
+              <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-8">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                  <div>
+                    <h2 className="text-3xl mb-2" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>
+                      Pembayaran QRIS
+                    </h2>
+                    <p className="text-[#888888]">
+                      Buat QRIS dinamis untuk mengunci freelancer dan mencatat dana escrow internal.
+                    </p>
+                    {paymentError && <p className="mt-3 text-sm text-[#EF4444]">{paymentError}</p>}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={createOrOpenPayment}
+                    disabled={paymentLoading}
+                    className="px-5 py-3 bg-[#F5C800] text-black rounded-lg font-bold disabled:opacity-60"
+                  >
+                    {paymentLoading ? 'Membuat QR...' : payment ? 'Lihat QRIS' : 'Bayar dengan QRIS'}
+                  </button>
+                </div>
+              </div>
+            )}
+
             <ProjectTracker
               projectId={project.id}
               stages={project.tracking}
@@ -301,13 +391,13 @@ export default function ClientProjectDetail() {
               />
             )}
 
-            {project.freelancer && project.freelancer !== 'Belum ada freelancer' && ['Waiting Payment', 'Completed'].includes(project.status) && (
+            {project.freelancer && project.freelancer !== 'Belum ada freelancer' && ['Completed', 'Auto Completed'].includes(project.status) && (
               <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-8">
                 <h2 className="text-3xl mb-4" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>
                   Freelancer Review
                 </h2>
                 <p className="text-[#888888] mb-5">
-                  Payment masih dinonaktifkan, jadi review ini menjadi tahap penutup sementara setelah draft disetujui.
+                  Bagikan ulasan setelah pekerjaan selesai dan dana diteruskan ke freelancer.
                 </p>
 
                 {project.review ? (
@@ -386,36 +476,103 @@ export default function ClientProjectDetail() {
         </div>
       )}
 
-      {confirmingOffer && (
+      {paymentOpen && payment && (
         <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
-          <div className="w-full max-w-lg bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-6">
-            <h2 className="text-3xl mb-3" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>
-              Confirm Freelancer
-            </h2>
-            <p className="text-[#888888] mb-4">
-              Anda yakin ingin mempekerjakan {confirmingOffer.freelancerFullName || confirmingOffer.freelancer}? Tulis "konfirmasi" di bawah untuk melanjutkan.
-            </p>
-            <input
-              type="text"
-              value={confirmText}
-              onChange={(event) => setConfirmText(event.target.value)}
-              className="w-full bg-[#141414] border border-[#2A2A2A] rounded-lg px-4 py-3 text-white placeholder-[#888888] focus:border-[#F5C800] focus:outline-none"
-              placeholder="konfirmasi"
-            />
-            <div className="flex justify-end gap-3 mt-5">
+          <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-6">
+            <div className="flex items-start justify-between gap-4 mb-5">
+              <div>
+                <h2 className="text-3xl mb-1" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>
+                  Bayar & Konfirmasi Freelancer
+                </h2>
+                <p className="text-[#888888] text-sm">{payment.klikqrisOrderId}</p>
+              </div>
               <button
-                onClick={() => setConfirmingOffer(null)}
-                className="px-5 py-2 border border-[#888888] text-white rounded-lg text-sm hover:border-[#F5C800] hover:text-[#F5C800] transition-colors"
+                type="button"
+                onClick={() => setPaymentOpen(false)}
+                className="p-2 border border-[#888888] text-white rounded-lg hover:border-[#F5C800] hover:text-[#F5C800] transition-colors"
+                aria-label="Tutup modal pembayaran"
               >
-                Cancel
+                <X className="w-4 h-4" />
               </button>
-              <button
-                onClick={confirmOffer}
-                disabled={confirmText.trim().toLowerCase() !== 'konfirmasi'}
-                className="px-5 py-2 bg-[#F5C800] text-black font-bold rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Ya, saya yakin
-              </button>
+            </div>
+
+            <div className="grid md:grid-cols-[240px_1fr] gap-6">
+              <div className="bg-white rounded-lg p-4 min-h-[240px] flex items-center justify-center">
+                {payment.qrisUrl ? (
+                  <img src={payment.qrisUrl} alt="QRIS pembayaran" className="w-full h-auto" />
+                ) : (
+                  <span className="text-black text-sm text-center">QRIS tidak tersedia dari gateway</span>
+                )}
+              </div>
+
+              <div className="space-y-3 text-sm">
+                <div className="flex justify-between gap-4">
+                  <span className="text-[#888888]">Pekerjaan</span>
+                  <span className="text-white text-right font-bold">{project?.title}</span>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <span className="text-[#888888]">Harga Dasar</span>
+                  <span className="text-white font-bold">{payment.baseAmountFormatted}</span>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <span className="text-[#888888]">Biaya Admin 1%</span>
+                  <span className="text-white font-bold">{payment.adminFeeClientFormatted}</span>
+                </div>
+                <div className="h-px bg-[#2A2A2A]" />
+                <div className="flex justify-between gap-4 text-base">
+                  <span className="text-[#888888]">Total Bayar</span>
+                  <span className="text-[#F5C800] font-bold">{payment.totalAmountFormatted}</span>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <span className="text-[#888888]">Status</span>
+                  <span className={payment.status === 'PAID' ? 'text-[#22C55E] font-bold' : 'text-[#F5C800] font-bold'}>
+                    {payment.status === 'PAID' ? 'Pembayaran Berhasil' : 'Menunggu Pembayaran'}
+                  </span>
+                </div>
+                {payment.expiredAt && (
+                  <div className="flex justify-between gap-4">
+                    <span className="text-[#888888]">Berlaku Hingga</span>
+                    <span className="text-white text-right">
+                      {new Date(payment.expiredAt).toLocaleString('id-ID', {
+                        day: '2-digit',
+                        month: 'short',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </span>
+                  </div>
+                )}
+                {paymentError && <p className="text-[#EF4444]">{paymentError}</p>}
+                <div className="flex flex-wrap gap-3 pt-3">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        setPaymentError('');
+                        const response = await apiRequest<{ payment: PaymentDetail }>(`/payments/${payment.klikqrisOrderId}/status`);
+                        setPayment(response.payment);
+                      } catch (err) {
+                        setPaymentError(err instanceof Error ? err.message : 'Gagal refresh status pembayaran');
+                      }
+                    }}
+                    className="inline-flex items-center gap-2 px-4 py-2 border border-[#888888] text-white rounded-lg text-sm hover:border-[#F5C800] hover:text-[#F5C800] transition-colors"
+                  >
+                    <RefreshCcw className="w-4 h-4" />
+                    Refresh Status
+                  </button>
+                  {payment.directUrl && (
+                    <a
+                      href={payment.directUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="px-4 py-2 bg-[#F5C800] text-black rounded-lg text-sm font-bold"
+                    >
+                      Buka Halaman Bayar
+                    </a>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         </div>

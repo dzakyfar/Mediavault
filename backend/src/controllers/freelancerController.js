@@ -1,6 +1,7 @@
 const prisma = require('../config/prisma');
 const { formatCurrency, shortName } = require('../utils/formatters');
 const { resolveMediaUrl, resolvePortfolioMedia } = require('../utils/mediaUrls');
+const { serializeOffering } = require('./offeringController');
 
 exports.listFreelancers = async (req, res, next) => {
   try {
@@ -83,6 +84,10 @@ exports.getFreelancerById = async (req, res, next) => {
           },
           orderBy: { createdAt: 'desc' },
         },
+        offerings: {
+          where: { isActive: true },
+          orderBy: { createdAt: 'desc' },
+        },
       },
     });
 
@@ -124,6 +129,7 @@ exports.getFreelancerById = async (req, res, next) => {
         city: freelancer.city || '-',
         available: freelancer.isAvailable,
         portfolioItems: await Promise.all(freelancer.portfolioItems.map(resolvePortfolioMedia)),
+        offerings: freelancer.offerings.map(serializeOffering),
         reviews: reviews.map((review) => ({
           id: review.id,
           rating: review.rating,
@@ -195,7 +201,8 @@ exports.orderFreelancerService = async (req, res, next) => {
         postalCode,
         address: address || [addressDetail, village, district, city, province, postalCode].filter(Boolean).join(', '),
         addressDetail,
-        status: 'UNDER_REVIEW',
+        status: 'WAITING_PAYMENT',
+        progress: 20,
         clientId: req.user.id,
         freelancerId: freelancer.id,
       },
@@ -206,8 +213,8 @@ exports.orderFreelancerService = async (req, res, next) => {
         data: {
           userId: freelancer.id,
           type: 'PROJECT',
-          title: 'Pesanan jasa baru',
-          body: `${req.user.fullName} ingin memesan jasa ${serviceType}`,
+          title: 'Pesanan jasa baru menunggu pembayaran',
+          body: `${req.user.fullName} ingin memesan jasa ${serviceType}. Project menunggu pembayaran QRIS.`,
         },
       }),
       prisma.message.create({
@@ -222,7 +229,7 @@ exports.orderFreelancerService = async (req, res, next) => {
           projectId: project.id,
           actorId: req.user.id,
           title: 'Pesanan jasa dibuat',
-          body: `${req.user.fullName} memesan jasa ${serviceType} ke ${freelancer.fullName}`,
+          body: `${req.user.fullName} memesan jasa ${serviceType} ke ${freelancer.fullName} dan perlu menyelesaikan pembayaran QRIS.`,
           eventType: 'DIRECT_ORDER_CREATED',
         },
       }),

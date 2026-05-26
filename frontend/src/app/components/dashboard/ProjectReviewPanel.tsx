@@ -46,7 +46,7 @@ export default function ProjectReviewPanel({
   const [error, setError] = useState('');
 
   const pendingSubmission = submissions.find((submission) => submission.status === 'PENDING');
-  const canSubmitDraft = userType === 'freelancer' && ['Confirmed', 'In Progress', 'Under Review'].includes(projectStatus);
+  const canSubmitDraft = userType === 'freelancer' && ['Paid', 'Confirmed', 'In Progress', 'Under Review'].includes(projectStatus);
 
   const attachFile = async (file?: File) => {
     if (!file) return;
@@ -70,7 +70,7 @@ export default function ProjectReviewPanel({
   const submitDraft = async (event: FormEvent) => {
     event.preventDefault();
     if (!comment.trim() || !fileDraft) {
-      setError('Komentar dan file draft wajib diisi');
+      setError('Komentar dan file hasil wajib diisi');
       return;
     }
 
@@ -91,7 +91,7 @@ export default function ProjectReviewPanel({
       setFileDraft(null);
       onUpdated(response.project);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Gagal mengirim draft');
+      setError(err instanceof Error ? err.message : 'Gagal mengirim hasil');
     } finally {
       setSaving(false);
     }
@@ -111,7 +111,7 @@ export default function ProjectReviewPanel({
       setReviewComment('');
       onUpdated(response.project);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Gagal review draft');
+      setError(err instanceof Error ? err.message : 'Gagal review hasil');
     } finally {
       setSaving(false);
     }
@@ -146,10 +146,10 @@ export default function ProjectReviewPanel({
       <div className="flex items-start justify-between gap-4 mb-5">
         <div>
           <h2 className="text-3xl" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>
-            Draft Review
+            Delivery Review
           </h2>
           <p className="text-sm text-[#888888]">
-            Freelancer mengirim draft, client approve atau meminta revisi. Payment tetap di-hold dulu.
+            Freelancer mengirim hasil pekerjaan, client approve atau meminta revisi. Dana escrow diteruskan setelah approve.
           </p>
         </div>
         {pendingSubmission && (
@@ -167,18 +167,18 @@ export default function ProjectReviewPanel({
 
       {canSubmitDraft && (
         <form onSubmit={submitDraft} className="mb-6 bg-[#141414] border border-[#2A2A2A] rounded-xl p-5">
-          <h3 className="font-bold text-white mb-3">Kirim draft ke client</h3>
+          <h3 className="font-bold text-white mb-3">Kirim hasil ke client</h3>
           <textarea
             value={comment}
             onChange={(event) => setComment(event.target.value)}
-            placeholder="Jelaskan progress, apa yang perlu dicek client, dan catatan revisi jika ada..."
+            placeholder="Jelaskan hasil pekerjaan, file yang dikirim, dan catatan tambahan jika ada..."
             rows={4}
             className="w-full bg-[#1A1A1A] border border-[#2A2A2A] rounded-lg px-4 py-3 text-white placeholder-[#888888] focus:border-[#F5C800] focus:outline-none"
           />
           <div className="mt-3 flex items-center gap-3 flex-wrap">
             <label className="inline-flex items-center gap-2 px-4 py-3 border border-[#888888] text-white rounded-lg hover:border-[#F5C800] hover:text-[#F5C800] cursor-pointer transition-colors">
               <FileUp className="w-4 h-4" />
-              Upload draft
+              Upload hasil
               <input type="file" accept="image/png,image/jpeg,application/pdf,video/mp4,video/quicktime,video/webm" className="hidden" onChange={(event) => attachFile(event.target.files?.[0])} />
             </label>
             <span className="text-sm text-[#888888]">PNG, JPEG, PDF, MP4, MOV, atau WebM. Maksimal 500MB.</span>
@@ -201,14 +201,14 @@ export default function ProjectReviewPanel({
             className="mt-4 inline-flex items-center gap-2 px-5 py-3 bg-[#F5C800] text-black font-bold rounded-lg disabled:opacity-60"
           >
             <Send className="w-4 h-4" />
-            {saving ? 'Mengirim...' : 'Kirim untuk Review'}
+            {saving ? 'Mengirim...' : 'Kirim Hasil'}
           </button>
         </form>
       )}
 
       {userType === 'client' && pendingSubmission && (
         <div className="mb-6 bg-[#141414] border border-[#F5C800] rounded-xl p-5">
-          <h3 className="font-bold text-white mb-2">Draft menunggu review Anda</h3>
+          <h3 className="font-bold text-white mb-2">Hasil pekerjaan menunggu review Anda</h3>
           <p className="text-[#888888]">{pendingSubmission.comment}</p>
           {renderFile(pendingSubmission)}
           <textarea
@@ -225,7 +225,7 @@ export default function ProjectReviewPanel({
               onClick={() => reviewSubmission(pendingSubmission.id, 'approve')}
               className="px-5 py-3 bg-[#22C55E] text-white font-bold rounded-lg disabled:opacity-60"
             >
-              Approve Draft
+              Konfirmasi Selesai
             </button>
             <button
               type="button"
@@ -240,12 +240,12 @@ export default function ProjectReviewPanel({
       )}
 
       <div className="space-y-3">
-        {submissions.length === 0 && <p className="text-[#888888]">Belum ada draft yang dikirim.</p>}
+        {submissions.length === 0 && <p className="text-[#888888]">Belum ada hasil yang dikirim.</p>}
         {submissions.map((submission) => (
           <div key={submission.id} className="bg-[#141414] border border-[#2A2A2A] rounded-lg p-4">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <div className="font-bold text-white">Draft dikirim</div>
+                <div className="font-bold text-white">Hasil dikirim</div>
                 <div className="text-sm text-[#888888]">{submission.createdAt}</div>
               </div>
               <span className={`px-3 py-1 rounded-full text-xs font-bold ${
