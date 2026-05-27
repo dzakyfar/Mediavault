@@ -3,7 +3,7 @@ import { Home, ArrowLeft } from 'lucide-react';
 
 export default function NotFoundPage() {
   return (
-    <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center p-6" style={{ fontFamily: 'DM Sans, sans-serif' }}>
+    <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center p-6 mv-ambient" style={{ fontFamily: 'DM Sans, sans-serif' }}>
       <div className="text-center max-w-md">
         <div className="mb-8">
           <h1 className="text-9xl font-bold text-[#F5C800] mb-4" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>

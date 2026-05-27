@@ -49,7 +49,7 @@ export default function PricingPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#0A0A0A] text-white" style={{ fontFamily: 'DM Sans, sans-serif' }}>
+    <div className="min-h-screen bg-[#0A0A0A] text-white mv-ambient" style={{ fontFamily: 'DM Sans, sans-serif' }}>
       <Navbar />
 
       <div className="max-w-7xl mx-auto px-6 py-20">

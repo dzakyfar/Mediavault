@@ -14,17 +14,9 @@ import {
 } from '../lib/indonesiaRegions';
 import { MESSAGE_IMAGE_MAX_BYTES, validateImageFile } from '../lib/uploadLimits';
 import { uploadFileToS3 } from '../lib/s3Upload';
+import { serviceCatalog } from '../lib/serviceCatalog';
 
-const categoryOptions = [
-  'Wedding',
-  'Product',
-  'Fashion',
-  'Corporate',
-  'Event',
-  'Real Estate',
-  'Concert',
-  'Lainnya',
-];
+const categoryOptions = serviceCatalog.map((item) => item.category);
 
 export default function FreelancerOnboardingPage() {
   const navigate = useNavigate();
@@ -188,7 +180,7 @@ export default function FreelancerOnboardingPage() {
     if (form.categories.length === 0) return 'Pilih minimal satu kategori keahlian.';
     if (form.experienceYears === '' || Number(form.experienceYears) < 0) return 'Pengalaman tahun wajib diisi.';
     if (!form.startingPrice || Number(form.startingPrice) < 1) return 'Harga mulai wajib diisi.';
-    if (!form.province || !form.city || !form.district || !form.village || !form.postalCode || !form.addressDetail) {
+    if (!form.province || !form.city || !form.district || !form.village || !form.addressDetail) {
       return 'Alamat lengkap freelancer wajib diisi.';
     }
     if (!form.agreed) return 'Persetujuan syarat & ketentuan freelancer wajib dicentang.';
@@ -576,7 +568,7 @@ export default function FreelancerOnboardingPage() {
                   onChange={(value) => selectVillage(findExactRegionByName(villages, value), value)}
                   onSelect={selectVillage}
                 />
-                <Field label="Kode Pos *">
+                <Field label="Kode Pos">
                   <input
                     type="number"
                     value={form.postalCode}
@@ -680,33 +672,33 @@ export default function FreelancerOnboardingPage() {
       </div>
 
       {termsOpen && (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center px-4">
+        <div className="fixed inset-y-0 left-0 right-0 z-[120] flex items-center justify-center px-4 md:left-60">
           <button
             type="button"
             aria-label="Tutup syarat dan ketentuan"
             onClick={() => setTermsOpen(false)}
-            className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+            className="absolute inset-0 bg-slate-950/45 backdrop-blur-sm dark:bg-black/75"
           />
-          <div className="relative w-full max-w-3xl max-h-[86vh] overflow-y-auto bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-6 shadow-2xl">
+          <div className="relative w-full max-w-3xl max-h-[86vh] overflow-y-auto rounded-xl border border-[#D8DEE8] bg-white p-6 text-[#111827] shadow-2xl dark:border-[#2A2A2A] dark:bg-[#1A1A1A] dark:text-white">
             <div className="flex items-start justify-between gap-4 mb-5">
               <div>
                 <h2 className="text-4xl" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>
                   Syarat & Ketentuan Freelancer
                 </h2>
-                <p className="text-sm text-[#888888] mt-1">
+                  <p className="text-sm text-[#667085] dark:text-[#888888] mt-1">
                   Ringkasan aturan kerja di MediaVault untuk menjaga transaksi tetap jelas, aman, dan profesional.
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setTermsOpen(false)}
-                className="p-2 border border-[#888888] rounded-lg text-white hover:border-[#F5C800] hover:text-[#F5C800]"
+                className="p-2 border border-[#D8DEE8] rounded-lg text-[#667085] hover:border-[#D9A900] hover:text-[#A87800] dark:border-[#888888] dark:text-white dark:hover:border-[#F5C800] dark:hover:text-[#F5C800]"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="space-y-4 text-sm text-[#D1D1D1] leading-relaxed">
+            <div className="space-y-4 text-sm text-[#667085] leading-relaxed dark:text-[#D1D1D1]">
               <TermsBlock
                 title="1. Profil dan Keahlian"
                 body="Freelancer wajib mengisi data profil secara benar, termasuk bio, kategori keahlian, domisili, dan harga mulai. Informasi ini dipakai client untuk menilai kecocokan jasa sebelum memesan."
@@ -741,11 +733,11 @@ export default function FreelancerOnboardingPage() {
               />
             </div>
 
-            <div className="mt-6 flex justify-end gap-3 border-t border-[#2A2A2A] pt-5">
+            <div className="mt-6 flex justify-end gap-3 border-t border-[#D8DEE8] pt-5 dark:border-[#2A2A2A]">
               <button
                 type="button"
                 onClick={() => setTermsOpen(false)}
-                className="px-5 py-3 border border-[#888888] text-white rounded-lg font-bold hover:border-[#F5C800] hover:text-[#F5C800]"
+                className="px-5 py-3 border border-[#D8DEE8] text-[#111827] rounded-lg font-bold hover:border-[#D9A900] hover:text-[#A87800] dark:border-[#888888] dark:text-white dark:hover:border-[#F5C800] dark:hover:text-[#F5C800]"
               >
                 Tutup
               </button>
@@ -755,7 +747,7 @@ export default function FreelancerOnboardingPage() {
                   setForm((current) => ({ ...current, agreed: true }));
                   setTermsOpen(false);
                 }}
-                className="px-5 py-3 bg-[#F5C800] text-black rounded-lg font-bold"
+                className="px-5 py-3 bg-[#D9A900] text-[#111827] rounded-lg font-bold dark:bg-[#F5C800] dark:text-black"
               >
                 Saya Setuju
               </button>
@@ -778,9 +770,9 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 
 function TermsBlock({ title, body }: { title: string; body: string }) {
   return (
-    <div className="rounded-lg border border-[#2A2A2A] bg-[#141414] p-4">
-      <h3 className="font-bold text-white mb-1">{title}</h3>
-      <p className="text-[#AFAFAF]">{body}</p>
+    <div className="rounded-lg border border-[#D8DEE8] bg-[#F7F9FC] p-4 dark:border-[#2A2A2A] dark:bg-[#141414]">
+      <h3 className="font-bold text-[#111827] mb-1 dark:text-white">{title}</h3>
+      <p className="text-[#667085] dark:text-[#AFAFAF]">{body}</p>
     </div>
   );
 }

@@ -72,7 +72,7 @@ exports.register = async (req, res, next) => {
         fullName,
         email: email.toLowerCase(),
         passwordHash,
-        role: normalizeRole(role) || 'CLIENT',
+        role: normalizeRole(role),
         isAvailable: false,
       },
       select: publicUserSelect,
@@ -130,7 +130,7 @@ exports.login = async (req, res, next) => {
 
 exports.googleLogin = async (req, res, next) => {
   try {
-    const { credential } = req.body;
+    const { credential, acceptedTerms, password } = req.body;
 
     if (!process.env.GOOGLE_CLIENT_ID) {
       res.status(500);
@@ -156,6 +156,16 @@ exports.googleLogin = async (req, res, next) => {
     const email = payload.email.toLowerCase();
     const existingUser = await prisma.user.findUnique({ where: { email } });
 
+    if (!existingUser && !acceptedTerms) {
+      res.status(428);
+      throw new Error('GOOGLE_SIGNUP_REQUIRES_CONSENT');
+    }
+
+    if (!existingUser && (!password || String(password).length < 8)) {
+      res.status(400);
+      throw new Error('Password lokal minimal 8 karakter untuk akun Google baru');
+    }
+
     const user = existingUser
       ? await prisma.user.update({
         where: { id: existingUser.id },
@@ -172,7 +182,8 @@ exports.googleLogin = async (req, res, next) => {
           email,
           googleId: payload.sub,
           avatarUrl: payload.picture,
-          role: 'CLIENT',
+          passwordHash: await bcrypt.hash(password, 12),
+          role: null,
           isAvailable: false,
         },
         select: publicUserSelect,
@@ -239,7 +250,7 @@ exports.registerFreelancer = async (req, res, next) => {
       throw new Error('Harga mulai wajib diisi');
     }
 
-    if (!province?.trim() || !city?.trim() || !district?.trim() || !village?.trim() || !postalCode?.trim() || !addressDetail?.trim()) {
+    if (!province?.trim() || !city?.trim() || !district?.trim() || !village?.trim() || !addressDetail?.trim()) {
       res.status(400);
       throw new Error('Alamat lengkap freelancer wajib diisi');
     }
@@ -272,7 +283,7 @@ exports.registerFreelancer = async (req, res, next) => {
           city: city.trim(),
           district: district.trim(),
           village: village.trim(),
-          postalCode: postalCode.trim(),
+          postalCode: postalCode?.trim() || null,
           addressDetail: addressDetail.trim(),
           latitude: parseOptionalCoordinate(latitude),
           longitude: parseOptionalCoordinate(longitude),

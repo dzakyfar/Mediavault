@@ -458,7 +458,7 @@ export default function FreelancerProfilePage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0A0A0A] text-white" style={{ fontFamily: 'DM Sans, sans-serif' }}>
+    <div className="min-h-screen bg-[#0A0A0A] text-white mv-ambient" style={{ fontFamily: 'DM Sans, sans-serif' }}>
       <Navbar />
       <main className="max-w-7xl mx-auto px-6 py-12">
         <Link to="/explore" className="text-[#888888] hover:text-[#F5C800] transition-colors">

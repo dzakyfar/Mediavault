@@ -8,6 +8,13 @@ exports.listFreelancers = async (req, res, next) => {
     const freelancers = await prisma.user.findMany({
       where: {
         role: { in: ['FREELANCER', 'BOTH'] },
+        AND: [
+          { bio: { not: null } },
+          { bio: { not: '' } },
+          { specialty: { not: null } },
+          { specialty: { not: '' } },
+          { startingPrice: { not: null } },
+        ],
       },
       select: {
         id: true,
@@ -62,6 +69,13 @@ exports.getFreelancerById = async (req, res, next) => {
       where: {
         id: req.params.id,
         role: { in: ['FREELANCER', 'BOTH'] },
+        AND: [
+          { bio: { not: null } },
+          { bio: { not: '' } },
+          { specialty: { not: null } },
+          { specialty: { not: '' } },
+          { startingPrice: { not: null } },
+        ],
       },
       select: {
         id: true,

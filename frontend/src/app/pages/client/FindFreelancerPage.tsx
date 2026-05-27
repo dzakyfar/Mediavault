@@ -133,7 +133,7 @@ export default function ClientFindFreelancer() {
             </div>
             <h3 className="font-bold mb-2 text-white">{freelancer.name}</h3>
             <div className="flex gap-2 mb-3 flex-wrap">
-              {freelancer.specialty.split(' | ').map((tag) => (
+              {freelancer.specialty.split(/[|,]/).map((tag) => tag.trim()).filter(Boolean).map((tag) => (
                 <span key={tag} className="px-3 py-1 bg-[#1A1A1A] text-[#888888] text-xs rounded-full">
                   {tag}
                 </span>

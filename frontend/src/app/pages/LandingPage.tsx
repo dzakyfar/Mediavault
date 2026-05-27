@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
-import { Pencil, Camera, FolderOpen, Star, Image, Shield, Zap, MapPin } from 'lucide-react';
+import { Pencil, Camera, FolderOpen, Star, Image, Shield, Zap, Users, CheckCircle2 } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import { apiRequest } from '../lib/api';
@@ -25,6 +25,11 @@ export default function LandingPage() {
     { name: 'Corporate', image: '/catalog/corporate.jpg' },
     { name: 'Concert', image: '/catalog/concert.jpg' },
     { name: 'Real Estate', image: '/catalog/real-estate.jpg' },
+  ];
+  const heroStats = [
+    { icon: Star, label: '4.9 Rating' },
+    { icon: Users, label: '500+ Freelancers' },
+    { icon: CheckCircle2, label: '2,000+ Projects Done' },
   ];
   const testimonials = [
     {
@@ -56,7 +61,7 @@ export default function LandingPage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#0A0A0A] text-white" style={{ fontFamily: 'DM Sans, sans-serif' }}>
+    <div className="mv-no-page-transform min-h-screen bg-[#0A0A0A] text-white mv-ambient" style={{ fontFamily: 'DM Sans, sans-serif' }}>
       <Navbar />
 
       <section className="relative overflow-hidden">
@@ -69,15 +74,12 @@ export default function LandingPage() {
         </div>
         <div className="relative max-w-7xl mx-auto px-6 py-24 text-center">
           <div className="flex items-center justify-center gap-4 mb-8 flex-wrap">
-            <span className="px-4 py-2 border border-[#F5C800] bg-[#141414] rounded-full text-sm">
-              4.9 Rating
-            </span>
-            <span className="px-4 py-2 border border-[#F5C800] bg-[#141414] rounded-full text-sm">
-              500+ Freelancers
-            </span>
-            <span className="px-4 py-2 border border-[#F5C800] bg-[#141414] rounded-full text-sm">
-              2,000+ Projects Done
-            </span>
+            {heroStats.map((stat) => (
+              <span key={stat.label} className="inline-flex items-center gap-2 px-4 py-2 border border-[#F5C800] bg-[#141414] rounded-full text-sm shadow-[0_12px_30px_rgba(245,200,0,0.08)]">
+                <stat.icon className="h-4 w-4 text-[#F5C800]" />
+                {stat.label}
+              </span>
+            ))}
           </div>
           <h1 className="text-6xl md:text-8xl mb-4" style={{ fontFamily: 'Bebas Neue, sans-serif', lineHeight: '1.1' }}>
             BOOK THE <span className="text-[#F5C800]">BEST.</span>
@@ -107,9 +109,9 @@ export default function LandingPage() {
             {[
               { icon: Pencil, step: '1', title: 'Post Your Job', desc: 'Drop your brief. Set your budget. Get ready for the pitch.' },
               { icon: Camera, step: '2', title: 'Pick Your Shooter', desc: 'Review portfolios, compare rates, and hire the perfect match.' },
-              { icon: FolderOpen, step: '3', title: 'Get Your Files', desc: 'Secure payment. Fast delivery. High-res results via NAS.' }
+              { icon: FolderOpen, step: '3', title: 'Get Your Files', desc: 'Track progress, review drafts, and access delivered media securely.' }
             ].map((item, i) => (
-              <div key={i} className="bg-[#141414] rounded-xl p-8 border border-[#2A2A2A] hover:-translate-y-1 hover:border-b-4 hover:border-b-[#F5C800] hover:shadow-[0_4px_20px_rgba(245,200,0,0.2)] transition-all duration-200 relative overflow-hidden">
+              <div key={i} className="bg-[#141414] rounded-xl p-8 border border-[#2A2A2A] hover:-translate-y-1 hover:border-b-4 hover:border-b-[#F5C800] hover:shadow-[0_4px_20px_rgba(245,200,0,0.2)] transition-all duration-200 relative overflow-hidden mv-glass-card">
                 <div className="absolute top-8 right-8 text-8xl font-bold text-[#1A1A1A] opacity-50">
                   {item.step}
                 </div>
@@ -189,7 +191,7 @@ export default function LandingPage() {
                 </div>
                 <h3 className="font-bold mb-2">{freelancer.name}</h3>
                 <div className="flex gap-2 mb-3 flex-wrap">
-                  {freelancer.specialty.split(' | ').map((tag, j) => (
+                  {freelancer.specialty.split(/[|,]/).map((tag) => tag.trim()).filter(Boolean).map((tag, j) => (
                     <span key={j} className="px-3 py-1 bg-[#1A1A1A] text-[#888888] text-xs rounded-full">
                       {tag}
                     </span>
@@ -220,7 +222,7 @@ export default function LandingPage() {
               <Link
                 key={i}
                 to={`/explore?category=${category.name.toLowerCase()}`}
-                className="relative h-64 rounded-xl overflow-hidden group cursor-pointer block bg-[#1A1A1A]"
+                className="relative h-64 rounded-xl overflow-hidden group cursor-pointer block bg-[#1A1A1A] mv-preserve-white"
               >
                 <img
                   src={category.image}
@@ -249,10 +251,10 @@ export default function LandingPage() {
           <h2 className="text-5xl md:text-6xl" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>
             Voices From The Vault
           </h2>
-          <p className="text-[#888888] mt-3">Kutipan dummy yang mewakili alur project MediaVault.</p>
+          <p className="text-[#888888] mt-3">Selected stories from creative workflows powered by MediaVault.</p>
         </div>
-        <div className="relative">
-          <div className="flex gap-5 w-max animate-[testimonialMarquee_32s_linear_infinite]">
+        <div className="mv-testimonial-strip relative">
+          <div className="mv-testimonial-track">
             {[...testimonials, ...testimonials].map((testimonial, index) => (
               <div key={`${testimonial.name}-${index}`} className="w-80 md:w-96 bg-[#0A0A0A] border border-[#2A2A2A] rounded-2xl p-6 shadow-[0_18px_50px_rgba(0,0,0,0.25)]">
                 <div className="text-5xl text-[#F5C800] leading-none mb-3">"</div>
@@ -269,24 +271,6 @@ export default function LandingPage() {
 
       <Footer />
 
-      <style>{`
-        @keyframes scroll {
-          0% {
-            transform: translateX(0);
-          }
-          100% {
-            transform: translateX(-50%);
-          }
-        }
-        @keyframes testimonialMarquee {
-          0% {
-            transform: translateX(0);
-          }
-          100% {
-            transform: translateX(-50%);
-          }
-        }
-      `}</style>
     </div>
   );
 }

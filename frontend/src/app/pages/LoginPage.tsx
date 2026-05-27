@@ -4,6 +4,7 @@ import { Zap, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { dashboardPathForRole } from '../lib/api';
 import GoogleSignInButton from '../components/GoogleSignInButton';
+import GoogleSignupConsentModal from '../components/GoogleSignupConsentModal';
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
@@ -11,6 +12,8 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [pendingGoogleCredential, setPendingGoogleCredential] = useState('');
+  const [googleConsentError, setGoogleConsentError] = useState('');
   const navigate = useNavigate();
   const { login, loginWithGoogle } = useAuth();
 
@@ -37,18 +40,42 @@ export default function LoginPage() {
   const handleGoogleLogin = async (credential: string) => {
     try {
       setError('');
+      setGoogleConsentError('');
       setSubmitting(true);
       const user = await loginWithGoogle(credential);
       navigate(dashboardPathForRole(user.role));
     } catch (err) {
+      if (err instanceof Error && err.message.includes('GOOGLE_SIGNUP_REQUIRES_CONSENT')) {
+        setPendingGoogleCredential(credential);
+        return;
+      }
+
       setError(err instanceof Error ? err.message : 'Login Google gagal');
     } finally {
       setSubmitting(false);
     }
   };
 
+  const completeGoogleSignup = async (password: string) => {
+    try {
+      setSubmitting(true);
+      setGoogleConsentError('');
+      const user = await loginWithGoogle(pendingGoogleCredential, {
+        acceptedTerms: true,
+        password,
+      });
+      setPendingGoogleCredential('');
+      navigate(dashboardPathForRole(user.role));
+    } catch (err) {
+      setGoogleConsentError(err instanceof Error ? err.message : 'Registrasi Google gagal');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-[#0A0A0A] flex" style={{ fontFamily: 'DM Sans, sans-serif' }}>
+    <>
+    <div className="min-h-screen bg-[#0A0A0A] flex mv-ambient" style={{ fontFamily: 'DM Sans, sans-serif' }}>
       <div className="hidden md:flex md:w-1/2 bg-[#0A0A0A] relative overflow-hidden">
         <Link to="/" className="absolute top-8 left-8 flex items-center gap-2 z-10">
           <Zap className="w-6 h-6 text-[#F5C800]" />
@@ -153,5 +180,16 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+    <GoogleSignupConsentModal
+      open={Boolean(pendingGoogleCredential)}
+      submitting={submitting}
+      error={googleConsentError}
+      onCancel={() => {
+        setPendingGoogleCredential('');
+        setGoogleConsentError('');
+      }}
+      onConfirm={completeGoogleSignup}
+    />
+    </>
   );
 }

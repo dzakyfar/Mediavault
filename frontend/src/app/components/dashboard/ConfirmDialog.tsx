@@ -1,3 +1,5 @@
+import { createPortal } from 'react-dom';
+
 interface ConfirmDialogProps {
   open: boolean;
   title: string;
@@ -21,8 +23,8 @@ export default function ConfirmDialog({
 }: ConfirmDialogProps) {
   if (!open) return null;
 
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center px-4">
+  return createPortal((
+    <div className="fixed inset-y-0 left-0 right-0 z-[100] flex items-center justify-center px-4 md:left-60">
       <button
         type="button"
         aria-label="Close dialog"
@@ -56,5 +58,5 @@ export default function ConfirmDialog({
         </div>
       </div>
     </div>
-  );
+  ), document.body);
 }

@@ -64,10 +64,10 @@ export default function DashboardLayout({ children, userType, userName, greeting
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#0A0A0A]" style={{ fontFamily: 'DM Sans, sans-serif' }}>
+    <div className="mv-no-page-transform flex min-h-screen bg-[#0A0A0A] mv-ambient" style={{ fontFamily: 'DM Sans, sans-serif' }}>
       <DashboardSidebar userType={userType} userName={displayName} />
 
-      <div className="ml-60">
+      <div className="min-w-0 flex-1">
         <div className="border-b border-[#2A2A2A] bg-[#0A0A0A] sticky top-0 z-40">
           <div className="px-8 py-4 flex items-center justify-between">
             <div>

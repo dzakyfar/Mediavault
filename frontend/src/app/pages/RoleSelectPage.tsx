@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router';
+import { Link, useNavigate, useSearchParams } from 'react-router';
 import { Zap, ShoppingBag, Camera, Check } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { UserRole } from '../lib/api';
@@ -9,6 +9,7 @@ export default function RoleSelectPage() {
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user, updateRole } = useAuth();
 
   const roleMap: Record<'client' | 'freelancer' | 'both', UserRole> = {
@@ -22,6 +23,13 @@ export default function RoleSelectPage() {
     navigate(user.role === 'FREELANCER' ? '/dashboard/freelancer' : '/dashboard/client', { replace: true });
   }, [navigate, user?.role]);
 
+  useEffect(() => {
+    const intent = searchParams.get('intent');
+    if (intent === 'freelancer' || intent === 'client' || intent === 'both') {
+      setSelectedRole(intent);
+    }
+  }, [searchParams]);
+
   const handleContinue = async () => {
     if (!selectedRole) return;
 
@@ -29,7 +37,9 @@ export default function RoleSelectPage() {
       setSubmitting(true);
       setError('');
       const user = await updateRole(roleMap[selectedRole]);
-      navigate(user.role === 'FREELANCER' ? '/dashboard/freelancer' : '/dashboard/client', { replace: true });
+      navigate(user.role === 'FREELANCER' || selectedRole !== 'client'
+        ? '/freelancer-onboarding'
+        : '/dashboard/client', { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Gagal menyimpan role');
     } finally {
@@ -38,7 +48,7 @@ export default function RoleSelectPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center p-8" style={{ fontFamily: 'DM Sans, sans-serif' }}>
+    <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center p-8 mv-ambient" style={{ fontFamily: 'DM Sans, sans-serif' }}>
       <div className="w-full max-w-4xl">
         <div className="text-center mb-12">
           <Link to="/" className="inline-flex items-center gap-2 mb-8">

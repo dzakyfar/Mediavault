@@ -4,12 +4,14 @@ import { renderGoogleButton } from '../lib/googleAuth';
 interface GoogleSignInButtonProps {
   disabled?: boolean;
   text?: 'signin_with' | 'signup_with' | 'continue_with';
+  onDisabledClick?: () => void;
   onCredential: (credential: string) => void;
 }
 
 export default function GoogleSignInButton({
   disabled = false,
   text = 'continue_with',
+  onDisabledClick,
   onCredential,
 }: GoogleSignInButtonProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -47,10 +49,20 @@ export default function GoogleSignInButton({
   }, [text]);
 
   return (
-    <div className="mb-6">
-      <div className={disabled ? 'pointer-events-none opacity-60' : ''} ref={containerRef} />
+    <div className="mb-6 flex flex-col items-center">
+      <div className="relative flex w-full justify-center">
+        <div className={disabled ? 'pointer-events-none opacity-60' : ''} ref={containerRef} />
+        {disabled && onDisabledClick && (
+          <button
+            type="button"
+            onClick={onDisabledClick}
+            className="absolute inset-0 cursor-pointer rounded"
+            aria-label="Google sign in disabled"
+          />
+        )}
+      </div>
       {error && (
-        <div className="mt-3 rounded-lg border border-[#EF4444] bg-[#EF4444]/10 p-3 text-sm text-[#EF4444]">
+        <div className="mt-3 w-full rounded-lg border border-[#EF4444] bg-[#EF4444]/10 p-3 text-sm text-[#EF4444]">
           {error}
         </div>
       )}

@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router';
 import { ArrowLeft, ArrowRight, Check, FileUp, MapPin, X } from 'lucide-react';
 import DashboardLayout from '../components/DashboardLayout';
 import { apiRequest } from '../lib/api';
+import { getServicesForCategory, serviceCatalog } from '../lib/serviceCatalog';
 import { formatBytes, REFERENCE_FILE_MAX_BYTES, S3_TOTAL_LIMIT_BYTES, validateReferenceFile } from '../lib/uploadLimits';
 import { uploadFileToS3 } from '../lib/s3Upload';
 
@@ -58,12 +59,18 @@ const getCurrentPosition = (options: PositionOptions) => new Promise<Geolocation
 
 export default function PostJobPage() {
   const [searchParams] = useSearchParams();
+  const requestedCategory = searchParams.get('category') || '';
+  const requestedService = searchParams.get('service') || '';
+  const categoryFromQuery = serviceCatalog.find((item) => (
+    item.category.toLowerCase() === requestedCategory.toLowerCase()
+    || item.services.some((service) => service.toLowerCase() === requestedService.toLowerCase())
+  ))?.category || '';
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
-    title: searchParams.get('service') ? `Pesan jasa ${searchParams.get('service')}` : '',
-    category: searchParams.get('service') || '',
+    title: requestedService ? `Pesan jasa ${requestedService}` : '',
+    category: categoryFromQuery,
     customCategory: '',
-    serviceType: searchParams.get('service') || '',
+    serviceType: requestedService,
     customServiceType: '',
     description: '',
     budget: '',
@@ -100,16 +107,8 @@ export default function PostJobPage() {
   const [selectedDistrictId, setSelectedDistrictId] = useState('');
   const navigate = useNavigate();
 
-  const serviceOptions = [
-    'Photography',
-    'Videography',
-    'Photo + Video',
-    'Editing',
-    'Product Shoot',
-    'Wedding Documentation',
-    'Corporate Event',
-    'Real Estate Shoot',
-  ];
+  const categoryOptions = serviceCatalog.map((item) => item.category);
+  const serviceOptions = getServicesForCategory(formData.category);
 
   const mapQuery = formData.latitude && formData.longitude
     ? `${formData.latitude},${formData.longitude}`
@@ -527,16 +526,18 @@ export default function PostJobPage() {
                   <label className="block text-sm text-[#888888] mb-2">Category</label>
                   <select
                     value={formData.category}
-                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                    onChange={(e) => setFormData({
+                      ...formData,
+                      category: e.target.value,
+                      serviceType: '',
+                      customServiceType: '',
+                    })}
                     className="w-full bg-[#141414] border border-[#2A2A2A] rounded-lg px-4 py-3 text-white focus:border-[#F5C800] focus:outline-none focus:ring-2 focus:ring-[#F5C800]/20 transition-all"
                   >
                     <option value="">Select a category</option>
-                    <option value="wedding">Wedding</option>
-                    <option value="product">Product</option>
-                    <option value="fashion">Fashion</option>
-                    <option value="corporate">Corporate</option>
-                    <option value="concert">Concert</option>
-                    <option value="real-estate">Real Estate</option>
+                    {categoryOptions.map((category) => (
+                      <option key={category} value={category}>{category}</option>
+                    ))}
                     <option value="other">Other</option>
                   </select>
                 </div>
@@ -557,9 +558,10 @@ export default function PostJobPage() {
                   <select
                     value={formData.serviceType}
                     onChange={(e) => setFormData({ ...formData, serviceType: e.target.value })}
+                    disabled={!formData.category}
                     className="w-full bg-[#141414] border border-[#2A2A2A] rounded-lg px-4 py-3 text-white focus:border-[#F5C800] focus:outline-none focus:ring-2 focus:ring-[#F5C800]/20 transition-all"
                   >
-                    <option value="">Pilih jasa</option>
+                    <option value="">{formData.category ? 'Pilih jasa' : 'Pilih kategori dulu'}</option>
                     {serviceOptions.map((service) => (
                       <option key={service} value={service}>{service}</option>
                     ))}

@@ -18,7 +18,7 @@ interface AuthContextValue {
   loading: boolean;
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<CurrentUser>;
-  loginWithGoogle: (credential: string) => Promise<CurrentUser>;
+  loginWithGoogle: (credential: string, options?: { acceptedTerms?: boolean; password?: string }) => Promise<CurrentUser>;
   register: (payload: { fullName: string; email: string; password: string }) => Promise<CurrentUser>;
   updateRole: (role: UserRole) => Promise<CurrentUser>;
   updateProfile: (payload: Partial<CurrentUser>) => Promise<CurrentUser>;
@@ -94,11 +94,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(response.user);
       return response.user;
     },
-    async loginWithGoogle(credential) {
+    async loginWithGoogle(credential, options) {
       const response = await apiRequest<AuthResponse>('/auth/google', {
         method: 'POST',
         auth: false,
-        body: JSON.stringify({ credential }),
+        body: JSON.stringify({ credential, ...options }),
       });
       setStoredToken(response.token);
       setUser(response.user);
@@ -113,7 +113,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return response.user;
     },
     async registerFreelancer(payload) {
-      const response = await apiRequest<{ user: CurrentUser }>('/auth/freelancer-registration', {
+      const response = await apiRequest<{ user: CurrentUser }>('/auth/register-freelancer', {
         method: 'POST',
         body: JSON.stringify(payload),
       });

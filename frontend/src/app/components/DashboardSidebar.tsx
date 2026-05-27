@@ -50,7 +50,7 @@ export default function DashboardSidebar({ userType, userName }: DashboardSideba
   };
 
   return (
-    <div className="w-60 h-screen fixed left-0 top-0 bg-[#141414] border-r border-[#2A2A2A] flex flex-col">
+    <aside className="sticky top-0 h-screen w-60 shrink-0 bg-[#141414] border-r border-[#2A2A2A] flex flex-col">
       <div className="p-6">
         <Link to="/" className="flex items-center gap-2 mb-8">
           <Zap className="w-6 h-6 text-[#F5C800]" />
@@ -111,6 +111,6 @@ export default function DashboardSidebar({ userType, userName }: DashboardSideba
           Log Out
         </Link>
       </div>
-    </div>
+    </aside>
   );
 }

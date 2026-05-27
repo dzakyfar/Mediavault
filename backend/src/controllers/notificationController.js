@@ -20,7 +20,7 @@ exports.listNotifications = async (req, res, next) => {
             { clientId: req.user.id },
             { freelancerId: req.user.id },
           ],
-          status: { in: ['OPEN', 'IN_PROGRESS', 'UNDER_REVIEW', 'WAITING_PAYMENT'] },
+          status: { in: ['OPEN', 'WAITING_PAYMENT', 'PAID', 'CONFIRMED', 'IN_PROGRESS', 'UNDER_REVIEW', 'DELIVERED'] },
         },
         orderBy: { updatedAt: 'desc' },
         take: 5,

@@ -2,13 +2,20 @@ import { Link } from 'react-router';
 import {
   ArrowRight,
   Bell,
+  Building2,
   Camera,
   CheckCircle2,
   Clapperboard,
   FolderLock,
+  HeartHandshake,
+  Home,
+  Package,
   Search,
   ShieldCheck,
   Sparkles,
+  Smartphone,
+  Video,
+  Wand2,
   Workflow,
   Zap,
 } from 'lucide-react';
@@ -34,14 +41,14 @@ const pillars = [
 ];
 
 const services = [
-  'Photography',
-  'Videography',
-  'Product Shoot',
-  'Wedding Documentation',
-  'Corporate Event',
-  'Real Estate Shoot',
-  'Creative Editing',
-  'Digital Content',
+  { name: 'Photography', icon: Camera },
+  { name: 'Videography', icon: Video },
+  { name: 'Product Shoot', icon: Package },
+  { name: 'Wedding Documentation', icon: HeartHandshake },
+  { name: 'Corporate Event', icon: Building2 },
+  { name: 'Real Estate Shoot', icon: Home },
+  { name: 'Creative Editing', icon: Wand2 },
+  { name: 'Digital Content', icon: Smartphone },
 ];
 
 const platformHighlights = [
@@ -55,7 +62,7 @@ const platformHighlights = [
 
 export default function AboutUsPage() {
   return (
-    <div className="min-h-screen bg-[#0A0A0A] text-white overflow-hidden" style={{ fontFamily: 'DM Sans, sans-serif' }}>
+    <div className="min-h-screen bg-[#0A0A0A] text-white overflow-hidden mv-ambient" style={{ fontFamily: 'DM Sans, sans-serif' }}>
       <Navbar />
 
       <main>
@@ -101,7 +108,7 @@ export default function AboutUsPage() {
 
               <div className="relative">
                 <div className="absolute inset-0 translate-x-6 translate-y-6 rounded-[2rem] bg-[#F5C800]/20 blur-sm" />
-                <div className="relative bg-[#141414] border border-[#2A2A2A] rounded-[2rem] p-6 shadow-[0_24px_80px_rgba(0,0,0,0.35)]">
+                <div className="relative bg-[#141414] border border-[#2A2A2A] rounded-[2rem] p-6 shadow-[0_24px_80px_rgba(0,0,0,0.35)] mv-glass-card mv-float-soft">
                   <div className="grid grid-cols-2 gap-4 mb-5">
                     <div className="bg-[#1A1A1A] rounded-2xl p-5 border border-[#2A2A2A]">
                       <Camera className="w-9 h-9 text-[#F5C800] mb-4" />
@@ -216,11 +223,11 @@ export default function AboutUsPage() {
 
             <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {services.map((service) => (
-                <div key={service} className="group bg-[#141414] border border-[#2A2A2A] rounded-2xl p-5 hover:border-[#F5C800] transition-all">
+                <div key={service.name} className="group bg-[#141414] border border-[#2A2A2A] rounded-2xl p-5 hover:border-[#F5C800] hover:-translate-y-1 transition-all">
                   <div className="w-11 h-11 rounded-xl bg-[#1A1A1A] flex items-center justify-center mb-5 group-hover:bg-[#F5C800] transition-colors">
-                    <Zap className="w-5 h-5 text-[#F5C800] group-hover:text-black transition-colors" />
+                    <service.icon className="w-5 h-5 text-[#F5C800] group-hover:text-black transition-colors" />
                   </div>
-                  <div className="font-bold">{service}</div>
+                  <div className="font-bold">{service.name}</div>
                 </div>
               ))}
             </div>

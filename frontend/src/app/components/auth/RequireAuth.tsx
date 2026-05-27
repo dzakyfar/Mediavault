@@ -28,6 +28,18 @@ export default function RequireAuth({ children, roles }: RequireAuthProps) {
     return <Navigate to="/role-select" replace />;
   }
 
+  const needsFreelancerProfile = Boolean(
+    roles?.includes('FREELANCER')
+    && user.role
+    && ['FREELANCER', 'BOTH'].includes(user.role)
+    && (!user.isAvailable || !user.bio || !user.specialty || !user.startingPrice)
+    && location.pathname !== '/freelancer-onboarding'
+  );
+
+  if (needsFreelancerProfile) {
+    return <Navigate to="/freelancer-onboarding" replace />;
+  }
+
   if (roles && !roles.includes(user.role)) {
     const fallback = user.role === 'FREELANCER' ? '/dashboard/freelancer' : '/dashboard/client';
     return <Navigate to={fallback} replace />;

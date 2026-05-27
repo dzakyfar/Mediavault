@@ -42,7 +42,7 @@ export default function ExplorePage() {
   });
 
   return (
-    <div className="min-h-screen bg-[#0A0A0A] text-white" style={{ fontFamily: 'DM Sans, sans-serif' }}>
+    <div className="min-h-screen bg-[#0A0A0A] text-white mv-ambient" style={{ fontFamily: 'DM Sans, sans-serif' }}>
       <Navbar />
 
       <div className="max-w-7xl mx-auto px-6 py-12">
@@ -131,7 +131,7 @@ export default function ExplorePage() {
               </div>
               <h3 className="font-bold mb-2 text-white">{freelancer.name}</h3>
               <div className="flex gap-2 mb-3 flex-wrap">
-                {freelancer.specialty.split(' | ').map((tag) => (
+                {freelancer.specialty.split(/[|,]/).map((tag) => tag.trim()).filter(Boolean).map((tag) => (
                   <span key={tag} className="px-3 py-1 bg-[#1A1A1A] text-[#888888] text-xs rounded-full">
                     {tag}
                   </span>
