@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
-import { Briefcase, CreditCard, FolderOpen, MessageCircle, Plus, Camera, Star } from 'lucide-react';
+import { Briefcase, CreditCard, FolderOpen, MessageCircle, Plus, Camera, Star, Wallet } from 'lucide-react';
 import DashboardLayout from '../../components/DashboardLayout';
 import EmptyState from '../../components/EmptyState';
 import { apiRequest } from '../../lib/api';
@@ -42,6 +42,7 @@ interface ClientDashboardResponse {
     pendingPayment: string;
     filesReady: number;
     unreadMessages: number;
+    walletBalance: string;
   };
   projects: DashboardProject[];
   activities: Array<{ text: string; time: string }>;
@@ -76,6 +77,7 @@ export default function ClientDashboard() {
   const stats = [
     { label: 'Active Projects', value: String(statsData?.activeProjects ?? 0), icon: Briefcase, color: 'text-[#F5C800]', border: 'border-[#F5C800]', link: '/dashboard/client/projects' },
     { label: 'Pending Payment', value: statsData?.pendingPayment ?? 'Rp 0', icon: CreditCard, color: 'text-[#F5C800]', border: 'border-[#F5C800]', link: '/dashboard/client/payments' },
+    { label: 'Saldo Client', value: statsData?.walletBalance ?? 'Rp 0', icon: Wallet, color: 'text-[#22C55E]', border: 'border-[#22C55E]', link: '/dashboard/client/payments' },
     { label: 'Files Ready', value: `${statsData?.filesReady ?? 0} Files`, icon: FolderOpen, color: 'text-[#22C55E]', border: 'border-[#22C55E]', link: '#' },
     { label: 'Unread Messages', value: String(statsData?.unreadMessages ?? 0), icon: MessageCircle, color: 'text-[#3B82F6]', border: 'border-[#3B82F6]', link: '/dashboard/client/messages' },
   ];
@@ -92,7 +94,7 @@ export default function ClientDashboard() {
         </div>
       )}
 
-      <div className="grid grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-6 mb-8">
         {stats.map((stat, i) => (
           <Link
             key={i}

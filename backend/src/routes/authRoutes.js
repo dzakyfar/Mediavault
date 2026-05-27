@@ -6,6 +6,7 @@ const {
   me,
   updateRole,
   updateProfile,
+  registerFreelancer,
   changePassword,
   deleteAccount,
 } = require('../controllers/authController');
@@ -19,6 +20,7 @@ router.post('/google', googleLogin);
 router.get('/me', protect, me);
 router.patch('/role', protect, updateRole);
 router.patch('/profile', protect, updateProfile);
+router.post('/freelancer-registration', protect, registerFreelancer);
 router.patch('/password', protect, changePassword);
 router.delete('/me', protect, deleteAccount);
 

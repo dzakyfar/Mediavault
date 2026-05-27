@@ -13,8 +13,16 @@ const serializeOffering = (offering) => ({
   id: offering.id,
   freelancerId: offering.freelancerId,
   title: offering.title,
+  serviceType: offering.serviceType || offering.title,
   price: offering.price,
   priceFormatted: formatCurrency(offering.price),
+  ratePerHour: offering.ratePerHour || offering.price,
+  ratePerHourFormatted: formatCurrency(offering.ratePerHour || offering.price),
+  ratePerPhoto: offering.ratePerPhoto,
+  ratePerPhotoFormatted: offering.ratePerPhoto ? formatCurrency(offering.ratePerPhoto) : null,
+  extraPersonFee: offering.extraPersonFee || 0,
+  extraPersonFeeFormatted: formatCurrency(offering.extraPersonFee || 0),
+  estimatedHours: offering.estimatedHours || 2,
   description: offering.description,
   benefits: offering.benefits || [],
   toolsSpec: offering.toolsSpec,
@@ -42,7 +50,12 @@ exports.createOffering = async (req, res, next) => {
   try {
     const {
       title,
+      serviceType,
       price,
+      ratePerHour,
+      ratePerPhoto,
+      extraPersonFee,
+      estimatedHours,
       description,
       benefits,
       toolsSpec,
@@ -50,15 +63,26 @@ exports.createOffering = async (req, res, next) => {
       relatedSpecs,
     } = req.body;
 
-    const normalizedPrice = Math.round(Number(price));
+    const normalizedRatePerHour = Math.round(Number(ratePerHour || price));
+    const normalizedRatePerPhoto = ratePerPhoto === undefined || ratePerPhoto === ''
+      ? null
+      : Math.round(Number(ratePerPhoto));
+    const normalizedExtraPersonFee = Math.round(Number(extraPersonFee || 0));
+    const normalizedEstimatedHours = Math.max(1, Math.round(Number(estimatedHours || 2)));
+    const normalizedPrice = Math.round(Number(price || normalizedRatePerHour));
     if (!title?.trim()) {
       res.status(400);
       throw new Error('Judul paket wajib diisi');
     }
 
-    if (!Number.isFinite(normalizedPrice) || normalizedPrice < 10000) {
+    if (!serviceType?.trim()) {
       res.status(400);
-      throw new Error('Harga paket minimal Rp 10.000');
+      throw new Error('Jenis jasa wajib diisi');
+    }
+
+    if (!Number.isFinite(normalizedRatePerHour) || normalizedRatePerHour < 1) {
+      res.status(400);
+      throw new Error('Harga per jam minimal Rp 1');
     }
 
     const parsedBenefits = parseList(benefits || description);
@@ -71,7 +95,12 @@ exports.createOffering = async (req, res, next) => {
       data: {
         freelancerId: req.user.id,
         title: title.trim(),
+        serviceType: serviceType.trim(),
         price: normalizedPrice,
+        ratePerHour: normalizedRatePerHour,
+        ratePerPhoto: Number.isFinite(normalizedRatePerPhoto) ? normalizedRatePerPhoto : null,
+        extraPersonFee: Number.isFinite(normalizedExtraPersonFee) ? normalizedExtraPersonFee : 0,
+        estimatedHours: normalizedEstimatedHours,
         description: description?.trim() || null,
         benefits: parsedBenefits,
         toolsSpec: toolsSpec?.trim() || null,
@@ -99,13 +128,34 @@ exports.updateOffering = async (req, res, next) => {
 
     const data = {};
     if (req.body.title !== undefined) data.title = String(req.body.title).trim();
+    if (req.body.serviceType !== undefined) data.serviceType = String(req.body.serviceType).trim();
     if (req.body.price !== undefined) {
       const normalizedPrice = Math.round(Number(req.body.price));
-      if (!Number.isFinite(normalizedPrice) || normalizedPrice < 10000) {
+      if (!Number.isFinite(normalizedPrice) || normalizedPrice < 1) {
         res.status(400);
-        throw new Error('Harga paket minimal Rp 10.000');
+        throw new Error('Harga paket minimal Rp 1');
       }
       data.price = normalizedPrice;
+    }
+    if (req.body.ratePerHour !== undefined) {
+      const normalizedRatePerHour = Math.round(Number(req.body.ratePerHour));
+      if (!Number.isFinite(normalizedRatePerHour) || normalizedRatePerHour < 1) {
+        res.status(400);
+        throw new Error('Harga per jam minimal Rp 1');
+      }
+      data.ratePerHour = normalizedRatePerHour;
+      if (req.body.price === undefined) data.price = normalizedRatePerHour;
+    }
+    if (req.body.ratePerPhoto !== undefined) {
+      data.ratePerPhoto = req.body.ratePerPhoto === '' || req.body.ratePerPhoto === null
+        ? null
+        : Math.round(Number(req.body.ratePerPhoto));
+    }
+    if (req.body.extraPersonFee !== undefined) {
+      data.extraPersonFee = Math.max(0, Math.round(Number(req.body.extraPersonFee || 0)));
+    }
+    if (req.body.estimatedHours !== undefined) {
+      data.estimatedHours = Math.max(1, Math.round(Number(req.body.estimatedHours || 1)));
     }
     if (req.body.description !== undefined) data.description = req.body.description?.trim() || null;
     if (req.body.benefits !== undefined) data.benefits = parseList(req.body.benefits);

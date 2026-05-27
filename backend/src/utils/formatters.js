@@ -29,13 +29,13 @@ const statusColor = {
 };
 
 const projectStages = [
-  { status: 'OPEN', label: 'Open', progress: 0 },
-  { status: 'WAITING_PAYMENT', label: 'Waiting Payment', progress: 20 },
-  { status: 'PAID', label: 'Paid', progress: 30 },
-  { status: 'IN_PROGRESS', label: 'In Progress', progress: 45 },
-  { status: 'UNDER_REVIEW', label: 'Under Review', progress: 60 },
-  { status: 'DELIVERED', label: 'Delivered', progress: 85 },
-  { status: 'COMPLETED', label: 'Completed', progress: 100 },
+  { status: 'PAID', label: 'Pembayaran Berhasil', progress: 30 },
+  { status: 'PAID', label: 'Menunggu Konfirmasi Freelancer', progress: 30 },
+  { status: 'IN_PROGRESS', label: 'Pekerjaan Berlangsung', progress: 45 },
+  { status: 'DELIVERED', label: 'Freelancer Selesai', progress: 85 },
+  { status: 'DELIVERED', label: 'Menunggu Konfirmasi Client', progress: 85 },
+  { status: 'COMPLETED', label: 'Dana Cair ke Freelancer', progress: 100 },
+  { status: 'COMPLETED', label: 'Transaksi Selesai', progress: 100 },
 ];
 
 const currency = new Intl.NumberFormat('id-ID', {

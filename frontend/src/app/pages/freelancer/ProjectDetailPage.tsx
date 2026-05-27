@@ -27,6 +27,7 @@ interface ProjectDetail {
   statusColor: string;
   amount: string;
   client: string;
+  clientId: string;
   tracking: Array<{
     status: string;
     label: string;
@@ -98,6 +99,14 @@ export default function FreelancerProjectDetail() {
                 <div className="bg-[#141414] rounded-lg p-4">
                   <div className="text-[#888888] mb-1">Client</div>
                   <div className="text-white font-bold">{project.client}</div>
+                  {project.clientId && (
+                    <Link
+                      to={`/dashboard/freelancer/messages?peerId=${project.clientId}&peerName=${encodeURIComponent(project.client)}`}
+                      className="inline-block mt-3 px-4 py-2 border border-[#888888] text-white rounded-lg text-sm hover:border-[#F5C800] hover:text-[#F5C800] transition-colors"
+                    >
+                      Chat Client
+                    </Link>
+                  )}
                 </div>
                 <div className="bg-[#141414] rounded-lg p-4">
                   <div className="text-[#888888] mb-1">Jasa</div>

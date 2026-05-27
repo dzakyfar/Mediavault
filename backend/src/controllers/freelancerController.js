@@ -70,6 +70,14 @@ exports.getFreelancerById = async (req, res, next) => {
         email: true,
         specialty: true,
         city: true,
+        province: true,
+        district: true,
+        village: true,
+        postalCode: true,
+        addressDetail: true,
+        latitude: true,
+        longitude: true,
+        locationSource: true,
         bio: true,
         startingPrice: true,
         isAvailable: true,
@@ -109,10 +117,23 @@ exports.getFreelancerById = async (req, res, next) => {
       }),
     ]);
 
-    const services = (freelancer.specialty || 'Photography')
+    const offeringServices = freelancer.offerings
+      .map((offering) => offering.serviceType || offering.title)
+      .filter(Boolean);
+    const fallbackServices = (freelancer.specialty || '')
       .split(/[|,]/)
       .map((service) => service.trim())
       .filter(Boolean);
+    const services = [...new Set([...(offeringServices.length ? offeringServices : fallbackServices)])];
+    const offeringTags = freelancer.offerings.flatMap((offering) => [
+      offering.serviceType || offering.title,
+      ...(offering.relatedSpecs || []),
+    ]).filter(Boolean);
+    const serviceTags = [...new Set(offeringTags.length ? offeringTags : services)];
+    const maxTeamCapacity = freelancer.offerings.reduce(
+      (max, offering) => Math.max(max, offering.capacityPersons || 1),
+      1
+    );
 
     res.json({
       freelancer: {
@@ -121,12 +142,22 @@ exports.getFreelancerById = async (req, res, next) => {
         fullName: freelancer.fullName,
         avatarUrl: await resolveMediaUrl(freelancer.avatarUrl),
         specialty: freelancer.specialty || 'Belum mengisi spesialisasi',
-        services: services.length ? services : ['Photography'],
+        services,
+        serviceTags,
+        maxTeamCapacity,
         bio: freelancer.bio || 'Freelancer ini belum menulis bio, tetapi profile tetap bisa dihubungi.',
         rating: reviewStats._avg.rating ? reviewStats._avg.rating.toFixed(1) : null,
         reviewCount: reviewStats._count.id,
         price: formatCurrency(freelancer.startingPrice || 0),
         city: freelancer.city || '-',
+        province: freelancer.province,
+        district: freelancer.district,
+        village: freelancer.village,
+        postalCode: freelancer.postalCode,
+        addressDetail: freelancer.addressDetail,
+        latitude: freelancer.latitude,
+        longitude: freelancer.longitude,
+        locationSource: freelancer.locationSource,
         available: freelancer.isAvailable,
         portfolioItems: await Promise.all(freelancer.portfolioItems.map(resolvePortfolioMedia)),
         offerings: freelancer.offerings.map(serializeOffering),
@@ -147,9 +178,14 @@ exports.orderFreelancerService = async (req, res, next) => {
   try {
     const {
       serviceType,
+      needType,
       title,
       description,
       budget,
+      personsCount,
+      latitude,
+      longitude,
+      locationSource,
       eventDate,
       deadline,
       province,
@@ -161,9 +197,9 @@ exports.orderFreelancerService = async (req, res, next) => {
       addressDetail,
     } = req.body;
 
-    if (!serviceType || !title || !description || !eventDate || !deadline || !city || !address) {
+    if (!serviceType || !needType || !description || !eventDate || !deadline || !province || !city || !district || !village || !addressDetail) {
       res.status(400);
-      throw new Error('Jasa, judul, deskripsi, tanggal, kota, dan alamat wajib diisi');
+      throw new Error('Jasa, kebutuhan, deskripsi, tanggal, dan alamat lengkap wajib diisi');
     }
 
     const freelancer = await prisma.user.findFirst({
@@ -171,7 +207,11 @@ exports.orderFreelancerService = async (req, res, next) => {
         id: req.params.id,
         role: { in: ['FREELANCER', 'BOTH'] },
       },
-      select: { id: true, fullName: true },
+      include: {
+        offerings: {
+          where: { isActive: true },
+        },
+      },
     });
 
     if (!freelancer) {
@@ -184,10 +224,19 @@ exports.orderFreelancerService = async (req, res, next) => {
       throw new Error('Tidak bisa memesan jasa dari akun sendiri');
     }
 
+    const serviceExists = freelancer.offerings.some((offering) =>
+      (offering.serviceType || offering.title) === serviceType
+    );
+    if (freelancer.offerings.length > 0 && !serviceExists) {
+      res.status(400);
+      throw new Error('Jenis jasa tidak tersedia di profile freelancer ini');
+    }
+
     const amount = Number(budget);
+    const composedAddress = [addressDetail, village, district, city, province, postalCode].filter(Boolean).join(', ');
     const project = await prisma.project.create({
       data: {
-        title,
+        title: title || `${serviceType} - ${needType}`,
         description,
         category: serviceType,
         serviceType,
@@ -199,8 +248,11 @@ exports.orderFreelancerService = async (req, res, next) => {
         district,
         village,
         postalCode,
-        address: address || [addressDetail, village, district, city, province, postalCode].filter(Boolean).join(', '),
+        address: address || composedAddress,
         addressDetail,
+        latitude: Number.isFinite(Number(latitude)) ? Number(latitude) : null,
+        longitude: Number.isFinite(Number(longitude)) ? Number(longitude) : null,
+        locationSource: locationSource || 'manual',
         status: 'WAITING_PAYMENT',
         progress: 20,
         clientId: req.user.id,
@@ -221,7 +273,7 @@ exports.orderFreelancerService = async (req, res, next) => {
         data: {
           senderId: req.user.id,
           receiverId: freelancer.id,
-          body: `Saya ingin memesan jasa ${serviceType}: ${title}. ${description}`,
+          body: `Saya ingin memesan jasa ${serviceType}: ${needType}. ${description}`,
         },
       }),
       prisma.projectHistory.create({

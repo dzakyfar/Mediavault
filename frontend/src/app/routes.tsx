@@ -34,6 +34,7 @@ import FreelancerSettings from "./pages/freelancer/SettingsPage";
 // Shared Pages
 import PostJobPage from "./pages/PostJobPage";
 import FreelancerProfilePage from "./pages/FreelancerProfilePage";
+import FreelancerOnboardingPage from "./pages/FreelancerOnboardingPage";
 import NotFoundPage from "./pages/NotFoundPage";
 import RequireAuth from "./components/auth/RequireAuth";
 
@@ -228,6 +229,14 @@ export const router = createBrowserRouter([
   {
     path: "/freelancer/:id",
     Component: FreelancerProfilePage,
+  },
+  {
+    path: "/freelancer-onboarding",
+    Component: () => (
+      <RequireAuth roles={["CLIENT", "BOTH", "FREELANCER"]}>
+        <FreelancerOnboardingPage />
+      </RequireAuth>
+    ),
   },
   // 404 Catch-all route
   {

@@ -1,8 +1,9 @@
 const prisma = require('../config/prisma');
-const { serializeProject } = require('../utils/formatters');
+const { formatCurrency, serializeProject } = require('../utils/formatters');
 const { validateReferenceFiles, validateSubmissionFile } = require('../utils/uploadLimits');
 const { resolveProjectMedia } = require('../utils/mediaUrls');
 const { completeProjectSettlement } = require('./paymentController');
+const { creditWallet } = require('../services/walletService');
 
 const parseBudget = (value) => {
   if (value === undefined || value === null || value === '') return null;
@@ -292,16 +293,24 @@ exports.updateProject = async (req, res, next) => {
 exports.deleteProject = async (req, res, next) => {
   try {
     const { projectId } = req.params;
-    const project = await prisma.project.findUnique({ where: { id: projectId } });
+    const project = await prisma.project.findUnique({
+      where: { id: projectId },
+      include: {
+        payments: {
+          where: { status: 'PAID' },
+          take: 1,
+        },
+      },
+    });
 
     if (!project || project.clientId !== req.user.id) {
       res.status(404);
       throw new Error('Project tidak ditemukan');
     }
 
-    if (!['DRAFT', 'OPEN', 'CANCELLED'].includes(project.status)) {
+    if (project.payments.length > 0 || ['PAID', 'IN_PROGRESS', 'CONFIRMED', 'UNDER_REVIEW', 'DELIVERED', 'COMPLETED', 'AUTO_COMPLETED', 'DISPUTED'].includes(project.status)) {
       res.status(400);
-      throw new Error('Project yang sudah berjalan tidak bisa dihapus. Batalkan alur melalui status project.');
+      throw new Error('Project yang sudah dibayar atau berjalan tidak bisa dihapus. Gunakan alur pembatalan/refund.');
     }
 
     await prisma.project.delete({ where: { id: projectId } });
@@ -955,17 +964,20 @@ exports.confirmProjectByFreelancer = async (req, res, next) => {
       throw new Error('Project tidak ditemukan');
     }
 
-    if (project.status !== 'IN_PROGRESS') {
+    if (!['PAID', 'IN_PROGRESS'].includes(project.status)) {
       res.status(400);
-      throw new Error('Project belum menunggu persetujuan freelancer');
+      throw new Error('Project belum siap diterima freelancer');
     }
+
+    const nextStatus = project.status === 'PAID' ? 'IN_PROGRESS' : 'CONFIRMED';
+    const nextProgress = project.status === 'PAID' ? 45 : 25;
 
     const [updatedProject] = await prisma.$transaction([
       prisma.project.update({
         where: { id: projectId },
         data: {
-          status: 'CONFIRMED',
-          progress: 25,
+          status: nextStatus,
+          progress: nextProgress,
         },
         include: projectInclude,
       }),
@@ -973,18 +985,102 @@ exports.confirmProjectByFreelancer = async (req, res, next) => {
         data: {
           userId: project.clientId,
           type: 'PROJECT',
-          title: 'Freelancer menyetujui project',
-          body: `${req.user.fullName} menyetujui project ${project.title}`,
+          title: 'Freelancer menerima order',
+          body: `${req.user.fullName} menerima order ${project.title} dan mulai mengerjakan.`,
         },
       }),
       createProjectHistory(
         projectId,
         req.user.id,
-        'Project dikonfirmasi freelancer',
-        `${req.user.fullName} menyetujui project ${project.title}`,
+        'Order diterima freelancer',
+        `${req.user.fullName} menerima project ${project.title}`,
         'PROJECT_CONFIRMED_BY_FREELANCER'
       ),
     ]);
+
+    res.json({ project: await serializeProjectWithMedia(updatedProject) });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.rejectPaidProjectByFreelancer = async (req, res, next) => {
+  try {
+    const { projectId } = req.params;
+
+    const project = await prisma.project.findUnique({
+      where: { id: projectId },
+      include: {
+        payments: {
+          where: { status: 'PAID' },
+          orderBy: { paidAt: 'desc' },
+          take: 1,
+        },
+      },
+    });
+
+    if (!project || project.freelancerId !== req.user.id) {
+      res.status(404);
+      throw new Error('Project tidak ditemukan');
+    }
+
+    if (project.status !== 'PAID') {
+      res.status(400);
+      throw new Error('Order hanya bisa ditolak setelah pembayaran berhasil dan sebelum pekerjaan dimulai');
+    }
+
+    const paidPayment = project.payments[0];
+    const refundAmount = paidPayment?.amountPaid || paidPayment?.totalAmount || project.budget || 0;
+
+    const updatedProject = await prisma.$transaction(async (tx) => {
+      const nextProject = await tx.project.update({
+        where: { id: projectId },
+        data: {
+          status: 'CANCELLED',
+          progress: 0,
+        },
+        include: projectInclude,
+      });
+
+      await creditWallet(
+        tx,
+        project.clientId,
+        refundAmount,
+        `Refund order ${project.title} karena ditolak freelancer.`,
+        'PROJECT',
+        projectId
+      );
+
+      await tx.projectHistory.create({
+        data: {
+          projectId,
+          actorId: req.user.id,
+          title: 'Order ditolak freelancer',
+          body: `Dana ${formatCurrency(refundAmount)} dikembalikan ke saldo client di MediaVault.`,
+          eventType: 'PROJECT_REJECTED_REFUNDED',
+        },
+      });
+
+      await tx.notification.create({
+        data: {
+          userId: project.clientId,
+          type: 'PAYMENT',
+          title: 'Order ditolak, dana masuk saldo',
+          body: `${req.user.fullName} menolak order ${project.title}. Dana ${formatCurrency(refundAmount)} masuk ke saldo kamu.`,
+        },
+      });
+
+      await tx.notification.create({
+        data: {
+          userId: req.user.id,
+          type: 'PROJECT',
+          title: 'Order ditolak',
+          body: `Kamu menolak order ${project.title}. Dana client dikembalikan sebagai saldo internal.`,
+        },
+      });
+
+      return nextProject;
+    });
 
     res.json({ project: await serializeProjectWithMedia(updatedProject) });
   } catch (error) {

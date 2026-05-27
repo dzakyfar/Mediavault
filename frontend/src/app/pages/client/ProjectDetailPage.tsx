@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router';
+import { Link, useNavigate, useParams } from 'react-router';
 import { RefreshCcw, Star, X } from 'lucide-react';
 import DashboardLayout from '../../components/DashboardLayout';
 import EmptyState from '../../components/EmptyState';
@@ -77,6 +77,8 @@ interface PaymentDetail {
   klikqrisOrderId: string;
   amountRequest: number;
   amountRequestFormatted: string;
+  gatewayAdjustment: number;
+  gatewayAdjustmentFormatted: string;
   amountPaid: number | null;
   amountPaidFormatted: string;
   baseAmount: number;
@@ -87,6 +89,8 @@ interface PaymentDetail {
   totalAmountFormatted: string;
   qrisUrl: string | null;
   directUrl: string | null;
+  signature?: string;
+  isSandbox?: boolean;
   status: string;
   expiredAt: string | null;
   paidAt: string | null;
@@ -103,6 +107,7 @@ const normalizeProjectDetail = (project: ProjectDetail): ProjectDetail => ({
 
 export default function ClientProjectDetail() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [project, setProject] = useState<ProjectDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -149,6 +154,14 @@ export default function ClientProjectDetail() {
 
     return () => window.clearInterval(interval);
   }, [id, payment, paymentOpen]);
+
+  useEffect(() => {
+    if (!paymentOpen || payment?.status !== 'PAID') return;
+    const timeout = window.setTimeout(() => {
+      navigate(`/dashboard/client/payments/${payment.id}`);
+    }, 1200);
+    return () => window.clearTimeout(timeout);
+  }, [navigate, payment, paymentOpen]);
 
   const createOrOpenPayment = async () => {
     if (!id) return;
@@ -518,9 +531,19 @@ export default function ClientProjectDetail() {
                   <span className="text-[#888888]">Biaya Admin 1%</span>
                   <span className="text-white font-bold">{payment.adminFeeClientFormatted}</span>
                 </div>
+                {payment.gatewayAdjustment > 0 && (
+                  <div className="flex justify-between gap-4">
+                    <span className="text-[#888888]">Kode Unik / Penyesuaian KlikQRIS</span>
+                    <span className="text-white font-bold">{payment.gatewayAdjustmentFormatted}</span>
+                  </div>
+                )}
+                <div className="flex justify-between gap-4">
+                  <span className="text-[#888888]">Total Estimasi MediaVault</span>
+                  <span className="text-white font-bold">{payment.amountRequestFormatted}</span>
+                </div>
                 <div className="h-px bg-[#2A2A2A]" />
                 <div className="flex justify-between gap-4 text-base">
-                  <span className="text-[#888888]">Total Bayar</span>
+                  <span className="text-[#888888]">Total Bayar QRIS</span>
                   <span className="text-[#F5C800] font-bold">{payment.totalAmountFormatted}</span>
                 </div>
                 <div className="flex justify-between gap-4">
@@ -544,6 +567,19 @@ export default function ClientProjectDetail() {
                   </div>
                 )}
                 {paymentError && <p className="text-[#EF4444]">{paymentError}</p>}
+                {payment.isSandbox && payment.signature && payment.status === 'PENDING' && (
+                  <div className="bg-[#141414] border border-[#2A2A2A] rounded-lg p-3">
+                    <div className="text-[#888888] mb-2">Signature Sandbox</div>
+                    <code className="block text-xs text-white break-all bg-[#0A0A0A] rounded-md p-2">{payment.signature}</code>
+                    <button
+                      type="button"
+                      onClick={() => navigator.clipboard?.writeText(payment.signature || '')}
+                      className="mt-3 px-3 py-2 border border-[#888888] text-white rounded-lg text-xs hover:border-[#F5C800] hover:text-[#F5C800] transition-colors"
+                    >
+                      Copy Signature
+                    </button>
+                  </div>
+                )}
                 <div className="flex flex-wrap gap-3 pt-3">
                   <button
                     type="button"

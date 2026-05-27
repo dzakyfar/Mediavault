@@ -22,6 +22,7 @@ interface AuthContextValue {
   register: (payload: { fullName: string; email: string; password: string }) => Promise<CurrentUser>;
   updateRole: (role: UserRole) => Promise<CurrentUser>;
   updateProfile: (payload: Partial<CurrentUser>) => Promise<CurrentUser>;
+  registerFreelancer: (payload: unknown) => Promise<CurrentUser>;
   deleteAccount: () => Promise<void>;
   logout: () => void;
 }
@@ -106,6 +107,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async updateProfile(payload) {
       const response = await apiRequest<{ user: CurrentUser }>('/auth/profile', {
         method: 'PATCH',
+        body: JSON.stringify(payload),
+      });
+      setUser(response.user);
+      return response.user;
+    },
+    async registerFreelancer(payload) {
+      const response = await apiRequest<{ user: CurrentUser }>('/auth/freelancer-registration', {
+        method: 'POST',
         body: JSON.stringify(payload),
       });
       setUser(response.user);

@@ -10,6 +10,7 @@ const portfolioRoutes = require('./routes/portfolioRoutes');
 const uploadRoutes = require('./routes/uploadRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
 const offeringRoutes = require('./routes/offeringRoutes');
+const walletRoutes = require('./routes/walletRoutes');
 const errorMiddleware = require('./middleware/errorMiddleware');
 const { isS3Configured } = require('./utils/s3Storage');
 
@@ -31,6 +32,7 @@ app.use('/api/portfolio', portfolioRoutes);
 app.use('/api/uploads', uploadRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/offerings', offeringRoutes);
+app.use('/api/wallet', walletRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

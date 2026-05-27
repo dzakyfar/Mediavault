@@ -1,4 +1,4 @@
-import { Link, useLocation } from 'react-router';
+import { Link, useLocation, useNavigate } from 'react-router';
 import { Zap, Home, Briefcase, Search, MessageCircle, Bell, CreditCard, Settings, LogOut, FileText, Folder, DollarSign } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -9,6 +9,7 @@ interface DashboardSidebarProps {
 
 export default function DashboardSidebar({ userType, userName }: DashboardSidebarProps) {
   const location = useLocation();
+  const navigate = useNavigate();
   const { user, logout } = useAuth();
 
   const clientMenuItems = [
@@ -33,9 +34,20 @@ export default function DashboardSidebar({ userType, userName }: DashboardSideba
   ];
 
   const menuItems = userType === 'client' ? clientMenuItems : freelancerMenuItems;
-  const switchPath = userType === 'client' ? '/dashboard/freelancer' : '/dashboard/client';
   const switchLabel = userType === 'client' ? 'Switch to Freelancer' : 'Switch to Client';
-  const canSwitchRole = user?.role === 'BOTH';
+  const isRegisteredFreelancer = Boolean(
+    user?.role && ['BOTH', 'FREELANCER'].includes(user.role) && user.isAvailable && user.bio && user.specialty
+  );
+  const showSwitchRole = userType === 'client' || user?.role === 'BOTH' || user?.role === 'FREELANCER';
+
+  const handleSwitchRole = () => {
+    if (userType === 'client') {
+      navigate(isRegisteredFreelancer ? '/dashboard/freelancer' : '/freelancer-onboarding');
+      return;
+    }
+
+    navigate('/dashboard/client');
+  };
 
   return (
     <div className="w-60 h-screen fixed left-0 top-0 bg-[#141414] border-r border-[#2A2A2A] flex flex-col">
@@ -81,13 +93,14 @@ export default function DashboardSidebar({ userType, userName }: DashboardSideba
       </nav>
 
       <div className="p-6 border-t border-[#2A2A2A]">
-        {canSwitchRole && (
-          <Link
-            to={switchPath}
+        {showSwitchRole && (
+          <button
+            type="button"
+            onClick={handleSwitchRole}
             className="block text-[#888888] hover:text-[#F5C800] mb-3 text-sm transition-colors"
           >
             {switchLabel}
-          </Link>
+          </button>
         )}
         <Link
           to="/login"

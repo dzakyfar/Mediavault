@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
-import { Plus, Camera } from 'lucide-react';
+import { Plus, Camera, Trash2 } from 'lucide-react';
 import DashboardLayout from '../../components/DashboardLayout';
 import EmptyState from '../../components/EmptyState';
+import ConfirmDialog from '../../components/dashboard/ConfirmDialog';
 import { apiRequest } from '../../lib/api';
 
 interface Project {
@@ -39,6 +40,8 @@ export default function ClientProjects() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [deleteTarget, setDeleteTarget] = useState<Project | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const tabs = [
     { id: 'all', label: 'All' },
@@ -64,8 +67,36 @@ export default function ClientProjects() {
     ? projects
     : projects.filter((project) => project.rawStatus.toLowerCase().replaceAll('_', '-') === activeTab);
 
+  const deleteProject = async () => {
+    if (!deleteTarget) return;
+
+    try {
+      setDeleting(true);
+      setError('');
+      await apiRequest(`/projects/${deleteTarget.id}`, { method: 'DELETE' });
+      setProjects((current) => current.filter((project) => project.id !== deleteTarget.id));
+      setDeleteTarget(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Gagal menghapus project');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   return (
     <DashboardLayout userType="client">
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        title="Hapus Proyek?"
+        description={`Proyek "${deleteTarget?.title || ''}" akan dihapus permanen dari database. Tindakan ini tidak bisa dibatalkan.`}
+        cancelLabel="Batal"
+        confirmLabel={deleting ? 'Menghapus...' : 'Ya, Hapus'}
+        danger
+        onCancel={() => {
+          if (!deleting) setDeleteTarget(null);
+        }}
+        onConfirm={deleteProject}
+      />
       <div className="flex items-center justify-between mb-8">
         <h1 className="text-5xl" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>
           My Projects
@@ -170,6 +201,14 @@ export default function ClientProjects() {
                     Payment Soon
                   </span>
                 )}
+                <button
+                  type="button"
+                  onClick={() => setDeleteTarget(project)}
+                  className="inline-flex items-center gap-2 px-4 py-2 border border-[#EF4444] text-[#EF4444] rounded-lg text-sm font-bold hover:bg-[#EF4444] hover:text-white transition-colors"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Hapus Proyek
+                </button>
               </div>
             </div>
 

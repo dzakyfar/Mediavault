@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { Zap, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { dashboardPathForRole } from '../lib/api';
 import GoogleSignInButton from '../components/GoogleSignInButton';
 
 export default function RegisterPage() {
@@ -45,7 +44,7 @@ export default function RegisterPage() {
         email: formData.email,
         password: formData.password,
       });
-      navigate('/role-select');
+      navigate('/dashboard/client');
     } catch (err) {
       setErrors({
         form: err instanceof Error ? err.message : 'Registrasi gagal',
@@ -59,8 +58,8 @@ export default function RegisterPage() {
     try {
       setErrors({});
       setSubmitting(true);
-      const user = await loginWithGoogle(credential);
-      navigate(user.role ? dashboardPathForRole(user.role) : '/role-select');
+      await loginWithGoogle(credential);
+      navigate('/dashboard/client');
     } catch (err) {
       setErrors({
         form: err instanceof Error ? err.message : 'Registrasi Google gagal',

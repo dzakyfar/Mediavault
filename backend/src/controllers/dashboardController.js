@@ -12,7 +12,7 @@ const formatActivityTime = (date) => new Intl.DateTimeFormat('id-ID', {
 
 exports.getClientDashboard = async (req, res, next) => {
   try {
-    const [projects, unreadMessages, pendingInvoices, histories, freelancers] = await Promise.all([
+    const [projects, unreadMessages, pendingInvoices, histories, freelancers, wallet] = await Promise.all([
       prisma.project.findMany({
         where: { clientId: req.user.id },
         include: {
@@ -75,6 +75,7 @@ exports.getClientDashboard = async (req, res, next) => {
         ],
         take: 4,
       }),
+      prisma.wallet.findUnique({ where: { userId: req.user.id } }),
     ]);
 
     const reviewStats = freelancers.length
@@ -99,6 +100,7 @@ exports.getClientDashboard = async (req, res, next) => {
         pendingPayment: formatCurrency(pendingInvoices._sum.amount || 0),
         filesReady,
         unreadMessages,
+        walletBalance: formatCurrency(wallet?.balance || 0),
       },
       projects: projects.map(serializeProject),
       activities: histories.map((history) => ({
@@ -127,7 +129,7 @@ exports.getClientDashboard = async (req, res, next) => {
 
 exports.getFreelancerDashboard = async (req, res, next) => {
   try {
-    const [projects, openRequests, unreadMessages, pendingInvoices, histories] = await Promise.all([
+    const [projects, openRequests, unreadMessages, pendingInvoices, histories, wallet] = await Promise.all([
       prisma.project.findMany({
         where: { freelancerId: req.user.id },
         include: {
@@ -195,6 +197,7 @@ exports.getFreelancerDashboard = async (req, res, next) => {
         orderBy: { createdAt: 'desc' },
         take: 6,
       }),
+      prisma.wallet.findUnique({ where: { userId: req.user.id } }),
     ]);
 
     res.json({
@@ -203,6 +206,7 @@ exports.getFreelancerDashboard = async (req, res, next) => {
         pendingPayment: formatCurrency(pendingInvoices._sum.amount || 0),
         openRequests: openRequests.length,
         unreadMessages,
+        walletBalance: formatCurrency(wallet?.balance || 0),
       },
       projects: projects.map(serializeProject),
       requests: openRequests.map(serializeProject),

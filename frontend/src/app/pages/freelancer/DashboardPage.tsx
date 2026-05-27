@@ -25,6 +25,7 @@ interface FreelancerDashboardResponse {
     pendingPayment: string;
     openRequests: number;
     unreadMessages: number;
+    walletBalance: string;
   };
   projects: Project[];
   requests: Project[];
@@ -45,6 +46,7 @@ export default function FreelancerDashboard() {
   const stats = [
     { label: 'Active Projects', value: String(statsData?.activeProjects ?? 0), icon: Briefcase, color: 'text-[#F5C800]', border: 'border-[#F5C800]' },
     { label: 'Pending Earnings', value: statsData?.pendingPayment ?? 'Rp 0', icon: DollarSign, color: 'text-[#F5C800]', border: 'border-[#F5C800]' },
+    { label: 'Saldo Tersedia', value: statsData?.walletBalance ?? 'Rp 0', icon: DollarSign, color: 'text-[#22C55E]', border: 'border-[#22C55E]' },
     { label: 'New Requests', value: String(statsData?.openRequests ?? 0), icon: FileText, color: 'text-[#3B82F6]', border: 'border-[#3B82F6]' },
     { label: 'Unread Messages', value: String(statsData?.unreadMessages ?? 0), icon: Eye, color: 'text-[#22C55E]', border: 'border-[#22C55E]' },
   ];
@@ -61,7 +63,7 @@ export default function FreelancerDashboard() {
         </div>
       )}
 
-      <div className="grid grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-6 mb-8">
         {stats.map((stat, i) => (
           <div
             key={i}

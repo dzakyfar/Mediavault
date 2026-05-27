@@ -1,4 +1,17 @@
-const KLIKQRIS_BASE_URL = process.env.KLIKQRIS_BASE_URL || 'https://klikqris.com/api/qrisv2';
+const normalizeBaseUrl = (baseUrl) => baseUrl.replace(/\/+$/, '');
+
+const getKlikqrisConfig = () => {
+  const baseUrl = normalizeBaseUrl(process.env.KLIKQRIS_BASE_URL || 'https://klikqris.com/api/qrisv2');
+  const explicitMode = String(process.env.KLIKQRIS_MODE || '').toLowerCase();
+  const isSandbox = explicitMode === 'sandbox' || /\/sandbox(?:\/|$)/.test(baseUrl);
+
+  return {
+    apiKey: process.env.KLIKQRIS_API_KEY || process.env.API_KEY_ADMIN,
+    merchantId: process.env.KLIKQRIS_MERCHANT_ID || process.env.ID_MERCHANT_ADMIN,
+    baseUrl,
+    isSandbox,
+  };
+};
 
 const parseAmount = (value) => {
   const parsed = Number(value);
@@ -14,37 +27,61 @@ const normalizeKlikqrisStatus = (status) => {
 };
 
 const requireCredentials = () => {
-  if (!process.env.KLIKQRIS_API_KEY || !process.env.KLIKQRIS_MERCHANT_ID) {
+  const { apiKey, merchantId } = getKlikqrisConfig();
+  if (!apiKey || !merchantId) {
     throw new Error('Kredensial KlikQRIS belum dikonfigurasi di environment backend');
   }
 };
 
-const klikqrisHeaders = () => ({
-  'Content-Type': 'application/json',
-  'x-api-key': process.env.KLIKQRIS_API_KEY,
-  id_merchant: process.env.KLIKQRIS_MERCHANT_ID,
-});
+const klikqrisHeaders = () => {
+  const { apiKey, merchantId } = getKlikqrisConfig();
+
+  return {
+    'Content-Type': 'application/json',
+    'x-api-key': apiKey,
+    id_merchant: merchantId,
+  };
+};
 
 const readKlikqrisResponse = async (response) => {
   const payload = await response.json().catch(() => null);
 
   if (!response.ok || payload?.status === false) {
-    const message = payload?.message || `KlikQRIS request gagal (${response.status})`;
+    const validationDetail = payload?.errors
+      ? Object.values(payload.errors).flat().join(' ')
+      : payload?.error || '';
+    const message = [payload?.message || `KlikQRIS request gagal (${response.status})`, validationDetail]
+      .filter(Boolean)
+      .join(': ');
     throw new Error(message);
   }
 
   return payload;
 };
 
+const buildCreateUrl = ({ baseUrl, isSandbox }) => {
+  if (!isSandbox) return `${baseUrl}/create`;
+  if (/\/sandbox\/qris$/.test(baseUrl)) return `${baseUrl}/create`;
+  return `${baseUrl}/qris/create`;
+};
+
+const buildStatusUrl = ({ baseUrl, isSandbox, merchantId, orderId }) => {
+  if (!isSandbox) return `${baseUrl}/status/${merchantId}/${encodeURIComponent(orderId)}`;
+  if (/\/sandbox\/qris$/.test(baseUrl)) return `${baseUrl}/status/${encodeURIComponent(orderId)}`;
+  return `${baseUrl}/qris/status/${encodeURIComponent(orderId)}`;
+};
+
 const createKlikqrisTransaction = async ({ orderId, amount, description }) => {
   requireCredentials();
+  const config = getKlikqrisConfig();
+  const { merchantId } = config;
 
-  const response = await fetch(`${KLIKQRIS_BASE_URL}/create`, {
+  const response = await fetch(buildCreateUrl(config), {
     method: 'POST',
     headers: klikqrisHeaders(),
     body: JSON.stringify({
       order_id: orderId,
-      id_merchant: process.env.KLIKQRIS_MERCHANT_ID,
+      id_merchant: merchantId,
       amount,
       keterangan: description,
     }),
@@ -58,8 +95,8 @@ const createKlikqrisTransaction = async ({ orderId, amount, description }) => {
     amount: parseAmount(data.amount),
     totalAmount: parseAmount(data.total_amount),
     status: normalizeKlikqrisStatus(data.status),
-    directUrl: data.direct_url || null,
-    qrisUrl: data.qris_url || null,
+    directUrl: data.direct_url || data.redirect_url || null,
+    qrisUrl: data.qris_url || (data.qris_image ? data.qris_image : null),
     expiredAt: data.expired_at ? new Date(data.expired_at) : null,
     signature: data.signature,
   };
@@ -67,9 +104,10 @@ const createKlikqrisTransaction = async ({ orderId, amount, description }) => {
 
 const checkKlikqrisStatus = async (orderId) => {
   requireCredentials();
+  const config = getKlikqrisConfig();
 
   const response = await fetch(
-    `${KLIKQRIS_BASE_URL}/status/${process.env.KLIKQRIS_MERCHANT_ID}/${encodeURIComponent(orderId)}`,
+    buildStatusUrl({ ...config, orderId }),
     {
       method: 'GET',
       headers: klikqrisHeaders(),

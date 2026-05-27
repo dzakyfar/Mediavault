@@ -68,7 +68,7 @@ export default function ProjectTracker({ projectId, stages, histories, canUpdate
           const Icon = stage.done ? CheckCircle2 : Circle;
           return (
             <div
-              key={stage.status}
+              key={`${stage.status}-${stage.label}`}
               className={`rounded-xl border p-4 ${
                 stage.active
                   ? 'border-[#F5C800] bg-[#F5C800]/10'

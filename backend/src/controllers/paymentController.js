@@ -1,6 +1,7 @@
 const prisma = require('../config/prisma');
 const { calculateClientCharge, calculateFreelancerNet } = require('../utils/paymentMath');
 const { formatCurrency } = require('../utils/formatters');
+const { creditWallet, debitWallet } = require('../services/walletService');
 const {
   checkKlikqrisStatus,
   createKlikqrisTransaction,
@@ -21,6 +22,25 @@ const generateOrderId = () =>
   `ORD-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
 
 const parseGatewayDate = (value) => (value ? new Date(value) : null);
+const invoiceNumber = (payment) => {
+  const date = payment.createdAt || new Date();
+  const ymd = [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, '0'),
+    String(date.getDate()).padStart(2, '0'),
+  ].join('');
+  const suffix = String(payment.klikqrisOrderId || payment.id).replace(/[^a-zA-Z0-9]/g, '').slice(-4).toUpperCase();
+  return `MVT-${ymd}-${suffix || '0000'}`;
+};
+const isSandboxKlikqris = () => (
+  String(process.env.KLIKQRIS_MODE || '').toLowerCase() === 'sandbox'
+  || /\/sandbox(?:\/|$)/.test(process.env.KLIKQRIS_BASE_URL || '')
+);
+const minimumGatewayAmount = () => {
+  const configured = Number(process.env.KLIKQRIS_MIN_AMOUNT);
+  if (Number.isFinite(configured) && configured >= 1) return Math.round(configured);
+  return isSandboxKlikqris() ? 500 : 1;
+};
 
 const serializePayment = (payment) => ({
   id: payment.id,
@@ -28,6 +48,8 @@ const serializePayment = (payment) => ({
   klikqrisOrderId: payment.klikqrisOrderId,
   amountRequest: payment.amountRequest,
   amountRequestFormatted: formatCurrency(payment.amountRequest),
+  gatewayAdjustment: Math.max(0, (payment.totalAmount || 0) - (payment.amountRequest || 0)),
+  gatewayAdjustmentFormatted: formatCurrency(Math.max(0, (payment.totalAmount || 0) - (payment.amountRequest || 0))),
   amountPaid: payment.amountPaid,
   amountPaidFormatted: formatCurrency(payment.amountPaid || payment.totalAmount),
   baseAmount: payment.baseAmount,
@@ -38,12 +60,27 @@ const serializePayment = (payment) => ({
   totalAmountFormatted: formatCurrency(payment.totalAmount),
   qrisUrl: payment.qrisUrl,
   directUrl: payment.directUrl,
+  invoiceNumber: invoiceNumber(payment),
+  signature: isSandboxKlikqris() ? payment.signature : undefined,
+  isSandbox: isSandboxKlikqris(),
   status: payment.status,
   expiredAt: payment.expiredAt,
   paidAt: payment.paidAt,
+  createdAt: payment.createdAt,
   project: payment.project ? {
     id: payment.project.id,
     title: payment.project.title,
+    description: payment.project.description,
+    serviceType: payment.project.serviceType,
+    address: payment.project.address,
+    addressDetail: payment.project.addressDetail,
+    province: payment.project.province,
+    city: payment.project.city,
+    district: payment.project.district,
+    village: payment.project.village,
+    postalCode: payment.project.postalCode,
+    eventDate: payment.project.eventDate,
+    deadline: payment.project.deadline,
     status: payment.project.status,
     client: payment.project.client?.fullName || null,
     freelancer: payment.project.freelancer?.fullName || null,
@@ -110,15 +147,15 @@ const processSuccessfulPayment = async (paymentId, amountPaid, paidAt = new Date
           userId: payment.project.clientId,
           type: 'PAYMENT',
           title: 'Pembayaran berhasil',
-          body: 'Pembayaran berhasil! Freelancer sudah diberitahu.',
+          body: 'Pembayaran berhasil! Order dikirim ke freelancer untuk diterima.',
         },
       }),
       payment.project.freelancerId ? tx.notification.create({
         data: {
           userId: payment.project.freelancerId,
           type: 'PAYMENT',
-          title: 'Order dikonfirmasi',
-          body: 'Client sudah membayar. Silakan mulai kerjakan.',
+          title: 'Order baru sudah dibayar',
+          body: 'Client sudah membayar. Terima order di halaman My Projects untuk mulai bekerja, atau tolak agar dana dikembalikan ke saldo client.',
         },
       }) : tx.projectHistory.create({
         data: {
@@ -162,9 +199,9 @@ exports.createProjectPayment = async (req, res, next) => {
       throw new Error('Pilih freelancer terlebih dahulu sebelum membuat pembayaran');
     }
 
-    if (!project.budget || project.budget < 10000) {
+    if (!project.budget || project.budget < 1) {
       res.status(400);
-      throw new Error('Budget minimal Rp 10.000 untuk pembayaran QRIS');
+      throw new Error('Budget minimal Rp 1 untuk pembayaran QRIS sandbox');
     }
 
     if (['PAID', 'DELIVERED', 'COMPLETED', 'AUTO_COMPLETED'].includes(project.status)) {
@@ -186,11 +223,12 @@ exports.createProjectPayment = async (req, res, next) => {
     }
 
     const { baseAmount, adminFeeClient, amountRequest } = calculateClientCharge(project.budget);
+    const gatewayAmountRequest = Math.max(amountRequest, minimumGatewayAmount());
     const klikqrisOrderId = generateOrderId();
     const description = `Pembayaran ${project.title} - ${project.freelancer.fullName}`;
     const transaction = await createKlikqrisTransaction({
       orderId: klikqrisOrderId,
-      amount: amountRequest,
+      amount: gatewayAmountRequest,
       description,
     });
 
@@ -204,10 +242,10 @@ exports.createProjectPayment = async (req, res, next) => {
         data: {
           projectId,
           klikqrisOrderId: transaction.orderId,
-          amountRequest,
+          amountRequest: gatewayAmountRequest,
           baseAmount,
           adminFeeClient,
-          totalAmount: transaction.totalAmount || amountRequest,
+          totalAmount: transaction.totalAmount || gatewayAmountRequest,
           qrisUrl: transaction.qrisUrl,
           directUrl: transaction.directUrl,
           signature: transaction.signature,
@@ -228,7 +266,7 @@ exports.createProjectPayment = async (req, res, next) => {
         data: {
           projectId,
           number: transaction.orderId,
-          amount: transaction.totalAmount || amountRequest,
+          amount: transaction.totalAmount || gatewayAmountRequest,
           status: 'PENDING',
         },
       }),
@@ -237,11 +275,120 @@ exports.createProjectPayment = async (req, res, next) => {
           projectId,
           actorId: req.user.id,
           title: 'QRIS pembayaran dibuat',
-          body: `Tagihan KlikQRIS ${formatCurrency(transaction.totalAmount || amountRequest)} dibuat dan menunggu pembayaran client.`,
+          body: `Tagihan KlikQRIS ${formatCurrency(transaction.totalAmount || gatewayAmountRequest)} dibuat dan menunggu pembayaran client.`,
           eventType: 'PAYMENT_CREATED',
         },
       }),
     ]);
+
+    res.status(201).json({ payment: serializePayment(payment) });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.payProjectWithWallet = async (req, res, next) => {
+  try {
+    const { projectId } = req.params;
+    const project = await prisma.project.findFirst({
+      where: { id: projectId, clientId: req.user.id },
+      include: {
+        freelancer: { select: { fullName: true } },
+        payments: {
+          where: { status: 'PAID' },
+          take: 1,
+        },
+      },
+    });
+
+    if (!project) {
+      res.status(404);
+      throw new Error('Project tidak ditemukan');
+    }
+
+    if (!project.freelancerId) {
+      res.status(400);
+      throw new Error('Pilih freelancer terlebih dahulu sebelum membayar');
+    }
+
+    if (!project.budget || project.budget < 1) {
+      res.status(400);
+      throw new Error('Budget project tidak valid');
+    }
+
+    if (project.payments.length || ['PAID', 'IN_PROGRESS', 'DELIVERED', 'COMPLETED', 'AUTO_COMPLETED'].includes(project.status)) {
+      res.status(400);
+      throw new Error('Project ini sudah dibayar atau sedang berjalan');
+    }
+
+    const { baseAmount, adminFeeClient, amountRequest } = calculateClientCharge(project.budget);
+    const klikqrisOrderId = `WALLET-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+
+    const payment = await prisma.$transaction(async (tx) => {
+      await debitWallet(
+        tx,
+        req.user.id,
+        amountRequest,
+        `Pembayaran saldo untuk ${project.title}. Dana masuk escrow MediaVault.`,
+        'PROJECT',
+        projectId
+      );
+
+      const createdPayment = await tx.payment.create({
+        data: {
+          projectId,
+          klikqrisOrderId,
+          amountRequest,
+          amountPaid: amountRequest,
+          baseAmount,
+          adminFeeClient,
+          totalAmount: amountRequest,
+          signature: `WALLET-${klikqrisOrderId}`,
+          status: 'PAID',
+          paidAt: new Date(),
+          gatewayResponse: { mode: 'wallet' },
+        },
+        include: paymentInclude,
+      });
+
+      await tx.project.update({
+        where: { id: projectId },
+        data: {
+          status: 'PAID',
+          progress: Math.max(project.progress, 30),
+        },
+      });
+
+      await tx.invoice.create({
+        data: {
+          projectId,
+          number: klikqrisOrderId,
+          amount: amountRequest,
+          status: 'PAID',
+        },
+      });
+
+      await tx.projectHistory.create({
+        data: {
+          projectId,
+          actorId: req.user.id,
+          title: 'Pembayaran saldo berhasil',
+          body: `Client membayar ${formatCurrency(amountRequest)} memakai saldo MediaVault. Dana ditahan di escrow internal.`,
+          eventType: 'WALLET_PAYMENT_PAID',
+        },
+      });
+
+      await tx.notification.create({
+        data: {
+          userId: project.freelancerId,
+          type: 'PAYMENT',
+          title: 'Order baru sudah dibayar',
+          body: 'Client membayar memakai saldo MediaVault. Terima order di halaman My Projects untuk mulai bekerja.',
+        },
+      });
+
+      return createdPayment;
+    });
 
     res.status(201).json({ payment: serializePayment(payment) });
   } catch (error) {
@@ -290,6 +437,56 @@ exports.listMyPayments = async (req, res, next) => {
     });
 
     res.json({ payments: payments.map(serializePayment) });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.getPaymentDetail = async (req, res, next) => {
+  try {
+    const payment = await prisma.payment.findUnique({
+      where: { id: req.params.paymentId },
+      include: {
+        project: {
+          include: {
+            client: { select: { fullName: true } },
+            freelancer: { select: { fullName: true } },
+            histories: {
+              orderBy: { createdAt: 'desc' },
+              take: 20,
+            },
+            submissions: {
+              orderBy: { createdAt: 'desc' },
+              take: 10,
+            },
+          },
+        },
+      },
+    });
+
+    if (!assertPaymentAccess(payment, req.user)) {
+      res.status(404);
+      throw new Error('Invoice tidak ditemukan');
+    }
+
+    res.json({
+      payment: serializePayment(payment),
+      timeline: payment.project.histories.map((history) => ({
+        id: history.id,
+        title: history.title,
+        body: history.body,
+        eventType: history.eventType,
+        createdAt: history.createdAt,
+      })),
+      submissions: payment.project.submissions.map((submission) => ({
+        id: submission.id,
+        comment: submission.comment,
+        fileUrl: submission.fileUrl,
+        fileName: submission.fileName,
+        status: submission.status,
+        createdAt: submission.createdAt,
+      })),
+    });
   } catch (error) {
     next(error);
   }
@@ -412,21 +609,26 @@ exports.completeProjectSettlement = async (projectId, actorId = null, completion
 
   const { adminFeeWithdraw, freelancerNet } = calculateFreelancerNet(payment.baseAmount);
 
-  const [updatedProject] = await prisma.$transaction([
-    prisma.project.update({
+  const updatedProject = await prisma.$transaction(async (tx) => {
+    const nextProject = await tx.project.update({
       where: { id: projectId },
       data: {
         status: completionStatus,
         progress: 100,
         completedAt: new Date(),
       },
-    }),
-    prisma.wallet.upsert({
-      where: { userId: project.freelancerId },
-      update: { balance: { increment: freelancerNet } },
-      create: { userId: project.freelancerId, balance: freelancerNet },
-    }),
-    prisma.projectHistory.create({
+    });
+
+    await creditWallet(
+      tx,
+      project.freelancerId,
+      freelancerNet,
+      `Dana project ${project.title} cair ke saldo freelancer.`,
+      'PROJECT',
+      projectId
+    );
+
+    await tx.projectHistory.create({
       data: {
         projectId,
         actorId,
@@ -434,16 +636,19 @@ exports.completeProjectSettlement = async (projectId, actorId = null, completion
         body: `Dana ${formatCurrency(freelancerNet)} masuk ke saldo freelancer. Biaya withdraw internal: ${formatCurrency(adminFeeWithdraw)}.`,
         eventType: completionStatus === 'AUTO_COMPLETED' ? 'AUTO_RELEASED' : 'SETTLEMENT_COMPLETED',
       },
-    }),
-    prisma.notification.create({
+    });
+
+    await tx.notification.create({
       data: {
         userId: project.freelancerId,
         type: 'PAYMENT',
         title: 'Dana masuk ke saldo',
         body: `Dana ${formatCurrency(freelancerNet)} telah masuk ke saldo kamu.`,
       },
-    }),
-  ]);
+    });
+
+    return nextProject;
+  });
 
   return updatedProject;
 };

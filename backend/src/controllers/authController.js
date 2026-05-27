@@ -3,6 +3,7 @@ const { OAuth2Client } = require('google-auth-library');
 const prisma = require('../config/prisma');
 const generateToken = require('../utils/generateToken');
 const { resolveUserMedia } = require('../utils/mediaUrls');
+const { validateInlineImage } = require('../utils/uploadLimits');
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
@@ -14,6 +15,14 @@ const publicUserSelect = {
   role: true,
   phone: true,
   city: true,
+  province: true,
+  district: true,
+  village: true,
+  postalCode: true,
+  addressDetail: true,
+  latitude: true,
+  longitude: true,
+  locationSource: true,
   bio: true,
   specialty: true,
   startingPrice: true,
@@ -25,6 +34,13 @@ const normalizeRole = (role) => {
   if (!role) return null;
   const normalized = String(role).toUpperCase();
   return ['CLIENT', 'FREELANCER', 'BOTH'].includes(normalized) ? normalized : null;
+};
+
+const parseOptionalCoordinate = (value) => {
+  if (value === undefined) return undefined;
+  if (value === null || value === '') return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
 };
 
 exports.register = async (req, res, next) => {
@@ -56,7 +72,8 @@ exports.register = async (req, res, next) => {
         fullName,
         email: email.toLowerCase(),
         passwordHash,
-        role: normalizeRole(role),
+        role: normalizeRole(role) || 'CLIENT',
+        isAvailable: false,
       },
       select: publicUserSelect,
     });
@@ -155,6 +172,8 @@ exports.googleLogin = async (req, res, next) => {
           email,
           googleId: payload.sub,
           avatarUrl: payload.picture,
+          role: 'CLIENT',
+          isAvailable: false,
         },
         select: publicUserSelect,
       });
@@ -163,6 +182,136 @@ exports.googleLogin = async (req, res, next) => {
       user: await resolveUserMedia(user),
       token: generateToken(user),
     });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.registerFreelancer = async (req, res, next) => {
+  try {
+    const {
+      fullName,
+      bio,
+      categories,
+      experienceYears,
+      startingPrice,
+      province,
+      city,
+      district,
+      village,
+      postalCode,
+      addressDetail,
+      latitude,
+      longitude,
+      locationSource,
+      portfolio,
+      agreed,
+    } = req.body;
+
+    const selectedCategories = Array.isArray(categories)
+      ? categories.map((category) => String(category).trim()).filter(Boolean)
+      : [];
+    const parsedExperience = Number(experienceYears);
+    const parsedPrice = Number(startingPrice);
+
+    if (!fullName?.trim()) {
+      res.status(400);
+      throw new Error('Nama lengkap wajib diisi');
+    }
+
+    if (!bio?.trim()) {
+      res.status(400);
+      throw new Error('Bio/deskripsi wajib diisi');
+    }
+
+    if (selectedCategories.length === 0) {
+      res.status(400);
+      throw new Error('Pilih minimal satu kategori keahlian');
+    }
+
+    if (!Number.isFinite(parsedExperience) || parsedExperience < 0) {
+      res.status(400);
+      throw new Error('Pengalaman tahun wajib diisi dengan angka valid');
+    }
+
+    if (!Number.isFinite(parsedPrice) || parsedPrice < 1) {
+      res.status(400);
+      throw new Error('Harga mulai wajib diisi');
+    }
+
+    if (!province?.trim() || !city?.trim() || !district?.trim() || !village?.trim() || !postalCode?.trim() || !addressDetail?.trim()) {
+      res.status(400);
+      throw new Error('Alamat lengkap freelancer wajib diisi');
+    }
+
+    if (!agreed) {
+      res.status(400);
+      throw new Error('Persetujuan syarat & ketentuan freelancer wajib dicentang');
+    }
+
+    const portfolioError = portfolio?.fileUrl ? validateInlineImage({
+      imageUrl: portfolio.fileUrl,
+      imageMime: portfolio.fileType,
+      imageSize: portfolio.fileSize,
+    }) : null;
+
+    if (portfolioError) {
+      res.status(400);
+      throw new Error(portfolioError);
+    }
+
+    const user = await prisma.$transaction(async (tx) => {
+      const updatedUser = await tx.user.update({
+        where: { id: req.user.id },
+        data: {
+          fullName: fullName.trim(),
+          bio: bio.trim(),
+          specialty: selectedCategories.join(', '),
+          startingPrice: Math.round(parsedPrice),
+          province: province.trim(),
+          city: city.trim(),
+          district: district.trim(),
+          village: village.trim(),
+          postalCode: postalCode.trim(),
+          addressDetail: addressDetail.trim(),
+          latitude: parseOptionalCoordinate(latitude),
+          longitude: parseOptionalCoordinate(longitude),
+          locationSource: locationSource || 'manual',
+          isAvailable: true,
+          role: req.user.role === 'FREELANCER' ? 'FREELANCER' : 'BOTH',
+        },
+        select: publicUserSelect,
+      });
+
+      if (portfolio?.fileUrl) {
+        await tx.portfolioItem.create({
+          data: {
+            freelancerId: req.user.id,
+            title: portfolio.title?.trim() || 'Portfolio awal freelancer',
+            category: selectedCategories[0],
+            serviceType: selectedCategories[0],
+            description: 'Portfolio awal dari proses registrasi freelancer.',
+            fileUrl: portfolio.fileUrl,
+            fileName: portfolio.fileName || null,
+            fileType: portfolio.fileType || null,
+            fileSize: Number.isFinite(Number(portfolio.fileSize)) ? Number(portfolio.fileSize) : null,
+          },
+        });
+      }
+
+      await tx.notification.create({
+        data: {
+          userId: req.user.id,
+          type: 'INFO',
+          title: 'Profil freelancer aktif',
+          body: 'Data freelancer berhasil dilengkapi. Client sekarang bisa menemukan dan memesan jasa kamu.',
+        },
+      });
+
+      return updatedUser;
+    });
+
+    res.json({ user: await resolveUserMedia(user) });
   } catch (error) {
     next(error);
   }
@@ -200,6 +349,14 @@ exports.updateProfile = async (req, res, next) => {
       email,
       phone,
       city,
+      province,
+      district,
+      village,
+      postalCode,
+      addressDetail,
+      latitude,
+      longitude,
+      locationSource,
       avatarUrl,
       bio,
       specialty,
@@ -229,6 +386,14 @@ exports.updateProfile = async (req, res, next) => {
         ...(email ? { email: email.toLowerCase() } : {}),
         phone: phone ?? undefined,
         city: city ?? undefined,
+        province: province ?? undefined,
+        district: district ?? undefined,
+        village: village ?? undefined,
+        postalCode: postalCode ?? undefined,
+        addressDetail: addressDetail ?? undefined,
+        latitude: parseOptionalCoordinate(latitude),
+        longitude: parseOptionalCoordinate(longitude),
+        locationSource: locationSource ?? undefined,
         avatarUrl: avatarUrl ?? undefined,
         bio: bio ?? undefined,
         specialty: specialty ?? undefined,

@@ -30,6 +30,7 @@ export default function FreelancerProjects() {
 
   const tabs = [
     { id: 'all', label: 'All' },
+    { id: 'paid', label: 'Need Action' },
     { id: 'in-progress', label: 'In Progress' },
     { id: 'completed', label: 'Completed' },
     { id: 'under-review', label: 'Under Review' },
@@ -56,6 +57,18 @@ export default function FreelancerProjects() {
       await loadProjects();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Gagal menyetujui project');
+    }
+  };
+
+  const rejectProject = async (projectId: string) => {
+    try {
+      setError('');
+      await apiRequest(`/projects/${projectId}/freelancer-reject`, {
+        method: 'PATCH',
+      });
+      await loadProjects();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Gagal menolak project');
     }
   };
 
@@ -145,21 +158,29 @@ export default function FreelancerProjects() {
                 >
                   View Detail
                 </Link>
-                {project.rawStatus === 'IN_PROGRESS' && (
-                  <button
-                    onClick={() => confirmProject(project.id)}
-                    className="px-4 py-2 bg-[#22C55E] text-white font-bold rounded-lg text-sm hover:bg-[#16A34A] transition-colors"
-                  >
-                    Setujui
-                  </button>
+                {project.rawStatus === 'PAID' && (
+                  <>
+                    <button
+                      onClick={() => confirmProject(project.id)}
+                      className="px-4 py-2 bg-[#22C55E] text-white font-bold rounded-lg text-sm hover:bg-[#16A34A] transition-colors"
+                    >
+                      Terima Order
+                    </button>
+                    <button
+                      onClick={() => rejectProject(project.id)}
+                      className="px-4 py-2 border border-[#EF4444] text-[#EF4444] font-bold rounded-lg text-sm hover:bg-[#EF4444] hover:text-white transition-colors"
+                    >
+                      Tolak
+                    </button>
+                  </>
                 )}
-                {project.rawStatus === 'CONFIRMED' && (
+                {['IN_PROGRESS', 'CONFIRMED'].includes(project.rawStatus) && (
                   <Link
                     to={`/dashboard/freelancer/projects/${project.id}`}
                     className="flex items-center gap-2 px-4 py-2 bg-[#F5C800] text-black font-bold rounded-lg text-sm hover:shadow-[0_0_10px_rgba(245,200,0,0.4)] transition-all"
                   >
                     <Upload className="w-4 h-4" />
-                    Upload Draft
+                    Upload Hasil
                   </Link>
                 )}
                 {project.status === 'Completed' && (

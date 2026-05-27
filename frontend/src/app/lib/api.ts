@@ -9,6 +9,14 @@ export interface CurrentUser {
   role: UserRole | null;
   phone?: string | null;
   city?: string | null;
+  province?: string | null;
+  district?: string | null;
+  village?: string | null;
+  postalCode?: string | null;
+  addressDetail?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  locationSource?: string | null;
   bio?: string | null;
   specialty?: string | null;
   startingPrice?: number | null;
