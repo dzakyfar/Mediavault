@@ -3,10 +3,13 @@ const GB = 1024 * MB;
 
 const MESSAGE_IMAGE_MAX_BYTES = 1 * MB;
 const PORTFOLIO_IMAGE_MAX_BYTES = 5 * MB;
+const PORTFOLIO_VIDEO_MAX_BYTES = 100 * MB;
+const PORTFOLIO_MAX_ITEMS = 5;
 const PROJECT_SUBMISSION_MAX_BYTES = 500 * MB;
 const REFERENCE_FILE_MAX_BYTES = 100 * MB;
 const S3_TOTAL_LIMIT_BYTES = 5 * GB;
 const ALLOWED_INLINE_IMAGE_TYPES = ['image/png', 'image/jpeg'];
+const ALLOWED_PORTFOLIO_TYPES = ['image/png', 'image/jpeg', 'video/mp4', 'video/quicktime', 'video/webm'];
 const ALLOWED_SUBMISSION_FILE_TYPES = [
   'image/png',
   'image/jpeg',
@@ -40,6 +43,32 @@ const validateInlineImage = ({ imageUrl, imageMime, imageSize, maxBytes = MESSAG
 
   if (!String(imageUrl).startsWith(`data:${imageMime};base64,`)) {
     return 'Format gambar tidak valid';
+  }
+
+  return null;
+};
+
+const validatePortfolioMedia = ({ fileUrl, fileType, fileSize }) => {
+  if (!fileUrl) return null;
+
+  if (!ALLOWED_PORTFOLIO_TYPES.includes(fileType)) {
+    return 'File portfolio harus berformat PNG, JPEG, MP4, MOV, atau WebM';
+  }
+
+  const isVideo = fileType.startsWith('video/');
+  const maxBytes = isVideo ? PORTFOLIO_VIDEO_MAX_BYTES : PORTFOLIO_IMAGE_MAX_BYTES;
+  const actualSize = Number(fileSize) || dataUrlSizeInBytes(fileUrl);
+
+  if (actualSize > maxBytes) {
+    return `Ukuran ${isVideo ? 'video' : 'gambar'} maksimal ${Math.round(maxBytes / MB)}MB`;
+  }
+
+  if (isS3ObjectKey(fileUrl)) {
+    return null;
+  }
+
+  if (!String(fileUrl).startsWith(`data:${fileType};base64,`)) {
+    return 'Format file portfolio tidak valid';
   }
 
   return null;
@@ -96,13 +125,17 @@ const validateReferenceFiles = (files = []) => {
 
 module.exports = {
   ALLOWED_INLINE_IMAGE_TYPES,
+  ALLOWED_PORTFOLIO_TYPES,
   ALLOWED_SUBMISSION_FILE_TYPES,
   MESSAGE_IMAGE_MAX_BYTES,
   PORTFOLIO_IMAGE_MAX_BYTES,
+  PORTFOLIO_VIDEO_MAX_BYTES,
+  PORTFOLIO_MAX_ITEMS,
   PROJECT_SUBMISSION_MAX_BYTES,
   REFERENCE_FILE_MAX_BYTES,
   S3_TOTAL_LIMIT_BYTES,
   validateInlineImage,
+  validatePortfolioMedia,
   validateSubmissionFile,
   validateReferenceFiles,
 };

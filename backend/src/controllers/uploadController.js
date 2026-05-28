@@ -1,6 +1,8 @@
 const {
   MESSAGE_IMAGE_MAX_BYTES,
   PORTFOLIO_IMAGE_MAX_BYTES,
+  PORTFOLIO_VIDEO_MAX_BYTES,
+  ALLOWED_PORTFOLIO_TYPES,
   PROJECT_SUBMISSION_MAX_BYTES,
   REFERENCE_FILE_MAX_BYTES,
   S3_TOTAL_LIMIT_BYTES,
@@ -27,8 +29,9 @@ const scopeConfig = {
     allowedTypes: ALLOWED_INLINE_IMAGE_TYPES,
   },
   portfolio: {
-    maxBytes: PORTFOLIO_IMAGE_MAX_BYTES,
-    allowedTypes: ALLOWED_INLINE_IMAGE_TYPES,
+    // Limit per-file: gambar 5MB, video 100MB — dicek dinamis di bawah
+    maxBytes: PORTFOLIO_VIDEO_MAX_BYTES,
+    allowedTypes: ALLOWED_PORTFOLIO_TYPES,
   },
   'project-reference': {
     maxBytes: REFERENCE_FILE_MAX_BYTES,

@@ -1,5 +1,5 @@
 const prisma = require('../config/prisma');
-const { PORTFOLIO_IMAGE_MAX_BYTES, validateInlineImage } = require('../utils/uploadLimits');
+const { PORTFOLIO_MAX_ITEMS, validatePortfolioMedia } = require('../utils/uploadLimits');
 const { resolvePortfolioMedia } = require('../utils/mediaUrls');
 
 const serializePortfolioItem = async (item) => resolvePortfolioMedia({
@@ -38,16 +38,24 @@ exports.createPortfolioItem = async (req, res, next) => {
       throw new Error('Judul portfolio wajib diisi');
     }
 
-    const imageError = fileUrl ? validateInlineImage({
-      imageUrl: fileUrl,
-      imageMime: fileType,
-      imageSize: fileSize,
-      maxBytes: PORTFOLIO_IMAGE_MAX_BYTES,
+    // Enforce max 5 items total
+    const existingCount = await prisma.portfolioItem.count({
+      where: { freelancerId: req.user.id },
+    });
+    if (existingCount >= PORTFOLIO_MAX_ITEMS) {
+      res.status(400);
+      throw new Error(`Maksimal ${PORTFOLIO_MAX_ITEMS} item portfolio`);
+    }
+
+    const mediaError = fileUrl ? validatePortfolioMedia({
+      fileUrl,
+      fileType,
+      fileSize,
     }) : null;
 
-    if (imageError) {
+    if (mediaError) {
       res.status(400);
-      throw new Error(imageError);
+      throw new Error(mediaError);
     }
 
     const item = await prisma.portfolioItem.create({
@@ -84,16 +92,15 @@ exports.updatePortfolioItem = async (req, res, next) => {
       throw new Error('Portfolio tidak ditemukan');
     }
 
-    const imageError = fileUrl ? validateInlineImage({
-      imageUrl: fileUrl,
-      imageMime: fileType,
-      imageSize: fileSize,
-      maxBytes: PORTFOLIO_IMAGE_MAX_BYTES,
+    const mediaError = fileUrl ? validatePortfolioMedia({
+      fileUrl,
+      fileType,
+      fileSize,
     }) : null;
 
-    if (imageError) {
+    if (mediaError) {
       res.status(400);
-      throw new Error(imageError);
+      throw new Error(mediaError);
     }
 
     const item = await prisma.portfolioItem.update({

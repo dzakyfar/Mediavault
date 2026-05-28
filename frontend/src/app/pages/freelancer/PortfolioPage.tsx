@@ -1,11 +1,11 @@
 import { FormEvent, useEffect, useState } from 'react';
-import { Edit2, ImagePlus, Plus, Tags, Trash2, X } from 'lucide-react';
+import { Edit2, Film, ImagePlus, Plus, Tags, Trash2, X } from 'lucide-react';
 import DashboardLayout from '../../components/DashboardLayout';
 import EmptyState from '../../components/EmptyState';
 import ConfirmDialog from '../../components/dashboard/ConfirmDialog';
 import SmoothToast from '../../components/dashboard/SmoothToast';
 import { apiRequest } from '../../lib/api';
-import { PORTFOLIO_IMAGE_MAX_BYTES, validateImageFile } from '../../lib/uploadLimits';
+import { PORTFOLIO_MAX_ITEMS, validatePortfolioFile } from '../../lib/uploadLimits';
 import { getServicesForCategory, serviceCatalog } from '../../lib/serviceCatalog';
 import { uploadFileToS3 } from '../../lib/s3Upload';
 
@@ -108,7 +108,7 @@ export default function FreelancerPortfolio() {
 
   const attachImage = async (file?: File) => {
     if (!file) return;
-    const validationError = validateImageFile(file, PORTFOLIO_IMAGE_MAX_BYTES);
+    const validationError = validatePortfolioFile(file);
     if (validationError) {
       setError(validationError);
       return;
@@ -300,11 +300,18 @@ export default function FreelancerPortfolio() {
       <form onSubmit={saveItem} className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-2xl font-bold">{form.id ? 'Edit Portfolio' : 'Tambah Portfolio'}</h2>
-          {form.id && (
-            <button type="button" onClick={resetForm} className="text-[#888888] hover:text-[#EF4444]">
-              <X className="w-5 h-5" />
-            </button>
-          )}
+          <div className="flex items-center gap-3">
+            {!form.id && (
+              <span className={`text-sm font-medium ${items.length >= PORTFOLIO_MAX_ITEMS ? 'text-[#EF4444]' : 'text-[#888888]'}`}>
+                {items.length}/{PORTFOLIO_MAX_ITEMS} item
+              </span>
+            )}
+            {form.id && (
+              <button type="button" onClick={resetForm} className="text-[#888888] hover:text-[#EF4444]">
+                <X className="w-5 h-5" />
+              </button>
+            )}
+          </div>
         </div>
         <div className="grid md:grid-cols-2 gap-4">
           <input
@@ -353,22 +360,41 @@ export default function FreelancerPortfolio() {
         <div className="mt-4 flex items-center gap-4">
           <label className="inline-flex items-center gap-2 px-4 py-3 border border-[#888888] text-white rounded-lg hover:border-[#F5C800] hover:text-[#F5C800] cursor-pointer transition-colors">
             <ImagePlus className="w-4 h-4" />
-            Upload PNG/JPEG
-            <input type="file" accept="image/png,image/jpeg" className="hidden" onChange={(event) => attachImage(event.target.files?.[0])} />
+            Upload Gambar / Video
+            <input
+              type="file"
+              accept="image/png,image/jpeg,video/mp4,video/quicktime,video/webm"
+              className="hidden"
+              onChange={(event) => attachImage(event.target.files?.[0])}
+            />
           </label>
-          <span className="text-sm text-[#888888]">Maksimal 1MB per gambar.</span>
+          <span className="text-sm text-[#888888]">Gambar maks. 5MB · Video maks. 100MB</span>
         </div>
 
         {form.previewUrl && (
-          <img src={form.previewUrl} alt={form.fileName} className="mt-4 max-h-56 rounded-lg object-contain bg-[#141414]" />
+          form.fileType?.startsWith('video/') ? (
+            <div className="mt-4 relative">
+              <video
+                src={form.previewUrl}
+                controls
+                className="max-h-56 rounded-lg bg-[#141414] w-full object-contain"
+              />
+              <div className="mt-1 flex items-center gap-1 text-xs text-[#888888]">
+                <Film className="w-3 h-3" />
+                {form.fileName}
+              </div>
+            </div>
+          ) : (
+            <img src={form.previewUrl} alt={form.fileName} className="mt-4 max-h-56 rounded-lg object-contain bg-[#141414]" />
+          )
         )}
 
         <button
           type="submit"
-          disabled={saving}
+          disabled={saving || (!form.id && items.length >= PORTFOLIO_MAX_ITEMS)}
           className="mt-5 px-6 py-3 bg-[#F5C800] text-black font-bold rounded-lg disabled:opacity-60"
         >
-          {saving ? 'Saving...' : form.id ? 'Update Portfolio' : 'Add Portfolio'}
+          {saving ? 'Saving...' : form.id ? 'Update Portfolio' : items.length >= PORTFOLIO_MAX_ITEMS ? `Maks. ${PORTFOLIO_MAX_ITEMS} item` : 'Add Portfolio'}
         </button>
       </form>
 
@@ -530,7 +556,23 @@ export default function FreelancerPortfolio() {
         {items.map((item) => (
           <div key={item.id} className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl overflow-hidden">
             {item.fileUrl ? (
-              <img src={item.fileUrl} alt={item.title} className="w-full h-48 object-cover bg-[#141414]" />
+              item.fileType?.startsWith('video/') ? (
+                <div className="w-full h-48 bg-[#141414] relative overflow-hidden">
+                  <video
+                    src={item.fileUrl}
+                    className="w-full h-full object-cover"
+                    muted
+                    playsInline
+                    onMouseEnter={(e) => (e.currentTarget as HTMLVideoElement).play()}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLVideoElement).pause(); (e.currentTarget as HTMLVideoElement).currentTime = 0; }}
+                  />
+                  <div className="absolute bottom-2 right-2 bg-black/60 rounded-full p-1">
+                    <Film className="w-4 h-4 text-white" />
+                  </div>
+                </div>
+              ) : (
+                <img src={item.fileUrl} alt={item.title} className="w-full h-48 object-cover bg-[#141414]" />
+              )
             ) : (
               <div className="w-full h-48 bg-[#141414] flex items-center justify-center text-[#888888]">
                 No image

@@ -3,10 +3,13 @@ export const GB = 1024 * MB;
 
 export const MESSAGE_IMAGE_MAX_BYTES = 1 * MB;
 export const PORTFOLIO_IMAGE_MAX_BYTES = 5 * MB;
+export const PORTFOLIO_VIDEO_MAX_BYTES = 100 * MB;
+export const PORTFOLIO_MAX_ITEMS = 5;
 export const PROJECT_SUBMISSION_MAX_BYTES = 500 * MB;
 export const REFERENCE_FILE_MAX_BYTES = 100 * MB;
 export const S3_TOTAL_LIMIT_BYTES = 5 * GB;
 export const ALLOWED_IMAGE_TYPES = ['image/png', 'image/jpeg'];
+export const ALLOWED_PORTFOLIO_TYPES = ['image/png', 'image/jpeg', 'video/mp4', 'video/quicktime', 'video/webm'];
 export const ALLOWED_SUBMISSION_TYPES = ['image/png', 'image/jpeg', 'application/pdf', 'video/mp4', 'video/quicktime', 'video/webm'];
 
 export function formatBytes(bytes: number) {
@@ -22,6 +25,21 @@ export function validateImageFile(file: File, maxBytes = MESSAGE_IMAGE_MAX_BYTES
 
   if (file.size > maxBytes) {
     return `Ukuran file maksimal ${formatBytes(maxBytes)}`;
+  }
+
+  return '';
+}
+
+export function validatePortfolioFile(file: File) {
+  if (!ALLOWED_PORTFOLIO_TYPES.includes(file.type)) {
+    return 'File harus berupa PNG, JPEG, MP4, MOV, atau WebM';
+  }
+
+  const isVideo = file.type.startsWith('video/');
+  const maxBytes = isVideo ? PORTFOLIO_VIDEO_MAX_BYTES : PORTFOLIO_IMAGE_MAX_BYTES;
+
+  if (file.size > maxBytes) {
+    return `Ukuran ${isVideo ? 'video' : 'gambar'} maksimal ${formatBytes(maxBytes)}`;
   }
 
   return '';
