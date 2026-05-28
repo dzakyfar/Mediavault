@@ -194,6 +194,21 @@ model PortfolioItem {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   freelancer  User     @relation(fields: [freelancerId], references: [id], onDelete: Cascade)
+  media       PortfolioMedia[]
+}
+
+model PortfolioMedia {
+  id              String        @id @default(cuid())
+  portfolioItemId String
+  fileUrl         String
+  fileName        String?
+  fileType        String?
+  fileSize        Int?
+  sortOrder       Int           @default(0)
+  createdAt       DateTime      @default(now())
+  portfolioItem   PortfolioItem @relation(fields: [portfolioItemId], references: [id], onDelete: Cascade)
+
+  @@index([portfolioItemId, sortOrder])
 }
 
 model ProjectFile {

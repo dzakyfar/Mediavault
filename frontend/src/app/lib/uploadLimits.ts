@@ -2,9 +2,11 @@ export const MB = 1024 * 1024;
 export const GB = 1024 * MB;
 
 export const MESSAGE_IMAGE_MAX_BYTES = 1 * MB;
-export const PORTFOLIO_IMAGE_MAX_BYTES = 5 * MB;
+export const PORTFOLIO_IMAGE_MAX_BYTES = 1 * MB;
 export const PORTFOLIO_VIDEO_MAX_BYTES = 100 * MB;
 export const PORTFOLIO_MAX_ITEMS = 5;
+export const PORTFOLIO_MAX_IMAGES_PER_ITEM = 5;
+export const PORTFOLIO_MAX_VIDEOS_PER_ITEM = 1;
 export const PROJECT_SUBMISSION_MAX_BYTES = 500 * MB;
 export const REFERENCE_FILE_MAX_BYTES = 100 * MB;
 export const S3_TOTAL_LIMIT_BYTES = 5 * GB;

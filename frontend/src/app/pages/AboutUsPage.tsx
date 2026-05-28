@@ -31,7 +31,7 @@ const pillars = [
   {
     icon: FolderLock,
     title: 'Secure Creative Assets',
-    description: 'Reference files and production assets are designed to be managed through private, traceable storage.',
+    description: 'Reference files and production assets are designed to stay organized, traceable, and easy to access.',
   },
   {
     icon: ShieldCheck,

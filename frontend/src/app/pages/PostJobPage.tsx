@@ -228,7 +228,7 @@ export default function PostJobPage() {
       .reduce((total, file) => total + file.fileSize, 0);
 
     if (totalSize > S3_TOTAL_LIMIT_BYTES) {
-      setError(`Total upload melebihi limit bucket ${formatBytes(S3_TOTAL_LIMIT_BYTES)}`);
+      setError('Total ukuran file terlalu besar. Kurangi beberapa file lalu coba lagi.');
       return;
     }
 
@@ -596,7 +596,7 @@ export default function PostJobPage() {
                     <FileUp className="w-8 h-8 text-[#F5C800] mx-auto mb-3" />
                     <p className="text-[#888888]">Click to upload reference files</p>
                     <p className="text-sm text-[#888888] mt-2">
-                      Maksimal {formatBytes(REFERENCE_FILE_MAX_BYTES)} per file. Total storage mengikuti limit bucket {formatBytes(S3_TOTAL_LIMIT_BYTES)}.
+                      Maksimal {formatBytes(REFERENCE_FILE_MAX_BYTES)} per file.
                     </p>
                     <input
                       type="file"

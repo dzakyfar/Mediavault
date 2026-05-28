@@ -2,9 +2,11 @@ const MB = 1024 * 1024;
 const GB = 1024 * MB;
 
 const MESSAGE_IMAGE_MAX_BYTES = 1 * MB;
-const PORTFOLIO_IMAGE_MAX_BYTES = 5 * MB;
+const PORTFOLIO_IMAGE_MAX_BYTES = 1 * MB;
 const PORTFOLIO_VIDEO_MAX_BYTES = 100 * MB;
 const PORTFOLIO_MAX_ITEMS = 5;
+const PORTFOLIO_MAX_IMAGES_PER_ITEM = 5;
+const PORTFOLIO_MAX_VIDEOS_PER_ITEM = 1;
 const PROJECT_SUBMISSION_MAX_BYTES = 500 * MB;
 const REFERENCE_FILE_MAX_BYTES = 100 * MB;
 const S3_TOTAL_LIMIT_BYTES = 5 * GB;
@@ -74,6 +76,33 @@ const validatePortfolioMedia = ({ fileUrl, fileType, fileSize }) => {
   return null;
 };
 
+const validatePortfolioMediaFiles = (files = []) => {
+  if (!Array.isArray(files)) return 'File portfolio tidak valid';
+  if (files.length === 0) return null;
+
+  const images = files.filter((file) => String(file.fileType || '').startsWith('image/'));
+  const videos = files.filter((file) => String(file.fileType || '').startsWith('video/'));
+
+  if (images.length > PORTFOLIO_MAX_IMAGES_PER_ITEM) {
+    return `Maksimal ${PORTFOLIO_MAX_IMAGES_PER_ITEM} gambar dalam satu portfolio`;
+  }
+
+  if (videos.length > PORTFOLIO_MAX_VIDEOS_PER_ITEM) {
+    return 'Maksimal 1 video dalam satu portfolio';
+  }
+
+  const invalidGroup = files.find((file) => {
+    const type = String(file.fileType || '');
+    return !type.startsWith('image/') && !type.startsWith('video/');
+  });
+  if (invalidGroup) {
+    return 'Portfolio hanya mendukung gambar dan video';
+  }
+
+  const invalidFile = files.find((file) => validatePortfolioMedia(file));
+  return invalidFile ? validatePortfolioMedia(invalidFile) : null;
+};
+
 const validateSubmissionFile = ({ fileUrl, fileType, fileSize }) => {
   if (!fileUrl) return 'File bukti wajib diupload';
 
@@ -131,11 +160,14 @@ module.exports = {
   PORTFOLIO_IMAGE_MAX_BYTES,
   PORTFOLIO_VIDEO_MAX_BYTES,
   PORTFOLIO_MAX_ITEMS,
+  PORTFOLIO_MAX_IMAGES_PER_ITEM,
+  PORTFOLIO_MAX_VIDEOS_PER_ITEM,
   PROJECT_SUBMISSION_MAX_BYTES,
   REFERENCE_FILE_MAX_BYTES,
   S3_TOTAL_LIMIT_BYTES,
   validateInlineImage,
   validatePortfolioMedia,
+  validatePortfolioMediaFiles,
   validateSubmissionFile,
   validateReferenceFiles,
 };

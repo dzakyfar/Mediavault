@@ -296,6 +296,10 @@ exports.deleteProject = async (req, res, next) => {
     const project = await prisma.project.findUnique({
       where: { id: projectId },
       include: {
+        applications: {
+          where: { status: 'PENDING' },
+          select: { freelancerId: true },
+        },
         payments: {
           where: { status: 'PAID' },
           take: 1,
@@ -313,7 +317,25 @@ exports.deleteProject = async (req, res, next) => {
       throw new Error('Project yang sudah dibayar atau berjalan tidak bisa dihapus. Gunakan alur pembatalan/refund.');
     }
 
-    await prisma.project.delete({ where: { id: projectId } });
+    await prisma.$transaction([
+      prisma.notification.create({
+        data: {
+          userId: req.user.id,
+          type: 'PROJECT',
+          title: 'Project dihapus',
+          body: `Anda menghapus project "${project.title}".`,
+        },
+      }),
+      ...project.applications.map((application) => prisma.notification.create({
+        data: {
+          userId: application.freelancerId,
+          type: 'PROJECT',
+          title: 'Job request dihapus client',
+          body: `Job "${project.title}" sudah dihapus oleh client dan tidak tersedia lagi.`,
+        },
+      })),
+      prisma.project.delete({ where: { id: projectId } }),
+    ]);
     res.json({ message: 'Project berhasil dihapus' });
   } catch (error) {
     next(error);

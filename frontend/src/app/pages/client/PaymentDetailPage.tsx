@@ -136,7 +136,7 @@ export default function ClientPaymentDetail() {
       </Link>
 
       <div className="mt-8">
-        {loading && <EmptyState title="Memuat invoice" description="Mengambil detail transaksi dan escrow dari backend." />}
+        {loading && <EmptyState title="Memuat invoice" description="Menyiapkan detail transaksi dan status pembayaran." />}
         {error && <EmptyState title="Invoice tidak ditemukan" description={error} />}
 
         {payment && (

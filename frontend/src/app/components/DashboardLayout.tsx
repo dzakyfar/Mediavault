@@ -56,10 +56,12 @@ export default function DashboardLayout({ children, userType, userName, greeting
 
     loadUnreadNotifications();
     const interval = window.setInterval(loadUnreadNotifications, 8000);
+    window.addEventListener('mediavault:notifications-refresh', loadUnreadNotifications);
 
     return () => {
       mounted = false;
       window.clearInterval(interval);
+      window.removeEventListener('mediavault:notifications-refresh', loadUnreadNotifications);
     };
   }, []);
 

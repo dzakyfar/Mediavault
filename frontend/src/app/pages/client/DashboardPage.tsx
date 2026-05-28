@@ -65,12 +65,21 @@ export default function ClientDashboard() {
 
   useEffect(() => {
     loadDashboard();
+    const interval = window.setInterval(() => {
+      if (!document.hidden) loadDashboard(true);
+    }, 10000);
+    return () => window.clearInterval(interval);
   }, []);
 
-  const loadDashboard = () => {
+  const loadDashboard = (silent = false) => {
     apiRequest<ClientDashboardResponse>('/dashboard/client')
-      .then((response) => setDashboard(normalizeDashboard(response)))
-      .catch((err) => setError(err instanceof Error ? err.message : 'Gagal memuat dashboard'));
+      .then((response) => {
+        setDashboard(normalizeDashboard(response));
+        setError('');
+      })
+      .catch((err) => {
+        if (!silent) setError(err instanceof Error ? err.message : 'Gagal memuat dashboard');
+      });
   };
 
   const statsData = dashboard?.stats;
@@ -127,12 +136,12 @@ export default function ClientDashboard() {
           </div>
 
           <div className="space-y-4">
-            {!dashboard && <EmptyState title="Memuat dashboard" description="Mengambil data terbaru dari backend." />}
+            {!dashboard && <EmptyState title="Memuat dashboard" description="Menyiapkan ringkasan project terbaru untuk Anda." />}
 
             {dashboard && projects.length === 0 && (
               <EmptyState
                 title="Belum ada project"
-                description="Project yang Anda buat dari database akan muncul di sini. Data contoh Figma sudah tidak dipakai."
+                description="Mulai dengan membuat job pertama agar freelancer bisa mengirim penawaran."
                 action={(
                   <Link to="/post-job" className="inline-flex items-center gap-2 px-4 py-2 bg-[#F5C800] text-black font-bold rounded-lg">
                     <Plus className="w-4 h-4" />
@@ -191,7 +200,7 @@ export default function ClientDashboard() {
                   <div className="mt-5 pt-5 border-t border-[#2A2A2A] flex items-center justify-between gap-4 bg-[#141414] rounded-lg p-4">
                     <div>
                       <div className="font-bold text-white">{project.pendingOffers.length} freelancer requested this job</div>
-                      <div className="text-sm text-[#888888]">Buka detail untuk message, lihat profil, dan confirm freelancer.</div>
+                      <div className="text-sm text-[#888888]">Buka detail untuk membaca pesan, melihat profil, lalu memilih freelancer.</div>
                     </div>
                     <Link
                       to={`/dashboard/client/projects/${project.id}`}
@@ -212,7 +221,7 @@ export default function ClientDashboard() {
             <div className="grid grid-cols-2 gap-4">
               {recommendedFreelancers.length === 0 && (
                 <div className="col-span-2">
-                  <EmptyState title="Belum ada rekomendasi" description="Freelancer dari database akan tampil di sini setelah profil freelancer tersedia." />
+                  <EmptyState title="Belum ada rekomendasi" description="Rekomendasi freelancer akan muncul setelah ada profil yang sesuai dengan kebutuhan Anda." />
                 </div>
               )}
 
@@ -263,7 +272,7 @@ export default function ClientDashboard() {
           </h2>
           <div className="space-y-4">
             {activities.length === 0 && (
-              <p className="text-sm text-[#888888]">Belum ada aktivitas dari database.</p>
+              <p className="text-sm text-[#888888]">Belum ada update terbaru untuk ditampilkan.</p>
             )}
             {activities.map((activity, i) => (
               <div key={i} className="flex gap-3">

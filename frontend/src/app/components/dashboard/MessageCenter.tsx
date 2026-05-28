@@ -106,7 +106,10 @@ export default function MessageCenter({ userType }: { userType: 'client' | 'free
     apiRequest('/messages/read', {
       method: 'PATCH',
       body: JSON.stringify({ peerId: activePeerId }),
-    }).then(() => loadMessages(true)).catch(() => undefined);
+    }).then(() => {
+      window.dispatchEvent(new Event('mediavault:notifications-refresh'));
+      return loadMessages(true);
+    }).catch(() => undefined);
   }, [activePeerId]);
 
   const activeMessages = useMemo(
@@ -135,6 +138,7 @@ export default function MessageCenter({ userType }: { userType: 'client' | 'free
       setDraft('');
       setImageDraft(null);
       await loadMessages(true);
+      window.dispatchEvent(new Event('mediavault:notifications-refresh'));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Gagal mengirim pesan');
     } finally {
@@ -187,7 +191,7 @@ export default function MessageCenter({ userType }: { userType: 'client' | 'free
         </div>
       )}
 
-      {loading && <EmptyState title="Memuat pesan" description="Mengambil percakapan terbaru dari database." />}
+      {loading && <EmptyState title="Memuat pesan" description="Menyiapkan percakapan terbaru Anda." />}
 
       {!loading && conversations.length === 0 && (
         <EmptyState
@@ -228,7 +232,7 @@ export default function MessageCenter({ userType }: { userType: 'client' | 'free
           <section className="bg-[#141414] border border-[#2A2A2A] rounded-xl flex flex-col min-h-[560px]">
             <div className="p-5 border-b border-[#2A2A2A]">
               <h2 className="text-xl font-bold text-white">{activeConversation?.peerName || 'Conversation'}</h2>
-              <p className="text-sm text-[#888888]">Auto-refresh setiap beberapa detik.</p>
+              <p className="text-sm text-[#888888]">Percakapan diperbarui otomatis saat halaman terbuka.</p>
             </div>
 
             <div className="flex-1 p-5 space-y-3 overflow-y-auto">

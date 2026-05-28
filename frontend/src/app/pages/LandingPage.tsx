@@ -135,7 +135,7 @@ export default function LandingPage() {
             {[
               { icon: Image, title: 'Build Your Portfolio', desc: 'Showcase your best work and get discovered by clients.' },
               { icon: Zap, title: 'Get Hired Fast', desc: 'Connect with clients looking for your exact skills.' },
-              { icon: Shield, title: 'Payment Ready', desc: 'Alur approval sudah siap, sementara transaksi finansial masih di-hold untuk fase berikutnya.' }
+              { icon: Shield, title: 'Clear Approval Flow', desc: 'Setiap project punya alur review, revisi, dan approval yang mudah dilacak.' }
             ].map((item, i) => (
               <div key={i} className="text-center">
                 <div className="inline-flex items-center justify-center w-16 h-16 bg-[#F5C800] rounded-lg mb-4">
@@ -163,8 +163,8 @@ export default function LandingPage() {
           <div className="grid md:grid-cols-4 gap-6">
             {topFreelancers.length === 0 && (
               <div className="md:col-span-4 bg-[#141414] border border-[#2A2A2A] rounded-xl p-8 text-center">
-                <h3 className="text-xl font-bold mb-2">Belum ada freelancer dari database</h3>
-                <p className="text-[#888888]">Profil freelancer nyata akan tampil di sini setelah user mendaftar dan memilih role freelancer.</p>
+                <h3 className="text-xl font-bold mb-2">Freelancer pilihan segera hadir</h3>
+                <p className="text-[#888888]">Profil kreator yang siap menerima project akan tampil di sini.</p>
               </div>
             )}
 

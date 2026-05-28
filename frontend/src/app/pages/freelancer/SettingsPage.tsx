@@ -716,7 +716,7 @@ export default function FreelancerSettings() {
       }
 
       if (!Number.isFinite(parsedRatePerHour) || parsedRatePerHour < 1) {
-        setStatusMessage('Isi Harga Per Jam minimal Rp 1. Untuk demo kuliah, nominal kecil seperti 1 tetap diperbolehkan.');
+        setStatusMessage('Isi Harga Per Jam minimal Rp 1.');
         return;
       }
 

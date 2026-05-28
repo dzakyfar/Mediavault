@@ -106,7 +106,7 @@ export default function ExplorePage() {
         <div className="grid md:grid-cols-3 gap-6 mb-12">
           {loading && (
             <div className="md:col-span-3">
-              <EmptyState title="Memuat freelancer" description="Mengambil daftar freelancer dari database." />
+              <EmptyState title="Memuat freelancer" description="Menyiapkan pilihan freelancer yang tersedia." />
             </div>
           )}
 

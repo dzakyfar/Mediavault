@@ -1,6 +1,7 @@
 import { FormEvent, ReactNode, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router';
-import { ArrowLeft, ImagePlus, LocateFixed, X } from 'lucide-react';
+import { ArrowLeft, Film, ImagePlus, LocateFixed, X } from 'lucide-react';
 import DashboardLayout from '../components/DashboardLayout';
 import DraggableLocationMap from '../components/dashboard/DraggableLocationMap';
 import SearchableRegionSelect from '../components/dashboard/SearchableRegionSelect';
@@ -14,7 +15,11 @@ import {
   getCurrentPosition,
   RegionOption,
 } from '../lib/indonesiaRegions';
-import { PORTFOLIO_IMAGE_MAX_BYTES, validateImageFile } from '../lib/uploadLimits';
+import {
+  PORTFOLIO_MAX_IMAGES_PER_ITEM,
+  PORTFOLIO_MAX_VIDEOS_PER_ITEM,
+  validatePortfolioFile,
+} from '../lib/uploadLimits';
 import { uploadFileToS3 } from '../lib/s3Upload';
 import { serviceCatalog } from '../lib/serviceCatalog';
 
@@ -40,13 +45,13 @@ export default function FreelancerOnboardingPage() {
     locationSource: user?.locationSource || 'manual',
     agreed: false,
   });
-  const [portfolio, setPortfolio] = useState<{
+  const [portfolioFiles, setPortfolioFiles] = useState<Array<{
     fileUrl: string;
     previewUrl: string;
     fileName: string;
     fileType: string;
     fileSize: number;
-  } | null>(null);
+  }>>([]);
   const [error, setError] = useState('');
   const [locationWarning, setLocationWarning] = useState('');
   const [saving, setSaving] = useState(false);
@@ -402,9 +407,26 @@ export default function FreelancerOnboardingPage() {
     }
   };
 
-  const attachPortfolio = async (file?: File) => {
-    if (!file) return;
-    const validationError = validateImageFile(file, PORTFOLIO_IMAGE_MAX_BYTES);
+  const attachPortfolio = async (fileList?: FileList | null) => {
+    const files = Array.from(fileList || []);
+    if (!files.length) return;
+
+    const currentImages = portfolioFiles.filter((file) => file.fileType.startsWith('image/')).length;
+    const currentVideos = portfolioFiles.filter((file) => file.fileType.startsWith('video/')).length;
+    const incomingImages = files.filter((file) => file.type.startsWith('image/')).length;
+    const incomingVideos = files.filter((file) => file.type.startsWith('video/')).length;
+
+    if (currentImages + incomingImages > PORTFOLIO_MAX_IMAGES_PER_ITEM) {
+      setError(`Maksimal ${PORTFOLIO_MAX_IMAGES_PER_ITEM} gambar untuk portfolio awal.`);
+      return;
+    }
+
+    if (currentVideos + incomingVideos > PORTFOLIO_MAX_VIDEOS_PER_ITEM) {
+      setError('Maksimal 1 video untuk portfolio awal.');
+      return;
+    }
+
+    const validationError = files.map(validatePortfolioFile).find(Boolean);
     if (validationError) {
       setError(validationError);
       return;
@@ -412,20 +434,27 @@ export default function FreelancerOnboardingPage() {
 
     try {
       setUploading(true);
-      const uploaded = await uploadFileToS3(file, 'portfolio');
-      setPortfolio({
-        fileUrl: uploaded.key,
-        previewUrl: uploaded.url,
-        fileName: uploaded.fileName,
-        fileType: uploaded.fileType,
-        fileSize: uploaded.fileSize,
-      });
+      const uploadedFiles = await Promise.all(files.map((file) => uploadFileToS3(file, 'portfolio')));
+      setPortfolioFiles((current) => [
+        ...current,
+        ...uploadedFiles.map((uploaded) => ({
+          fileUrl: uploaded.key,
+          previewUrl: uploaded.url,
+          fileName: uploaded.fileName,
+          fileType: uploaded.fileType,
+          fileSize: uploaded.fileSize,
+        })),
+      ]);
       setError('');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Gagal upload portfolio');
     } finally {
       setUploading(false);
     }
+  };
+
+  const removePortfolioFile = (index: number) => {
+    setPortfolioFiles((current) => current.filter((_, fileIndex) => fileIndex !== index));
   };
 
   const submit = async (event: FormEvent) => {
@@ -441,12 +470,18 @@ export default function FreelancerOnboardingPage() {
       setError('');
       await registerFreelancer({
         ...form,
-        portfolio: portfolio ? {
+        portfolio: portfolioFiles.length ? {
           title: `Portfolio ${form.categories[0]}`,
-          fileUrl: portfolio.fileUrl,
-          fileName: portfolio.fileName,
-          fileType: portfolio.fileType,
-          fileSize: portfolio.fileSize,
+          fileUrl: portfolioFiles[0].fileUrl,
+          fileName: portfolioFiles[0].fileName,
+          fileType: portfolioFiles[0].fileType,
+          fileSize: portfolioFiles[0].fileSize,
+          files: portfolioFiles.map((file) => ({
+            fileUrl: file.fileUrl,
+            fileName: file.fileName,
+            fileType: file.fileType,
+            fileSize: file.fileSize,
+          })),
         } : null,
       });
       navigate('/dashboard/freelancer', { replace: true });
@@ -653,18 +688,45 @@ export default function FreelancerOnboardingPage() {
               <div className="flex flex-wrap items-center gap-4">
                 <label className="inline-flex items-center gap-2 px-4 py-3 border border-[#888888] text-white rounded-lg hover:border-[#F5C800] hover:text-[#F5C800] cursor-pointer transition-colors">
                   <ImagePlus className="w-4 h-4" />
-                  {uploading ? 'Uploading...' : 'Upload PNG/JPEG'}
-                  <input type="file" accept="image/png,image/jpeg" className="hidden" onChange={(event) => attachPortfolio(event.target.files?.[0])} />
+                  {uploading ? 'Uploading...' : 'Tambah Gambar / Video'}
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,video/mp4,video/quicktime,video/webm"
+                    multiple
+                    className="hidden"
+                    onChange={(event) => {
+                      attachPortfolio(event.target.files);
+                      event.currentTarget.value = '';
+                    }}
+                  />
                 </label>
-                <span className="text-sm text-[#888888]">Opsional, maksimal 1MB. Otomatis tampil di profile.</span>
-                {portfolio && (
-                  <button type="button" onClick={() => setPortfolio(null)} className="inline-flex items-center gap-1 text-[#EF4444] text-sm">
-                    <X className="w-4 h-4" />
-                    Hapus file
-                  </button>
-                )}
+                <span className="text-sm text-[#888888]">Opsional, maksimal 5 gambar (1MB/gambar) dan 1 video (100MB).</span>
               </div>
-              {portfolio && <img src={portfolio.previewUrl} alt={portfolio.fileName} className="mt-4 max-h-64 rounded-lg object-contain bg-[#141414]" />}
+              {portfolioFiles.length > 0 && (
+                <div className="mt-4 grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {portfolioFiles.map((file, index) => (
+                    <div key={`${file.fileUrl}-${index}`} className="relative overflow-hidden rounded-lg border border-[#2A2A2A] bg-[#141414]">
+                      {file.fileType.startsWith('video/') ? (
+                        <video src={file.previewUrl} controls className="h-36 w-full object-cover" />
+                      ) : (
+                        <img src={file.previewUrl} alt={file.fileName} className="h-36 w-full object-cover" />
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => removePortfolioFile(index)}
+                        className="absolute right-2 top-2 rounded-full bg-black/70 p-1 text-white hover:bg-[#EF4444]"
+                        aria-label="Hapus media portfolio"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                      <div className="flex items-center gap-1 px-3 py-2 text-xs text-[#888888]">
+                        {file.fileType.startsWith('video/') ? <Film className="w-3 h-3" /> : <ImagePlus className="w-3 h-3" />}
+                        <span className="truncate">{file.fileName}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </Field>
 
             <label className="flex items-start gap-3 cursor-pointer">
@@ -709,7 +771,7 @@ export default function FreelancerOnboardingPage() {
         </section>
       </div>
 
-      {termsOpen && (
+      {termsOpen && createPortal((
         <div className="fixed inset-y-0 left-0 right-0 z-[120] flex items-center justify-center px-4 md:left-60">
           <button
             type="button"
@@ -763,7 +825,7 @@ export default function FreelancerOnboardingPage() {
               />
               <TermsBlock
                 title="7. Withdraw Saldo"
-                body="Saldo freelancer dapat diajukan untuk withdraw melalui metode e-wallet yang tersedia. Dalam mode sandbox/proyek kuliah, withdraw hanya berupa simulasi status Sedang Diproses dan tidak memindahkan uang sungguhan."
+                body="Saldo freelancer dapat diajukan untuk withdraw melalui metode e-wallet yang tersedia. Status pencairan akan mengikuti proses dan ketentuan operasional MediaVault."
               />
               <TermsBlock
                 title="8. Penyalahgunaan"
@@ -792,7 +854,7 @@ export default function FreelancerOnboardingPage() {
             </div>
           </div>
         </div>
-      )}
+      ), document.body)}
     </DashboardLayout>
   );
 }

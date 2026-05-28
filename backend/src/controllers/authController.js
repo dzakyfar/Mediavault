@@ -3,7 +3,7 @@ const { OAuth2Client } = require('google-auth-library');
 const prisma = require('../config/prisma');
 const generateToken = require('../utils/generateToken');
 const { resolveUserMedia } = require('../utils/mediaUrls');
-const { PORTFOLIO_IMAGE_MAX_BYTES, validateInlineImage } = require('../utils/uploadLimits');
+const { validatePortfolioMediaFiles } = require('../utils/uploadLimits');
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
@@ -260,12 +260,17 @@ exports.registerFreelancer = async (req, res, next) => {
       throw new Error('Persetujuan syarat & ketentuan freelancer wajib dicentang');
     }
 
-    const portfolioError = portfolio?.fileUrl ? validateInlineImage({
-      imageUrl: portfolio.fileUrl,
-      imageMime: portfolio.fileType,
-      imageSize: portfolio.fileSize,
-      maxBytes: PORTFOLIO_IMAGE_MAX_BYTES,
-    }) : null;
+    const portfolioFiles = Array.isArray(portfolio?.files)
+      ? portfolio.files
+      : portfolio?.fileUrl
+        ? [{
+          fileUrl: portfolio.fileUrl,
+          fileName: portfolio.fileName,
+          fileType: portfolio.fileType,
+          fileSize: portfolio.fileSize,
+        }]
+        : [];
+    const portfolioError = validatePortfolioMediaFiles(portfolioFiles);
 
     if (portfolioError) {
       res.status(400);
@@ -295,18 +300,28 @@ exports.registerFreelancer = async (req, res, next) => {
         select: publicUserSelect,
       });
 
-      if (portfolio?.fileUrl) {
+      if (portfolioFiles.length > 0) {
+        const firstMedia = portfolioFiles[0];
         await tx.portfolioItem.create({
           data: {
             freelancerId: req.user.id,
             title: portfolio.title?.trim() || 'Portfolio awal freelancer',
             category: selectedCategories[0],
             serviceType: selectedCategories[0],
-            description: 'Portfolio awal dari proses registrasi freelancer.',
-            fileUrl: portfolio.fileUrl,
-            fileName: portfolio.fileName || null,
-            fileType: portfolio.fileType || null,
-            fileSize: Number.isFinite(Number(portfolio.fileSize)) ? Number(portfolio.fileSize) : null,
+            description: 'Contoh karya pertama yang ditambahkan saat profil freelancer dibuat.',
+            fileUrl: firstMedia.fileUrl,
+            fileName: firstMedia.fileName || null,
+            fileType: firstMedia.fileType || null,
+            fileSize: Number.isFinite(Number(firstMedia.fileSize)) ? Number(firstMedia.fileSize) : null,
+            media: {
+              create: portfolioFiles.map((file, index) => ({
+                fileUrl: file.fileUrl,
+                fileName: file.fileName || null,
+                fileType: file.fileType || null,
+                fileSize: Number.isFinite(Number(file.fileSize)) ? Number(file.fileSize) : null,
+                sortOrder: index,
+              })),
+            },
           },
         });
       }

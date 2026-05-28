@@ -81,7 +81,7 @@ export default function FreelancerProjectDetail() {
         Back to projects
       </Link>
       <div className="mt-8">
-        {loading && <EmptyState title="Memuat project" description="Mengambil detail lengkap project dari database." />}
+        {loading && <EmptyState title="Memuat project" description="Menyiapkan detail project dan progress terbaru." />}
         {error && <EmptyState title="Project tidak ditemukan" description={error} />}
         {project && (
           <div className="space-y-6">

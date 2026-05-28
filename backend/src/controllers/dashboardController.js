@@ -10,9 +10,29 @@ const formatActivityTime = (date) => new Intl.DateTimeFormat('id-ID', {
   minute: '2-digit',
 }).format(date);
 
+const buildRecentActivities = (histories = [], notifications = []) => [
+  ...histories.map((history) => ({
+    text: history.body || history.title,
+    date: history.createdAt,
+    source: 'history',
+  })),
+  ...notifications.map((notification) => ({
+    text: notification.body || notification.title,
+    date: notification.createdAt,
+    source: 'notification',
+  })),
+]
+  .sort((first, second) => new Date(second.date) - new Date(first.date))
+  .slice(0, 8)
+  .map((activity) => ({
+    text: activity.text,
+    time: formatActivityTime(activity.date),
+    source: activity.source,
+  }));
+
 exports.getClientDashboard = async (req, res, next) => {
   try {
-    const [projects, unreadMessages, pendingInvoices, histories, freelancers, wallet] = await Promise.all([
+    const [projects, unreadMessages, pendingInvoices, histories, notifications, freelancers, wallet] = await Promise.all([
       prisma.project.findMany({
         where: { clientId: req.user.id },
         include: {
@@ -55,6 +75,11 @@ exports.getClientDashboard = async (req, res, next) => {
         include: { project: { select: { title: true } } },
         orderBy: { createdAt: 'desc' },
         take: 6,
+      }),
+      prisma.notification.findMany({
+        where: { userId: req.user.id, type: { not: 'MESSAGE' } },
+        orderBy: { createdAt: 'desc' },
+        take: 8,
       }),
       prisma.user.findMany({
         where: {
@@ -103,10 +128,7 @@ exports.getClientDashboard = async (req, res, next) => {
         walletBalance: formatCurrency(wallet?.balance || 0),
       },
       projects: projects.map(serializeProject),
-      activities: histories.map((history) => ({
-        text: history.body || history.title,
-        time: formatActivityTime(history.createdAt),
-      })),
+      activities: buildRecentActivities(histories, notifications),
       recommendedFreelancers: await Promise.all(freelancers.map(async (freelancer) => {
         const stat = reviewMap.get(freelancer.id);
 
@@ -129,7 +151,7 @@ exports.getClientDashboard = async (req, res, next) => {
 
 exports.getFreelancerDashboard = async (req, res, next) => {
   try {
-    const [projects, openRequests, unreadMessages, pendingInvoices, histories, wallet] = await Promise.all([
+    const [projects, openRequests, unreadMessages, pendingInvoices, histories, notifications, wallet] = await Promise.all([
       prisma.project.findMany({
         where: { freelancerId: req.user.id },
         include: {
@@ -192,10 +214,20 @@ exports.getFreelancerDashboard = async (req, res, next) => {
         _sum: { amount: true },
       }),
       prisma.projectHistory.findMany({
-        where: { project: { freelancerId: req.user.id } },
+        where: {
+          OR: [
+            { project: { freelancerId: req.user.id } },
+            { actorId: req.user.id },
+          ],
+        },
         include: { project: { select: { title: true } } },
         orderBy: { createdAt: 'desc' },
         take: 6,
+      }),
+      prisma.notification.findMany({
+        where: { userId: req.user.id, type: { not: 'MESSAGE' } },
+        orderBy: { createdAt: 'desc' },
+        take: 8,
       }),
       prisma.wallet.findUnique({ where: { userId: req.user.id } }),
     ]);
@@ -210,10 +242,7 @@ exports.getFreelancerDashboard = async (req, res, next) => {
       },
       projects: projects.map(serializeProject),
       requests: openRequests.map(serializeProject),
-      activities: histories.map((history) => ({
-        text: history.body || history.title,
-        time: formatActivityTime(history.createdAt),
-      })),
+      activities: buildRecentActivities(histories, notifications),
     });
   } catch (error) {
     next(error);

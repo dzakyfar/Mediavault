@@ -108,7 +108,7 @@ export default function ClientFindFreelancer() {
       <div className="grid md:grid-cols-3 gap-6 mb-8">
         {loading && (
           <div className="md:col-span-3">
-            <EmptyState title="Memuat freelancer" description="Mengambil profil freelancer dari database." />
+            <EmptyState title="Memuat freelancer" description="Menyiapkan daftar freelancer yang bisa Anda hubungi." />
           </div>
         )}
 

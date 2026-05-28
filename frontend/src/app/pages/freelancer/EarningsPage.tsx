@@ -68,7 +68,7 @@ export default function FreelancerEarnings() {
       });
       setWalletSummary(response.wallet);
       setForm((current) => ({ ...current, amount: '', accountNumber: '', accountName: '' }));
-      setSuccess('Withdraw sandbox dibuat. Status saldo: Sedang Diproses.');
+      setSuccess('Pengajuan withdraw dibuat. Status saldo: Sedang Diproses.');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Gagal membuat withdraw');
     } finally {
@@ -85,7 +85,7 @@ export default function FreelancerEarnings() {
         Earnings
       </h1>
 
-      {loading && <EmptyState title="Memuat saldo" description="Mengambil wallet freelancer dari backend." />}
+      {loading && <EmptyState title="Memuat saldo" description="Menyiapkan ringkasan saldo dan pencairan Anda." />}
 
       {!loading && (
         <div className="grid lg:grid-cols-[1fr_380px] gap-6">
@@ -99,7 +99,7 @@ export default function FreelancerEarnings() {
                 </div>
               </div>
               <p className="text-sm text-[#888888]">
-                Saldo bertambah setelah client mengonfirmasi pekerjaan selesai. Withdraw di sandbox hanya mengubah status menjadi Sedang Diproses.
+                Saldo bertambah setelah client mengonfirmasi pekerjaan selesai. Status withdraw akan diperbarui sesuai proses pencairan.
               </p>
             </div>
 

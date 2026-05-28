@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Link, useNavigate, useParams } from 'react-router';
-import { Camera, LocateFixed, MapPin, MessageCircle, RefreshCcw, Star, X } from 'lucide-react';
+import { Camera, CheckCircle2, ChevronLeft, ChevronRight, Clock, Film, Images, LocateFixed, MapPin, MessageCircle, RefreshCcw, Star, Users, X } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import EmptyState from '../components/EmptyState';
@@ -80,6 +81,20 @@ interface FreelancerProfile {
     serviceType: string | null;
     description: string | null;
     fileUrl: string | null;
+    fileType?: string | null;
+    media?: Array<{
+      id?: string;
+      fileUrl: string;
+      fileKey?: string | null;
+      fileName?: string | null;
+      fileType?: string | null;
+      fileSize?: number | null;
+    }>;
+    images?: Array<{
+      id?: string;
+      fileUrl: string;
+      fileName?: string | null;
+    }>;
   }>;
   offerings: Offering[];
   reviews: Array<{
@@ -90,6 +105,18 @@ interface FreelancerProfile {
   }>;
 }
 
+type PortfolioItem = FreelancerProfile['portfolioItems'][number];
+
+const getPortfolioMedia = (item: PortfolioItem) => {
+  if (item.media?.length) return item.media;
+  if (item.images?.length) return item.images.map((image) => ({ ...image, fileType: 'image/jpeg' }));
+  return item.fileUrl ? [{
+    fileUrl: item.fileUrl,
+    fileName: item.title,
+    fileType: item.fileType || 'image/jpeg',
+  }] : [];
+};
+
 const currency = new Intl.NumberFormat('id-ID', {
   style: 'currency',
   currency: 'IDR',
@@ -97,6 +124,11 @@ const currency = new Intl.NumberFormat('id-ID', {
 });
 
 const formatCurrency = (amount: number) => currency.format(amount || 0).replace(/\s/g, ' ');
+
+const describeOffering = (offering: Offering) => [
+  offering.description,
+  ...(offering.benefits || []).map((benefit) => `- ${benefit}`),
+].filter(Boolean).join('\n');
 
 const normalizeFreelancerProfile = (freelancer: Partial<FreelancerProfile>): FreelancerProfile => {
   const offerings = freelancer.offerings || [];
@@ -161,6 +193,9 @@ export default function FreelancerProfilePage() {
   const [walletSummary, setWalletSummary] = useState<WalletSummary | null>(null);
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
+  const [selectedPortfolio, setSelectedPortfolio] = useState<PortfolioItem | null>(null);
+  const [selectedPortfolioImageIndex, setSelectedPortfolioImageIndex] = useState(0);
+  const [selectedOfferingId, setSelectedOfferingId] = useState('');
   const [orderData, setOrderData] = useState({
     serviceType: '',
     needType: '',
@@ -187,19 +222,54 @@ export default function FreelancerProfilePage() {
 
   const currentOffering = useMemo(() => {
     if (!freelancer) return null;
-    return freelancer.offerings.find((offering) => offering.serviceType === orderData.serviceType)
+    return freelancer.offerings.find((offering) => offering.id === selectedOfferingId)
+      || freelancer.offerings.find((offering) => offering.serviceType === orderData.serviceType)
       || freelancer.offerings[0]
       || null;
-  }, [freelancer, orderData.serviceType]);
+  }, [freelancer, orderData.serviceType, selectedOfferingId]);
   const maxPersons = currentOffering?.capacityPersons || freelancer?.maxTeamCapacity || 1;
+  const selectedPortfolioMedia = useMemo(() => {
+    if (!selectedPortfolio) return [];
+    return getPortfolioMedia(selectedPortfolio);
+  }, [selectedPortfolio]);
+  const selectedPortfolioMediaItem = selectedPortfolioMedia[selectedPortfolioImageIndex] || null;
 
   useEffect(() => {
     if (!currentOffering) return;
     setOrderData((current) => ({
       ...current,
+      serviceType: current.serviceType || currentOffering.serviceType || currentOffering.title,
+      needType: current.needType || currentOffering.title,
+      description: current.description || describeOffering(currentOffering),
       rentalHours: current.rentalHours || String(currentOffering.estimatedHours || 1),
     }));
   }, [currentOffering]);
+
+  useEffect(() => {
+    setSelectedPortfolioImageIndex(0);
+  }, [selectedPortfolio]);
+
+  useEffect(() => {
+    if (!selectedPortfolio) return undefined;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setSelectedPortfolio(null);
+    };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [selectedPortfolio]);
+
+  const applyOfferingToOrder = (offering: Offering) => {
+    setSelectedOfferingId(offering.id);
+    setOrderError('');
+    setOrderData((current) => ({
+      ...current,
+      serviceType: offering.serviceType || offering.title,
+      needType: offering.title,
+      description: describeOffering(offering) || current.description,
+      personsCount: String(Math.min(Number(current.personsCount) || 1, offering.capacityPersons || freelancer?.maxTeamCapacity || 1)),
+      rentalHours: String(offering.estimatedHours || 1),
+    }));
+  };
 
   const costSummary = useMemo(() => {
     const persons = Math.max(1, Number(orderData.personsCount) || 1);
@@ -274,10 +344,15 @@ export default function FreelancerProfilePage() {
     apiRequest<{ freelancer: FreelancerProfile }>(`/freelancers/${id}`, { auth: false })
       .then((response) => {
         const nextFreelancer = normalizeFreelancerProfile(response.freelancer);
+        const initialOffering = nextFreelancer.offerings[0] || null;
         setFreelancer(nextFreelancer);
+        setSelectedOfferingId(initialOffering?.id || '');
         setOrderData((current) => ({
           ...current,
-          serviceType: nextFreelancer.services[0] || '',
+          serviceType: initialOffering?.serviceType || nextFreelancer.services[0] || '',
+          needType: initialOffering?.title || '',
+          description: initialOffering ? describeOffering(initialOffering) : current.description,
+          rentalHours: initialOffering?.estimatedHours ? String(initialOffering.estimatedHours) : current.rentalHours,
         }));
       })
       .catch((err) => setError(err instanceof Error ? err.message : 'Gagal memuat profile freelancer'))
@@ -402,6 +477,7 @@ export default function FreelancerProfilePage() {
       method: 'POST',
       body: JSON.stringify({
         ...orderData,
+        offeringId: currentOffering?.id || selectedOfferingId || undefined,
         title: `${orderData.serviceType} - ${orderData.needType}`,
         budget: costSummary.subtotal,
         address,
@@ -458,7 +534,7 @@ export default function FreelancerProfilePage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0A0A0A] text-white mv-ambient" style={{ fontFamily: 'DM Sans, sans-serif' }}>
+    <div className="mv-no-page-transform min-h-screen bg-[#0A0A0A] text-white mv-ambient" style={{ fontFamily: 'DM Sans, sans-serif' }}>
       <Navbar />
       <main className="max-w-7xl mx-auto px-6 py-12">
         <Link to="/explore" className="text-[#888888] hover:text-[#F5C800] transition-colors">
@@ -467,7 +543,7 @@ export default function FreelancerProfilePage() {
 
         {loading && (
           <div className="mt-8">
-            <EmptyState title="Memuat profile" description="Mengambil profile freelancer dari database." />
+            <EmptyState title="Memuat profile" description="Menyiapkan detail freelancer untuk Anda." />
           </div>
         )}
 
@@ -532,21 +608,153 @@ export default function FreelancerProfilePage() {
               </div>
 
               <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-8">
-                <h2 className="text-3xl mb-4" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>Portfolio</h2>
-                {freelancer.portfolioItems.length === 0 ? (
-                  <EmptyState title="Portfolio kosong" description="Freelancer ini belum mengupload portfolio, tapi profile tetap bisa dihubungi." />
+                <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-5">
+                  <div>
+                    <h2 className="text-3xl" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>Pricelist Jasa</h2>
+                    <p className="text-sm text-[#888888]">Klik salah satu paket untuk mengisi form pemesanan otomatis.</p>
+                  </div>
+                  {freelancer.offerings.length > 0 && (
+                    <span className="w-fit px-3 py-1 rounded-full bg-[#F5C800]/10 border border-[#F5C800]/40 text-[#F5C800] text-xs font-bold">
+                      {freelancer.offerings.length} paket aktif
+                    </span>
+                  )}
+                </div>
+
+                {freelancer.offerings.length === 0 ? (
+                  <EmptyState title="Pricelist belum tersedia" description="Freelancer ini belum menambahkan paket jasa dan rate." />
                 ) : (
                   <div className="grid md:grid-cols-2 gap-4">
-                    {freelancer.portfolioItems.map((item) => (
-                      <div key={item.id} className="bg-[#141414] rounded-lg p-4">
-                        <div className="aspect-video bg-[#1A1A1A] rounded-lg mb-3 flex items-center justify-center">
-                          <Camera className="w-8 h-8 text-[#888888]" />
-                        </div>
-                        <h3 className="font-bold">{item.title}</h3>
+                    {freelancer.offerings.map((offering) => {
+                      const isSelected = currentOffering?.id === offering.id;
+                      return (
+                        <button
+                          key={offering.id}
+                          type="button"
+                          onClick={() => applyOfferingToOrder(offering)}
+                          className={`group text-left rounded-xl p-5 border transition-all hover:-translate-y-1 hover:border-[#F5C800] hover:shadow-[0_16px_40px_rgba(245,200,0,0.12)] ${
+                            isSelected
+                              ? 'bg-[#F5C800]/10 border-[#F5C800] shadow-[0_0_0_1px_rgba(245,200,0,0.25)]'
+                              : 'bg-[#141414] border-[#2A2A2A]'
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-3 mb-3">
+                            <div>
+                              <p className="text-xs uppercase tracking-[0.2em] text-[#F5C800] font-bold">{offering.serviceType || 'Jasa Kreatif'}</p>
+                              <h3 className="text-xl font-bold text-white mt-1">{offering.title}</h3>
+                            </div>
+                            {isSelected && <CheckCircle2 className="w-5 h-5 text-[#F5C800] shrink-0" />}
+                          </div>
+
+                          <div className="space-y-2 text-sm">
+                            <div className="flex items-center justify-between gap-4">
+                              <span className="text-[#888888]">Estimasi paket</span>
+                              <span className="font-bold text-white">{offering.priceFormatted}</span>
+                            </div>
+                            <div className="flex items-center justify-between gap-4">
+                              <span className="text-[#888888]">Rate utama</span>
+                              <span className="text-[#F5C800] font-bold">{offering.ratePerHourFormatted}/jam</span>
+                            </div>
+                            {offering.ratePerPhotoFormatted && (
+                              <div className="flex items-center justify-between gap-4">
+                                <span className="text-[#888888]">Rate foto</span>
+                                <span className="font-bold text-white">{offering.ratePerPhotoFormatted}/foto</span>
+                              </div>
+                            )}
+                            <div className="grid grid-cols-2 gap-2 pt-2">
+                              <span className="inline-flex items-center gap-2 rounded-lg bg-[#0F0F0F] border border-[#2A2A2A] px-3 py-2 text-[#CCCCCC]">
+                                <Clock className="w-4 h-4 text-[#F5C800]" />
+                                {offering.estimatedHours || 1} jam
+                              </span>
+                              <span className="inline-flex items-center gap-2 rounded-lg bg-[#0F0F0F] border border-[#2A2A2A] px-3 py-2 text-[#CCCCCC]">
+                                <Users className="w-4 h-4 text-[#F5C800]" />
+                                Maks. {offering.capacityPersons || freelancer.maxTeamCapacity || 1}
+                              </span>
+                            </div>
+                          </div>
+
+                          {offering.description && (
+                            <p className="text-sm text-[#BDBDBD] leading-relaxed mt-4 line-clamp-3">{offering.description}</p>
+                          )}
+                          {offering.benefits.length > 0 && (
+                            <div className="flex flex-wrap gap-2 mt-4">
+                              {offering.benefits.slice(0, 3).map((benefit) => (
+                                <span key={benefit} className="px-2.5 py-1 rounded-full bg-[#F5C800]/10 text-[#F5C800] text-xs">
+                                  {benefit}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                          {(offering.toolsSpec || offering.relatedSpecs.length > 0) && (
+                            <p className="text-xs text-[#888888] mt-4">
+                              {[offering.toolsSpec, ...offering.relatedSpecs].filter(Boolean).slice(0, 3).join(' • ')}
+                            </p>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-8">
+                <h2 className="text-3xl mb-4" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>Portfolio</h2>
+                {freelancer.portfolioItems.length === 0 ? (
+                  <EmptyState title="Portfolio kosong" description="Freelancer ini belum menambahkan contoh karya, tetapi profilnya tetap bisa dihubungi." />
+                ) : (
+                  <div className="grid md:grid-cols-2 gap-4">
+                    {freelancer.portfolioItems.map((item) => {
+                      const media = getPortfolioMedia(item);
+                      const firstMedia = media[0];
+
+                      return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => setSelectedPortfolio(item)}
+                        className="group bg-[#141414] rounded-lg p-4 text-left transition-all hover:-translate-y-1 hover:shadow-[0_16px_40px_rgba(245,200,0,0.12)] focus:outline-none focus:ring-2 focus:ring-[#F5C800]/50"
+                      >
+                        {firstMedia ? (
+                          <div className="relative mb-3 overflow-hidden rounded-lg bg-[#1A1A1A]">
+                            {firstMedia.fileType?.startsWith('video/') ? (
+                              <video src={firstMedia.fileUrl} className="aspect-video w-full object-cover" muted playsInline />
+                            ) : (
+                              <img src={firstMedia.fileUrl} alt={item.title} className="aspect-video w-full object-cover" />
+                            )}
+                            <div className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-black/70 px-2 py-1 text-xs text-white">
+                              {firstMedia.fileType?.startsWith('video/') ? <Film className="h-3.5 w-3.5" /> : <Images className="h-3.5 w-3.5" />}
+                              {media.length}
+                            </div>
+                            {media.length > 1 && (
+                              <div className="grid grid-cols-4 gap-1 p-1">
+                                {media.slice(1, 5).map((mediaItem, index) => (
+                                  mediaItem.fileType?.startsWith('video/') ? (
+                                    <div key={mediaItem.id || `${mediaItem.fileUrl}-${index}`} className="h-12 w-full rounded bg-black/60 flex items-center justify-center">
+                                      <Film className="h-4 w-4 text-white" />
+                                    </div>
+                                  ) : (
+                                    <img
+                                      key={mediaItem.id || `${mediaItem.fileUrl}-${index}`}
+                                      src={mediaItem.fileUrl}
+                                      alt={`${item.title} ${index + 2}`}
+                                      className="h-12 w-full rounded object-cover"
+                                    />
+                                  )
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="aspect-video bg-[#1A1A1A] rounded-lg mb-3 flex items-center justify-center">
+                            <Camera className="w-8 h-8 text-[#888888]" />
+                          </div>
+                        )}
+                        <h3 className="font-bold group-hover:text-[#F5C800] transition-colors">{item.title}</h3>
                         {item.category && <p className="text-sm text-[#888888]">{item.category}</p>}
                         {item.serviceType && <p className="text-sm text-[#F5C800]">{item.serviceType}</p>}
-                      </div>
-                    ))}
+                        <p className="mt-3 text-xs text-[#888888]">Klik untuk melihat detail portfolio</p>
+                      </button>
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -596,15 +804,41 @@ export default function FreelancerProfilePage() {
                       </div>
                     )}
 
-                    <select
-                      value={orderData.serviceType}
-                      onChange={(e) => setOrderData({ ...orderData, serviceType: e.target.value })}
-                      className="w-full bg-[#141414] border border-[#2A2A2A] rounded-lg px-4 py-3 text-white focus:border-[#F5C800] focus:outline-none"
-                    >
-                      {freelancer.services.map((service) => (
-                        <option key={service} value={service}>{service}</option>
-                      ))}
-                    </select>
+                    <div className="space-y-3">
+                      <select
+                        value={selectedOfferingId || currentOffering?.id || ''}
+                        onChange={(e) => {
+                          const nextOffering = freelancer.offerings.find((offering) => offering.id === e.target.value);
+                          if (nextOffering) applyOfferingToOrder(nextOffering);
+                        }}
+                        className="w-full bg-[#141414] border border-[#2A2A2A] rounded-lg px-4 py-3 text-white focus:border-[#F5C800] focus:outline-none"
+                      >
+                        {freelancer.offerings.map((offering) => (
+                          <option key={offering.id} value={offering.id}>
+                            {offering.title} - {offering.ratePerHourFormatted}/jam
+                          </option>
+                        ))}
+                      </select>
+
+                      {currentOffering && (
+                        <div className="bg-[#F5C800]/10 border border-[#F5C800]/40 rounded-lg p-4">
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <p className="text-xs uppercase tracking-[0.2em] text-[#F5C800] font-bold">Paket dipilih</p>
+                              <h3 className="text-white font-bold mt-1">{currentOffering.title}</h3>
+                            </div>
+                            <CheckCircle2 className="w-5 h-5 text-[#F5C800]" />
+                          </div>
+                          <div className="grid grid-cols-2 gap-2 mt-3 text-xs text-[#CCCCCC]">
+                            <span>{currentOffering.priceFormatted} estimasi</span>
+                            <span>{currentOffering.ratePerHourFormatted}/jam</span>
+                            <span>{currentOffering.estimatedHours || 1} jam estimasi</span>
+                            <span>Maks. {maxPersons} orang</span>
+                            <span className="col-span-2">{currentOffering.extraPersonFeeFormatted}/orang tambahan</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
 
                     <input
                       value={orderData.needType}
@@ -791,7 +1025,155 @@ export default function FreelancerProfilePage() {
       </main>
       <Footer />
 
-      {reviewOpen && freelancer && (
+      {selectedPortfolio && createPortal((
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setSelectedPortfolio(null);
+          }}
+        >
+          <div className="w-full max-w-5xl max-h-[90vh] overflow-hidden rounded-2xl border shadow-[0_24px_80px_rgba(0,0,0,0.35)] bg-[var(--popover)] text-[var(--popover-foreground)] border-[var(--border)]">
+            <div className="flex items-start justify-between gap-4 border-b border-[var(--border)] p-5">
+              <div>
+                <p className="text-xs uppercase tracking-[0.25em] text-[#F5C800] font-bold">Portfolio Detail</p>
+                <h2 className="text-3xl mt-1" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>
+                  {selectedPortfolio.title}
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedPortfolio(null)}
+                className="rounded-lg border border-[var(--border)] p-2 text-[var(--foreground)] hover:border-[#F5C800] hover:text-[#F5C800] transition-colors"
+                aria-label="Tutup detail portfolio"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="max-h-[calc(90vh-92px)] overflow-y-auto p-5">
+              <div className="grid lg:grid-cols-[1.25fr_0.75fr] gap-6">
+                <div className="space-y-3">
+                  <div className="relative overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--muted)]">
+                    {selectedPortfolioMediaItem ? (
+                      selectedPortfolioMediaItem.fileType?.startsWith('video/') ? (
+                        <video
+                          src={selectedPortfolioMediaItem.fileUrl}
+                          controls
+                          className="max-h-[560px] min-h-[280px] w-full object-contain bg-black/5"
+                        />
+                      ) : (
+                        <img
+                          src={selectedPortfolioMediaItem.fileUrl}
+                          alt={selectedPortfolioMediaItem.fileName || selectedPortfolio.title}
+                          className="max-h-[560px] min-h-[280px] w-full object-contain bg-black/5"
+                        />
+                      )
+                    ) : (
+                      <div className="flex min-h-[360px] items-center justify-center text-[var(--muted-foreground)]">
+                        <Camera className="h-10 w-10" />
+                      </div>
+                    )}
+
+                    {selectedPortfolioMedia.length > 1 && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedPortfolioImageIndex((current) => (
+                            current === 0 ? selectedPortfolioMedia.length - 1 : current - 1
+                          ))}
+                          className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full bg-black/65 p-2 text-white hover:bg-[#F5C800] hover:text-black transition-colors"
+                          aria-label="Gambar sebelumnya"
+                        >
+                          <ChevronLeft className="h-5 w-5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedPortfolioImageIndex((current) => (
+                            current === selectedPortfolioMedia.length - 1 ? 0 : current + 1
+                          ))}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full bg-black/65 p-2 text-white hover:bg-[#F5C800] hover:text-black transition-colors"
+                          aria-label="Gambar berikutnya"
+                        >
+                          <ChevronRight className="h-5 w-5" />
+                        </button>
+                        <div className="absolute bottom-3 right-3 rounded-full bg-black/70 px-3 py-1 text-xs text-white">
+                          {selectedPortfolioImageIndex + 1}/{selectedPortfolioMedia.length}
+                        </div>
+                      </>
+                    )}
+                  </div>
+
+                  {selectedPortfolioMedia.length > 1 && (
+                    <div className="grid grid-cols-5 gap-2">
+                      {selectedPortfolioMedia.map((mediaItem, index) => (
+                        <button
+                          key={mediaItem.id || `${mediaItem.fileUrl}-${index}`}
+                          type="button"
+                          onClick={() => setSelectedPortfolioImageIndex(index)}
+                          className={`overflow-hidden rounded-lg border transition-all ${
+                            selectedPortfolioImageIndex === index
+                              ? 'border-[#F5C800] ring-2 ring-[#F5C800]/25'
+                              : 'border-[var(--border)] hover:border-[#F5C800]'
+                          }`}
+                        >
+                          {mediaItem.fileType?.startsWith('video/') ? (
+                            <div className="h-20 w-full bg-black/60 flex items-center justify-center">
+                              <Film className="h-5 w-5 text-white" />
+                            </div>
+                          ) : (
+                            <img
+                              src={mediaItem.fileUrl}
+                              alt={mediaItem.fileName || `${selectedPortfolio.title} ${index + 1}`}
+                              className="h-20 w-full object-cover"
+                            />
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <aside className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-5 text-[var(--card-foreground)]">
+                  <div className="flex flex-wrap gap-2 mb-5">
+                    {selectedPortfolio.category && (
+                      <span className="rounded-full bg-[#F5C800]/15 px-3 py-1 text-sm font-bold text-[#D9A900]">
+                        {selectedPortfolio.category}
+                      </span>
+                    )}
+                    {selectedPortfolio.serviceType && (
+                      <span className="rounded-full border border-[var(--border)] px-3 py-1 text-sm text-[var(--muted-foreground)]">
+                        {selectedPortfolio.serviceType}
+                      </span>
+                    )}
+                  </div>
+
+                  <h3 className="text-xl font-bold mb-2">Deskripsi Portfolio</h3>
+                  {selectedPortfolio.description ? (
+                    <p className="whitespace-pre-line leading-relaxed text-[var(--muted-foreground)]">
+                      {selectedPortfolio.description}
+                    </p>
+                  ) : (
+                    <p className="text-[var(--muted-foreground)]">Freelancer belum menambahkan deskripsi untuk portfolio ini.</p>
+                  )}
+
+                  <div className="mt-6 rounded-lg bg-[#F5C800]/10 border border-[#F5C800]/30 p-4">
+                    <div className="flex items-center gap-2 text-sm font-bold text-[#D9A900]">
+                      <Images className="h-4 w-4" />
+                      {selectedPortfolioMedia.filter((mediaItem) => mediaItem.fileType?.startsWith('image/')).length || 0} gambar
+                      {selectedPortfolioMedia.some((mediaItem) => mediaItem.fileType?.startsWith('video/')) ? ' + 1 video' : ''}
+                    </div>
+                    <p className="text-sm text-[var(--muted-foreground)] mt-2">
+                      Lihat contoh karya ini untuk menilai gaya visual freelancer sebelum menghubungi atau memesan jasa.
+                    </p>
+                  </div>
+                </aside>
+              </div>
+            </div>
+          </div>
+        </div>
+      ), document.body)}
+
+      {reviewOpen && freelancer && createPortal((
         <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
           <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-6">
             <div className="flex items-start justify-between gap-4 mb-5">
@@ -911,9 +1293,9 @@ export default function FreelancerProfilePage() {
             </div>
           </div>
         </div>
-      )}
+      ), document.body)}
 
-      {paymentOpen && payment && (
+      {paymentOpen && payment && createPortal((
         <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
           <div className="w-full max-w-2xl bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-6">
             <div className="flex items-start justify-between gap-4 mb-5">
@@ -1009,7 +1391,7 @@ export default function FreelancerProfilePage() {
             </div>
           </div>
         </div>
-      )}
+      ), document.body)}
     </div>
   );
 }

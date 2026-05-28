@@ -38,7 +38,7 @@ export default function PricingPage() {
       period: '/month',
       features: [
         'Everything in Pro',
-        '1TB NAS storage',
+        'Large media delivery workspace',
         'Multi-user accounts',
         'Custom branding',
         'Advanced analytics',

@@ -103,6 +103,12 @@ exports.getFreelancerById = async (req, res, next) => {
             serviceType: true,
             description: true,
             fileUrl: true,
+            fileName: true,
+            fileType: true,
+            fileSize: true,
+            media: {
+              orderBy: { sortOrder: 'asc' },
+            },
           },
           orderBy: { createdAt: 'desc' },
         },
@@ -191,6 +197,7 @@ exports.getFreelancerById = async (req, res, next) => {
 exports.orderFreelancerService = async (req, res, next) => {
   try {
     const {
+      offeringId,
       serviceType,
       needType,
       title,
@@ -238,22 +245,24 @@ exports.orderFreelancerService = async (req, res, next) => {
       throw new Error('Tidak bisa memesan jasa dari akun sendiri');
     }
 
-    const serviceExists = freelancer.offerings.some((offering) =>
-      (offering.serviceType || offering.title) === serviceType
-    );
-    if (freelancer.offerings.length > 0 && !serviceExists) {
+    const selectedOffering = offeringId
+      ? freelancer.offerings.find((offering) => offering.id === offeringId)
+      : freelancer.offerings.find((offering) => (offering.serviceType || offering.title) === serviceType);
+    if (freelancer.offerings.length > 0 && !selectedOffering) {
       res.status(400);
       throw new Error('Jenis jasa tidak tersedia di profile freelancer ini');
     }
+    const normalizedServiceType = selectedOffering?.serviceType || serviceType;
+    const normalizedNeedType = selectedOffering?.title || needType;
 
     const amount = Number(budget);
     const composedAddress = [addressDetail, village, district, city, province, postalCode].filter(Boolean).join(', ');
     const project = await prisma.project.create({
       data: {
-        title: title || `${serviceType} - ${needType}`,
+        title: title || `${normalizedServiceType} - ${normalizedNeedType}`,
         description,
-        category: serviceType,
-        serviceType,
+        category: normalizedServiceType,
+        serviceType: normalizedServiceType,
         province,
         budget: Number.isFinite(amount) ? Math.round(amount) : null,
         eventDate: new Date(eventDate),
@@ -280,14 +289,14 @@ exports.orderFreelancerService = async (req, res, next) => {
           userId: freelancer.id,
           type: 'PROJECT',
           title: 'Pesanan jasa baru menunggu pembayaran',
-          body: `${req.user.fullName} ingin memesan jasa ${serviceType}. Project menunggu pembayaran QRIS.`,
+          body: `${req.user.fullName} ingin memesan jasa ${normalizedServiceType}. Project menunggu pembayaran QRIS.`,
         },
       }),
       prisma.message.create({
         data: {
           senderId: req.user.id,
           receiverId: freelancer.id,
-          body: `Saya ingin memesan jasa ${serviceType}: ${needType}. ${description}`,
+          body: `Saya ingin memesan jasa ${normalizedServiceType}: ${normalizedNeedType}. ${description}`,
         },
       }),
       prisma.projectHistory.create({
@@ -295,7 +304,7 @@ exports.orderFreelancerService = async (req, res, next) => {
           projectId: project.id,
           actorId: req.user.id,
           title: 'Pesanan jasa dibuat',
-          body: `${req.user.fullName} memesan jasa ${serviceType} ke ${freelancer.fullName} dan perlu menyelesaikan pembayaran QRIS.`,
+          body: `${req.user.fullName} memesan jasa ${normalizedServiceType} ke ${freelancer.fullName} dan perlu menyelesaikan pembayaran QRIS.`,
           eventType: 'DIRECT_ORDER_CREATED',
         },
       }),

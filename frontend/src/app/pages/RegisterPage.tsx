@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { Eye, EyeOff, ScrollText, ShieldCheck, X, Zap } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -33,7 +34,7 @@ const legalContent = {
       },
       {
         heading: '5. Project, Revisi, dan Approval',
-        body: 'Progress project dapat ditandai melalui tracker, draft review, approval, dan request revisi. Fitur pembayaran/earnings saat ini masih dalam tahap hold, sehingga penyelesaian transaksi finansial belum menjadi bagian dari layanan aktif.',
+        body: 'Progress project dapat ditandai melalui tracker, draft review, approval, dan request revisi agar client dan freelancer memiliki catatan kerja yang jelas.',
       },
       {
         heading: '6. Penghentian Akses',
@@ -65,11 +66,11 @@ const legalContent = {
       },
       {
         heading: '4. Penyimpanan File Media',
-        body: 'File media seperti avatar, portfolio, gambar pesan, reference file, dan submission project dapat disimpan di Amazon S3. Database menyimpan referensi file agar pengguna dapat mengakses kembali file yang pernah diunggah sesuai izin aksesnya.',
+        body: 'File media seperti avatar, portfolio, gambar pesan, reference file, dan submission project disimpan agar pengguna dapat mengakses kembali file yang pernah diunggah sesuai izin aksesnya.',
       },
       {
         heading: '5. Keamanan',
-        body: 'Password disimpan dalam bentuk hash, akses endpoint private memakai JWT, dan file media dirancang memakai akses terbatas/presigned URL. Pengguna tetap perlu menjaga keamanan akun dan tidak membagikan token/password.',
+        body: 'Password disimpan dalam bentuk hash, akses endpoint private memakai session aman, dan file media dilindungi sesuai izin akses. Pengguna tetap perlu menjaga keamanan akun dan tidak membagikan password.',
       },
       {
         heading: '6. Berbagi Data',
@@ -348,7 +349,7 @@ export default function RegisterPage() {
       </div>
       </div>
 
-      {activeLegal && (
+      {activeLegal && createPortal((
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4 py-6">
           <button
             type="button"
@@ -416,7 +417,7 @@ export default function RegisterPage() {
             </div>
           </div>
         </div>
-      )}
+      ), document.body)}
       <GoogleSignupConsentModal
         open={Boolean(pendingGoogleCredential)}
         submitting={submitting}

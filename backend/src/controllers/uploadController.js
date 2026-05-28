@@ -43,6 +43,12 @@ const scopeConfig = {
   },
 };
 
+const maxBytesForUpload = (scope, fileType, config) => (
+  scope === 'portfolio' && String(fileType).startsWith('image/')
+    ? PORTFOLIO_IMAGE_MAX_BYTES
+    : config.maxBytes
+);
+
 exports.createUploadUrl = async (req, res, next) => {
   try {
     if (!isS3Configured()) {
@@ -63,9 +69,10 @@ exports.createUploadUrl = async (req, res, next) => {
       throw new Error('Nama file, tipe file, dan ukuran file wajib dikirim');
     }
 
-    if (Number(fileSize) > config.maxBytes) {
+    const maxBytes = maxBytesForUpload(scope, fileType, config);
+    if (Number(fileSize) > maxBytes) {
       res.status(400);
-      throw new Error(`Ukuran file melebihi batas ${Math.round(config.maxBytes / 1024 / 1024)}MB`);
+      throw new Error(`Ukuran file melebihi batas ${Math.round(maxBytes / 1024 / 1024)}MB`);
     }
 
     if (Number(fileSize) > S3_TOTAL_LIMIT_BYTES) {
@@ -112,9 +119,10 @@ exports.uploadDirect = async (req, res, next) => {
       throw new Error('Nama file, tipe file, ukuran file, dan data file wajib dikirim');
     }
 
-    if (Number(fileSize) > config.maxBytes) {
+    const maxBytes = maxBytesForUpload(scope, fileType, config);
+    if (Number(fileSize) > maxBytes) {
       res.status(400);
-      throw new Error(`Ukuran file melebihi batas ${Math.round(config.maxBytes / 1024 / 1024)}MB`);
+      throw new Error(`Ukuran file melebihi batas ${Math.round(maxBytes / 1024 / 1024)}MB`);
     }
 
     if (Number(fileSize) > S3_TOTAL_LIMIT_BYTES) {
@@ -136,7 +144,7 @@ exports.uploadDirect = async (req, res, next) => {
     const base64 = String(dataUrl).slice(expectedPrefix.length);
     const buffer = Buffer.from(base64, 'base64');
 
-    if (buffer.length > config.maxBytes || buffer.length > S3_TOTAL_LIMIT_BYTES) {
+    if (buffer.length > maxBytes || buffer.length > S3_TOTAL_LIMIT_BYTES) {
       res.status(400);
       throw new Error('Ukuran file tidak valid');
     }

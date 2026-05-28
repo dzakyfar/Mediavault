@@ -5,9 +5,24 @@ import EmptyState from '../../components/EmptyState';
 import ConfirmDialog from '../../components/dashboard/ConfirmDialog';
 import SmoothToast from '../../components/dashboard/SmoothToast';
 import { apiRequest } from '../../lib/api';
-import { PORTFOLIO_MAX_ITEMS, validatePortfolioFile } from '../../lib/uploadLimits';
+import {
+  PORTFOLIO_MAX_IMAGES_PER_ITEM,
+  PORTFOLIO_MAX_ITEMS,
+  PORTFOLIO_MAX_VIDEOS_PER_ITEM,
+  validatePortfolioFile,
+} from '../../lib/uploadLimits';
 import { getServicesForCategory, serviceCatalog } from '../../lib/serviceCatalog';
 import { uploadFileToS3 } from '../../lib/s3Upload';
+
+interface PortfolioMedia {
+  id?: string;
+  fileUrl: string;
+  fileKey?: string | null;
+  fileName: string | null;
+  fileType: string | null;
+  fileSize: number | null;
+  previewUrl?: string;
+}
 
 interface PortfolioItem {
   id: string;
@@ -20,6 +35,7 @@ interface PortfolioItem {
   fileName: string | null;
   fileType: string | null;
   fileSize: number | null;
+  media?: PortfolioMedia[];
 }
 
 interface Offering {
@@ -49,6 +65,7 @@ const emptyForm = {
   fileName: '',
   fileType: '',
   fileSize: 0,
+  media: [] as PortfolioMedia[],
 };
 
 const serviceOptions = serviceCatalog.flatMap((category) => category.services);
@@ -106,38 +123,114 @@ export default function FreelancerPortfolio() {
     loadOfferings();
   }, []);
 
-  const attachImage = async (file?: File) => {
-    if (!file) return;
-    const validationError = validatePortfolioFile(file);
+  const attachMedia = async (fileList?: FileList | null) => {
+    const files = Array.from(fileList || []);
+    if (!files.length) return;
+
+    const currentImages = form.media.filter((media) => media.fileType?.startsWith('image/')).length;
+    const currentVideos = form.media.filter((media) => media.fileType?.startsWith('video/')).length;
+    const incomingImages = files.filter((file) => file.type.startsWith('image/')).length;
+    const incomingVideos = files.filter((file) => file.type.startsWith('video/')).length;
+
+    if (currentImages + incomingImages > PORTFOLIO_MAX_IMAGES_PER_ITEM) {
+      setError(`Maksimal ${PORTFOLIO_MAX_IMAGES_PER_ITEM} gambar dalam satu portfolio`);
+      return;
+    }
+
+    if (currentVideos + incomingVideos > PORTFOLIO_MAX_VIDEOS_PER_ITEM) {
+      setError('Maksimal 1 video dalam satu portfolio');
+      return;
+    }
+
+    const validationError = files.map(validatePortfolioFile).find(Boolean);
     if (validationError) {
       setError(validationError);
       return;
     }
 
-    const uploaded = await uploadFileToS3(file, 'portfolio');
-    setForm((current) => ({
-      ...current,
-      fileUrl: uploaded.key,
-      previewUrl: uploaded.url,
-      fileName: uploaded.fileName,
-      fileType: uploaded.fileType,
-      fileSize: uploaded.fileSize,
-    }));
-    setError('');
+    try {
+      setSaving(true);
+      const uploadedFiles = await Promise.all(files.map((file) => uploadFileToS3(file, 'portfolio')));
+      setForm((current) => {
+        const media = [
+          ...current.media,
+          ...uploadedFiles.map((uploaded) => ({
+            fileUrl: uploaded.key,
+            fileKey: uploaded.key,
+            previewUrl: uploaded.url,
+            fileName: uploaded.fileName,
+            fileType: uploaded.fileType,
+            fileSize: uploaded.fileSize,
+          })),
+        ];
+        const first = media[0];
+        return {
+          ...current,
+          media,
+          fileUrl: first?.fileUrl || '',
+          previewUrl: first?.previewUrl || first?.fileUrl || '',
+          fileName: first?.fileName || '',
+          fileType: first?.fileType || '',
+          fileSize: first?.fileSize || 0,
+        };
+      });
+      setError('');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Gagal mengupload media portfolio');
+    } finally {
+      setSaving(false);
+    }
   };
 
+  const removeMedia = (index: number) => {
+    setForm((current) => {
+      const media = current.media.filter((_, mediaIndex) => mediaIndex !== index);
+      const first = media[0];
+      return {
+        ...current,
+        media,
+        fileUrl: first?.fileUrl || '',
+        previewUrl: first?.previewUrl || first?.fileUrl || '',
+        fileName: first?.fileName || '',
+        fileType: first?.fileType || '',
+        fileSize: first?.fileSize || 0,
+      };
+    });
+  };
+
+  const itemMedia = (item: PortfolioItem): PortfolioMedia[] => (
+    item.media?.length
+      ? item.media
+      : item.fileUrl
+        ? [{
+          fileUrl: item.fileKey || item.fileUrl,
+          previewUrl: item.fileUrl,
+          fileName: item.fileName,
+          fileType: item.fileType,
+          fileSize: item.fileSize,
+        }]
+        : []
+  );
+
   const editItem = (item: PortfolioItem) => {
+    const media = itemMedia(item).map((mediaItem) => ({
+      ...mediaItem,
+      fileUrl: mediaItem.fileKey || mediaItem.fileUrl,
+      previewUrl: mediaItem.previewUrl || mediaItem.fileUrl,
+    }));
+    const first = media[0];
     setForm({
       id: item.id,
       title: item.title,
       category: item.category || '',
       serviceType: item.serviceType || '',
       description: item.description || '',
-      fileUrl: item.fileKey || item.fileUrl || '',
-      previewUrl: item.fileUrl || '',
-      fileName: item.fileName || '',
-      fileType: item.fileType || '',
-      fileSize: item.fileSize || 0,
+      fileUrl: first?.fileUrl || '',
+      previewUrl: first?.previewUrl || '',
+      fileName: first?.fileName || '',
+      fileType: first?.fileType || '',
+      fileSize: first?.fileSize || 0,
+      media,
     });
   };
 
@@ -166,6 +259,13 @@ export default function FreelancerPortfolio() {
         fileName: form.fileName || null,
         fileType: form.fileType || null,
         fileSize: form.fileSize || null,
+        files: form.media.map((media, index) => ({
+          fileUrl: media.fileKey || media.fileUrl,
+          fileName: media.fileName,
+          fileType: media.fileType,
+          fileSize: media.fileSize,
+          sortOrder: index,
+        })),
       };
       await apiRequest(form.id ? `/portfolio/${form.id}` : '/portfolio', {
         method: form.id ? 'PATCH' : 'POST',
@@ -364,29 +464,49 @@ export default function FreelancerPortfolio() {
             <input
               type="file"
               accept="image/png,image/jpeg,video/mp4,video/quicktime,video/webm"
+              multiple
               className="hidden"
-              onChange={(event) => attachImage(event.target.files?.[0])}
+              onChange={(event) => {
+                attachMedia(event.target.files);
+                event.currentTarget.value = '';
+              }}
             />
           </label>
-          <span className="text-sm text-[#888888]">Gambar maks. 5MB · Video maks. 100MB</span>
+          <span className="text-sm text-[#888888]">Maks. 5 gambar (1MB/gambar) dan 1 video (100MB)</span>
         </div>
 
-        {form.previewUrl && (
-          form.fileType?.startsWith('video/') ? (
-            <div className="mt-4 relative">
-              <video
-                src={form.previewUrl}
-                controls
-                className="max-h-56 rounded-lg bg-[#141414] w-full object-contain"
-              />
-              <div className="mt-1 flex items-center gap-1 text-xs text-[#888888]">
-                <Film className="w-3 h-3" />
-                {form.fileName}
+        {form.media.length > 0 && (
+          <div className="mt-4 grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {form.media.map((media, index) => (
+              <div key={`${media.fileUrl}-${index}`} className="relative overflow-hidden rounded-lg border border-[#2A2A2A] bg-[#141414]">
+                {media.fileType?.startsWith('video/') ? (
+                  <video
+                    src={media.previewUrl || media.fileUrl}
+                    controls
+                    className="h-40 w-full object-cover"
+                  />
+                ) : (
+                  <img
+                    src={media.previewUrl || media.fileUrl}
+                    alt={media.fileName || `Media ${index + 1}`}
+                    className="h-40 w-full object-cover"
+                  />
+                )}
+                <button
+                  type="button"
+                  onClick={() => removeMedia(index)}
+                  className="absolute right-2 top-2 rounded-full bg-black/70 p-1 text-white hover:bg-[#EF4444] transition-colors"
+                  aria-label="Hapus media"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+                <div className="flex items-center gap-1 px-3 py-2 text-xs text-[#888888]">
+                  {media.fileType?.startsWith('video/') ? <Film className="w-3 h-3" /> : <ImagePlus className="w-3 h-3" />}
+                  <span className="truncate">{media.fileName}</span>
+                </div>
               </div>
-            </div>
-          ) : (
-            <img src={form.previewUrl} alt={form.fileName} className="mt-4 max-h-56 rounded-lg object-contain bg-[#141414]" />
-          )
+            ))}
+          </div>
         )}
 
         <button
@@ -543,7 +663,7 @@ export default function FreelancerPortfolio() {
         )}
       </section>
 
-      {loading && <EmptyState title="Memuat portfolio" description="Mengambil portfolio dari database." />}
+      {loading && <EmptyState title="Memuat portfolio" description="Menyiapkan karya dan katalog jasa Anda." />}
 
       {!loading && items.length === 0 && (
         <EmptyState
@@ -553,13 +673,17 @@ export default function FreelancerPortfolio() {
       )}
 
       <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-5">
-        {items.map((item) => (
+        {items.map((item) => {
+          const media = itemMedia(item);
+          const firstMedia = media[0];
+
+          return (
           <div key={item.id} className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl overflow-hidden">
-            {item.fileUrl ? (
-              item.fileType?.startsWith('video/') ? (
+            {firstMedia ? (
+              firstMedia.fileType?.startsWith('video/') ? (
                 <div className="w-full h-48 bg-[#141414] relative overflow-hidden">
                   <video
-                    src={item.fileUrl}
+                    src={firstMedia.previewUrl || firstMedia.fileUrl}
                     className="w-full h-full object-cover"
                     muted
                     playsInline
@@ -571,11 +695,17 @@ export default function FreelancerPortfolio() {
                   </div>
                 </div>
               ) : (
-                <img src={item.fileUrl} alt={item.title} className="w-full h-48 object-cover bg-[#141414]" />
+                <img src={firstMedia.previewUrl || firstMedia.fileUrl} alt={item.title} className="w-full h-48 object-cover bg-[#141414]" />
               )
             ) : (
               <div className="w-full h-48 bg-[#141414] flex items-center justify-center text-[#888888]">
                 No image
+              </div>
+            )}
+            {media.length > 1 && (
+              <div className="mx-5 -mt-9 mb-3 relative z-10 inline-flex rounded-full bg-black/70 px-3 py-1 text-xs font-bold text-white">
+                {media.filter((itemMediaItem) => itemMediaItem.fileType?.startsWith('image/')).length} gambar
+                {media.some((itemMediaItem) => itemMediaItem.fileType?.startsWith('video/')) ? ' + 1 video' : ''}
               </div>
             )}
             <div className="p-5">
@@ -595,7 +725,8 @@ export default function FreelancerPortfolio() {
               </div>
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
     </DashboardLayout>
   );

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import DashboardLayout from '../../components/DashboardLayout';
 import EmptyState from '../../components/EmptyState';
 import { useAuth } from '../../context/AuthContext';
@@ -42,16 +43,27 @@ export default function FreelancerJobRequests() {
     { id: 'new', label: 'New' },
   ];
 
-  const loadOpenProjects = () => {
-    setLoading(true);
+  const loadOpenProjects = (silent = false) => {
+    if (!silent) setLoading(true);
     apiRequest<{ projects: RequestProject[] }>('/projects/open')
-      .then((response) => setRequests(response.projects))
-      .catch((err) => setError(err instanceof Error ? err.message : 'Gagal memuat job request'))
-      .finally(() => setLoading(false));
+      .then((response) => {
+        setRequests(response.projects);
+        setError('');
+      })
+      .catch((err) => {
+        if (!silent) setError(err instanceof Error ? err.message : 'Gagal memuat job request');
+      })
+      .finally(() => {
+        if (!silent) setLoading(false);
+      });
   };
 
   useEffect(() => {
     loadOpenProjects();
+    const interval = window.setInterval(() => {
+      if (!document.hidden) loadOpenProjects(true);
+    }, 8000);
+    return () => window.clearInterval(interval);
   }, []);
 
   const filteredRequests = requests.filter((request) => {
@@ -148,9 +160,9 @@ export default function FreelancerJobRequests() {
       )}
 
       <div className="space-y-4">
-        {loading && <EmptyState title="Memuat request" description="Mengambil job terbuka dari database." />}
+        {loading && <EmptyState title="Memuat request" description="Mencari peluang job terbaru untuk Anda." />}
         {!loading && filteredRequests.length === 0 && (
-          <EmptyState title="Belum ada request" description="Job request dari client akan tampil di sini setelah ada project OPEN di database." />
+          <EmptyState title="Belum ada request" description="Belum ada job terbuka yang cocok. Halaman ini akan diperbarui otomatis saat ada peluang baru." />
         )}
         {filteredRequests.map((request) => {
           const alreadyRequested = request.pendingOffers?.some((offer) => offer.freelancerId === user?.id);
@@ -201,7 +213,7 @@ export default function FreelancerJobRequests() {
         })}
       </div>
 
-      {selectedRequest && (
+      {selectedRequest && createPortal((
         <div className="fixed inset-y-0 left-0 right-0 z-50 bg-black/70 flex items-center justify-center p-4 md:left-60">
           <div className="w-full max-w-lg bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-6">
             <h2 className="text-3xl mb-2" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>
@@ -234,7 +246,7 @@ export default function FreelancerJobRequests() {
             </div>
           </div>
         </div>
-      )}
+      ), document.body)}
     </DashboardLayout>
   );
 }

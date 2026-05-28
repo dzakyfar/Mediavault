@@ -77,7 +77,9 @@ exports.listNotifications = async (req, res, next) => {
       }]
       : [];
 
-    const persisted = notifications.map((notification) => ({
+    const persisted = notifications
+      .filter((notification) => notification.type !== 'MESSAGE')
+      .map((notification) => ({
       id: notification.id,
       type: notification.type,
       title: notification.title,
@@ -98,7 +100,7 @@ exports.listNotifications = async (req, res, next) => {
 
     res.json({
       notifications: mergedNotifications,
-      unreadCount: notifications.filter((notification) => !notification.readAt).length + unreadMessages,
+      unreadCount: notifications.filter((notification) => notification.type !== 'MESSAGE' && !notification.readAt).length + unreadMessages,
     });
   } catch (error) {
     next(error);

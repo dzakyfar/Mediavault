@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Link, useNavigate, useParams } from 'react-router';
 import { RefreshCcw, Star, X } from 'lucide-react';
 import DashboardLayout from '../../components/DashboardLayout';
@@ -266,7 +267,7 @@ export default function ClientProjectDetail() {
       </Link>
 
       <div className="mt-8">
-        {loading && <EmptyState title="Memuat project" description="Mengambil detail lengkap project dari database." />}
+        {loading && <EmptyState title="Memuat project" description="Menyiapkan detail project dan penawaran terbaru." />}
         {error && <EmptyState title="Project tidak ditemukan" description={error} />}
 
         {project && (
@@ -468,7 +469,7 @@ export default function ClientProjectDetail() {
         )}
       </div>
 
-      {showAllApplicants && project && (
+      {showAllApplicants && project && createPortal((
         <div className="fixed inset-y-0 left-0 right-0 z-50 bg-black/70 flex items-center justify-center p-4 md:left-60">
           <div className="w-full max-w-4xl max-h-[85vh] overflow-y-auto bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-6">
             <div className="flex items-center justify-between gap-4 mb-5">
@@ -487,9 +488,9 @@ export default function ClientProjectDetail() {
             </div>
           </div>
         </div>
-      )}
+      ), document.body)}
 
-      {paymentOpen && payment && (
+      {paymentOpen && payment && createPortal((
         <div className="fixed inset-y-0 left-0 right-0 z-50 bg-black/70 flex items-center justify-center p-4 md:left-60">
           <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-6">
             <div className="flex items-start justify-between gap-4 mb-5">
@@ -639,7 +640,7 @@ export default function ClientProjectDetail() {
             </div>
           </div>
         </div>
-      )}
+      ), document.body)}
     </DashboardLayout>
   );
 }

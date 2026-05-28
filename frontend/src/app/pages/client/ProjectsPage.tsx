@@ -88,7 +88,7 @@ export default function ClientProjects() {
       <ConfirmDialog
         open={Boolean(deleteTarget)}
         title="Hapus Proyek?"
-        description={`Proyek "${deleteTarget?.title || ''}" akan dihapus permanen dari database. Tindakan ini tidak bisa dibatalkan.`}
+        description={`Proyek "${deleteTarget?.title || ''}" akan dihapus permanen. Tindakan ini tidak bisa dibatalkan.`}
         cancelLabel="Batal"
         confirmLabel={deleting ? 'Menghapus...' : 'Ya, Hapus'}
         danger
@@ -133,12 +133,12 @@ export default function ClientProjects() {
       )}
 
       <div className="space-y-4">
-        {loading && <EmptyState title="Memuat project" description="Mengambil daftar project dari backend." />}
+        {loading && <EmptyState title="Memuat project" description="Menyiapkan daftar project terbaru Anda." />}
 
         {!loading && filteredProjects.length === 0 && (
           <EmptyState
             title="Tidak ada project"
-            description="Project dari database akan muncul di sini setelah Anda membuat job baru."
+            description="Project yang Anda buat akan tampil di sini."
             action={(
               <Link to="/post-job" className="inline-flex items-center gap-2 px-4 py-2 bg-[#F5C800] text-black font-bold rounded-lg">
                 <Plus className="w-4 h-4" />

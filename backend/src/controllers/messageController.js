@@ -195,6 +195,15 @@ exports.markMessagesRead = async (req, res, next) => {
       data: { readAt: new Date() },
     });
 
+    await prisma.notification.updateMany({
+      where: {
+        userId: req.user.id,
+        type: 'MESSAGE',
+        readAt: null,
+      },
+      data: { readAt: new Date() },
+    }).catch(() => undefined);
+
     res.json({ message: 'Pesan ditandai sudah dibaca' });
   } catch (error) {
     next(error);

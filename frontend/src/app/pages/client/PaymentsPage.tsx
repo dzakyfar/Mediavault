@@ -100,7 +100,7 @@ export default function ClientPayments() {
             </div>
           </div>
           <p className="text-sm text-[#888888]">
-            Saldo ini terisi dari refund order yang ditolak freelancer, dan bisa dipakai untuk membayar order berikutnya atau ditarik di sandbox.
+            Saldo ini terisi dari refund order yang ditolak freelancer, dan bisa dipakai untuk membayar order berikutnya atau diajukan untuk penarikan.
           </p>
           <div className="mt-5 space-y-3">
             {(walletSummary?.transactions || []).slice(0, 5).map((transaction) => (
@@ -175,7 +175,7 @@ export default function ClientPayments() {
           </button>
         </form>
       </div>
-      {loading && <EmptyState title="Memuat pembayaran" description="Mengambil invoice QRIS dari database." />}
+      {loading && <EmptyState title="Memuat pembayaran" description="Menyiapkan status pembayaran terbaru Anda." />}
       {error && <EmptyState title="Gagal memuat pembayaran" description={error} />}
       {!loading && !error && payments.length === 0 && (
         <EmptyState

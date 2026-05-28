@@ -36,10 +36,23 @@ export default function FreelancerDashboard() {
   const [dashboard, setDashboard] = useState<FreelancerDashboardResponse | null>(null);
   const [error, setError] = useState('');
 
-  useEffect(() => {
+  const loadDashboard = (silent = false) => {
     apiRequest<FreelancerDashboardResponse>('/dashboard/freelancer')
-      .then(setDashboard)
-      .catch((err) => setError(err instanceof Error ? err.message : 'Gagal memuat dashboard'));
+      .then((response) => {
+        setDashboard(response);
+        setError('');
+      })
+      .catch((err) => {
+        if (!silent) setError(err instanceof Error ? err.message : 'Gagal memuat dashboard');
+      });
+  };
+
+  useEffect(() => {
+    loadDashboard();
+    const interval = window.setInterval(() => {
+      if (!document.hidden) loadDashboard(true);
+    }, 10000);
+    return () => window.clearInterval(interval);
   }, []);
 
   const statsData = dashboard?.stats;
@@ -86,7 +99,7 @@ export default function FreelancerDashboard() {
               Your Active Projects
             </h2>
             <div className="space-y-4">
-              {!dashboard && <EmptyState title="Memuat project" description="Mengambil data project dari backend." />}
+              {!dashboard && <EmptyState title="Memuat project" description="Menyiapkan ringkasan pekerjaan terbaru untuk Anda." />}
               {dashboard && projects.length === 0 && (
                 <EmptyState title="Belum ada project aktif" description="Project yang menerima Anda sebagai freelancer akan muncul di sini." />
               )}
@@ -153,7 +166,7 @@ export default function FreelancerDashboard() {
             </div>
             <div className="space-y-4">
               {newRequests.length === 0 && (
-                <EmptyState title="Belum ada request" description="Job baru dari client akan muncul di sini setelah tersimpan di database." />
+                <EmptyState title="Belum ada request" description="Saat client membuka pekerjaan baru, peluang yang cocok akan tampil di sini." />
               )}
               {newRequests.map((request) => (
                 <div key={request.id} className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-6 hover:border-[#F5C800] transition-all">
@@ -215,7 +228,7 @@ export default function FreelancerDashboard() {
               </h3>
               <div className="space-y-4">
                 {activities.length === 0 && (
-                  <p className="text-sm text-[#888888]">Belum ada aktivitas dari database.</p>
+                  <p className="text-sm text-[#888888]">Belum ada update terbaru untuk ditampilkan.</p>
                 )}
                 {activities.map((activity, index) => (
                   <div key={index} className="flex gap-3">

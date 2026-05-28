@@ -72,12 +72,14 @@ export default function NotificationCenter({ userType }: { userType: 'client' | 
   const markAllRead = async () => {
     await apiRequest('/notifications/read-all', { method: 'PATCH' });
     await loadNotifications(true);
+    window.dispatchEvent(new Event('mediavault:notifications-refresh'));
   };
 
   const markOneRead = async (notification: NotificationItem) => {
     if (notification.read || notification.synthetic) return;
     await apiRequest(`/notifications/${notification.id}/read`, { method: 'PATCH' });
     await loadNotifications(true);
+    window.dispatchEvent(new Event('mediavault:notifications-refresh'));
   };
 
   return (
@@ -132,13 +134,13 @@ export default function NotificationCenter({ userType }: { userType: 'client' | 
         </div>
       )}
 
-      {loading && <EmptyState title="Memuat notifikasi" description="Mengambil update terbaru dari database." />}
+      {loading && <EmptyState title="Memuat notifikasi" description="Menyiapkan update penting untuk Anda." />}
       {!loading && filteredNotifications.length === 0 && (
         <EmptyState
           title="Belum ada notifikasi"
           description={userType === 'client'
-            ? 'Request freelancer, status project, payment, dan pesan akan tampil di sini.'
-            : 'Offer client, status project, payment, dan pesan akan tampil di sini.'}
+            ? 'Update request freelancer, status project, pembayaran, dan pesan penting akan tampil di sini.'
+            : 'Update offer client, status project, pembayaran, dan pesan penting akan tampil di sini.'}
         />
       )}
 

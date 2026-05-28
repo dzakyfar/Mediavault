@@ -105,9 +105,9 @@ export default function FreelancerProjects() {
       )}
 
       <div className="space-y-4">
-        {loading && <EmptyState title="Memuat project" description="Mengambil project dari backend." />}
+        {loading && <EmptyState title="Memuat project" description="Menyiapkan daftar project terbaru Anda." />}
         {!loading && filteredProjects.length === 0 && (
-          <EmptyState title="Belum ada project" description="Project dari database akan tampil di sini setelah client menerima Anda sebagai freelancer." />
+          <EmptyState title="Belum ada project" description="Project akan tampil di sini setelah client memilih Anda sebagai freelancer." />
         )}
         {filteredProjects.map((project) => (
           <div key={project.id} className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-6 hover:border-l-4 hover:border-l-[#F5C800] transition-all">
