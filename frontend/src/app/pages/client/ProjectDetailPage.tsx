@@ -494,10 +494,22 @@ export default function ClientProjectDetail() {
           <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-6">
             <div className="flex items-start justify-between gap-4 mb-5">
               <div>
-                <h2 className="text-3xl mb-1" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>
-                  Bayar & Konfirmasi Freelancer
-                </h2>
+                <div className="flex items-center gap-3 mb-1">
+                  <h2 className="text-3xl" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>
+                    PEMBAYARAN QRIS
+                  </h2>
+                  {payment.isSandbox && (
+                    <span className="px-2 py-1 rounded-md bg-orange-500/20 border border-orange-500 text-orange-400 text-xs font-bold tracking-widest">
+                      SANDBOX
+                    </span>
+                  )}
+                </div>
                 <p className="text-[#888888] text-sm">{payment.klikqrisOrderId}</p>
+                {payment.isSandbox && (
+                  <p className="text-orange-400 text-xs mt-1">
+                    Mode testing — tidak ada uang nyata yang diproses.
+                  </p>
+                )}
               </div>
               <button
                 type="button"
@@ -510,11 +522,20 @@ export default function ClientProjectDetail() {
             </div>
 
             <div className="grid md:grid-cols-[240px_1fr] gap-6">
-              <div className="bg-white rounded-lg p-4 min-h-[240px] flex items-center justify-center">
-                {payment.qrisUrl ? (
-                  <img src={payment.qrisUrl} alt="QRIS pembayaran" className="w-full h-auto" />
-                ) : (
-                  <span className="text-black text-sm text-center">QRIS tidak tersedia dari gateway</span>
+              <div className="relative">
+                <div className="bg-white rounded-lg p-4 min-h-[240px] flex items-center justify-center">
+                  {payment.qrisUrl ? (
+                    <img src={payment.qrisUrl} alt="QRIS pembayaran" className="w-full h-auto" />
+                  ) : (
+                    <span className="text-black text-sm text-center">QRIS tidak tersedia dari gateway</span>
+                  )}
+                </div>
+                {payment.isSandbox && (
+                  <div className="absolute bottom-2 left-0 right-0 flex justify-center pointer-events-none">
+                    <span className="px-3 py-1 rounded-full bg-orange-500/90 text-white text-xs font-bold tracking-widest shadow-lg">
+                      ⚠ SANDBOX — JANGAN SCAN
+                    </span>
+                  </div>
                 )}
               </div>
 
@@ -568,13 +589,19 @@ export default function ClientProjectDetail() {
                 )}
                 {paymentError && <p className="text-[#EF4444]">{paymentError}</p>}
                 {payment.isSandbox && payment.signature && payment.status === 'PENDING' && (
-                  <div className="bg-[#141414] border border-[#2A2A2A] rounded-lg p-3">
-                    <div className="text-[#888888] mb-2">Signature Sandbox</div>
-                    <code className="block text-xs text-white break-all bg-[#0A0A0A] rounded-md p-2">{payment.signature}</code>
+                  <div className="bg-orange-500/10 border border-orange-500/50 rounded-lg p-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-orange-400 text-xs font-bold tracking-widest">SANDBOX</span>
+                      <span className="text-[#888888] text-xs">— Transaction Signature Key</span>
+                    </div>
+                    <p className="text-xs text-[#888888] mb-2">
+                      Salin signature ini ke halaman <strong className="text-orange-400">Sandbox Transactions</strong> di dashboard KlikQRIS untuk simulasi pembayaran sukses.
+                    </p>
+                    <code className="block text-xs text-white break-all bg-[#0A0A0A] rounded-md p-2 select-all">{payment.signature}</code>
                     <button
                       type="button"
                       onClick={() => navigator.clipboard?.writeText(payment.signature || '')}
-                      className="mt-3 px-3 py-2 border border-[#888888] text-white rounded-lg text-xs hover:border-[#F5C800] hover:text-[#F5C800] transition-colors"
+                      className="mt-3 px-3 py-2 bg-orange-500 text-white rounded-lg text-xs font-bold hover:bg-orange-400 transition-colors"
                     >
                       Copy Signature
                     </button>
