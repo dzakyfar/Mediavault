@@ -111,15 +111,33 @@ jobs:
             REQUIRED_AWS_S3_BUCKET='${{ secrets.AWS_S3_BUCKET_MEDIA }}'
             REQUIRED_AWS_ACCESS_KEY_ID='${{ secrets.AWS_MEDIA_ACCESS_KEY_ID }}'
             REQUIRED_AWS_SECRET_ACCESS_KEY='${{ secrets.AWS_MEDIA_SECRET_ACCESS_KEY }}'
-            REQUIRED_KLIKQRIS_API_KEY='${{ secrets.KLIKQRIS_API_KEY }}'
-            REQUIRED_KLIKQRIS_MERCHANT_ID='${{ secrets.KLIKQRIS_MERCHANT_ID }}'
 
-            for REQUIRED_NAME in REQUIRED_PROD_DATABASE_URL REQUIRED_JWT_SECRET REQUIRED_AWS_REGION REQUIRED_AWS_S3_BUCKET REQUIRED_AWS_ACCESS_KEY_ID REQUIRED_AWS_SECRET_ACCESS_KEY REQUIRED_KLIKQRIS_API_KEY REQUIRED_KLIKQRIS_MERCHANT_ID; do
+            # KlikQRIS: pilih credentials berdasarkan KLIKQRIS_MODE
+            # Jika KLIKQRIS_MODE=sandbox → pakai _SANDBOX secrets
+            # Jika KLIKQRIS_MODE=production atau kosong → pakai secrets production
+            KLIKQRIS_MODE_VALUE='${{ secrets.KLIKQRIS_MODE }}'
+            if [ "$KLIKQRIS_MODE_VALUE" = "sandbox" ]; then
+              RESOLVED_KLIKQRIS_API_KEY='${{ secrets.KLIKQRIS_API_KEY_SANDBOX }}'
+              RESOLVED_KLIKQRIS_MERCHANT_ID='${{ secrets.KLIKQRIS_MERCHANT_ID_SANDBOX }}'
+              RESOLVED_KLIKQRIS_BASE_URL='${{ secrets.KLIKQRIS_BASE_URL_SANDBOX }}'
+            else
+              RESOLVED_KLIKQRIS_API_KEY='${{ secrets.KLIKQRIS_API_KEY }}'
+              RESOLVED_KLIKQRIS_MERCHANT_ID='${{ secrets.KLIKQRIS_MERCHANT_ID }}'
+              RESOLVED_KLIKQRIS_BASE_URL='${{ secrets.KLIKQRIS_BASE_URL }}'
+              KLIKQRIS_MODE_VALUE="production"
+            fi
+
+            for REQUIRED_NAME in REQUIRED_PROD_DATABASE_URL REQUIRED_JWT_SECRET REQUIRED_AWS_REGION REQUIRED_AWS_S3_BUCKET REQUIRED_AWS_ACCESS_KEY_ID REQUIRED_AWS_SECRET_ACCESS_KEY; do
               if [ -z "${!REQUIRED_NAME}" ]; then
                 echo "$REQUIRED_NAME is empty. Check GitHub repository secrets before deploying."
                 exit 1
               fi
             done
+
+            if [ -z "$RESOLVED_KLIKQRIS_API_KEY" ] || [ -z "$RESOLVED_KLIKQRIS_MERCHANT_ID" ]; then
+              echo "KlikQRIS credentials kosong untuk mode=$KLIKQRIS_MODE_VALUE. Tambahkan KLIKQRIS_API_KEY / KLIKQRIS_MERCHANT_ID (atau versi _SANDBOX) di GitHub Secrets."
+              exit 1
+            fi
 
             echo "Backend deploy target: database=$DB_NAME user=$DB_USER media_bucket=$REQUIRED_AWS_S3_BUCKET region=$REQUIRED_AWS_REGION"
 
@@ -160,10 +178,10 @@ jobs:
               echo "AWS_S3_BUCKET=${{ secrets.AWS_S3_BUCKET_MEDIA }}"
               echo "AWS_ACCESS_KEY_ID=${{ secrets.AWS_MEDIA_ACCESS_KEY_ID }}"
               echo "AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_MEDIA_SECRET_ACCESS_KEY }}"
-              echo "KLIKQRIS_API_KEY=${{ secrets.KLIKQRIS_API_KEY }}"
-              echo "KLIKQRIS_MERCHANT_ID=${{ secrets.KLIKQRIS_MERCHANT_ID }}"
-              echo "KLIKQRIS_BASE_URL=${{ secrets.KLIKQRIS_BASE_URL }}"
-              echo "KLIKQRIS_MODE=${{ secrets.KLIKQRIS_MODE }}"
+              echo "KLIKQRIS_API_KEY=$RESOLVED_KLIKQRIS_API_KEY"
+              echo "KLIKQRIS_MERCHANT_ID=$RESOLVED_KLIKQRIS_MERCHANT_ID"
+              echo "KLIKQRIS_BASE_URL=$RESOLVED_KLIKQRIS_BASE_URL"
+              echo "KLIKQRIS_MODE=$KLIKQRIS_MODE_VALUE"
             } > .env
             npm ci
             npx prisma generate
