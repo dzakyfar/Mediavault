@@ -1030,7 +1030,7 @@ exports.rejectPaidProjectByFreelancer = async (req, res, next) => {
     }
 
     const paidPayment = project.payments[0];
-    const refundAmount = paidPayment?.amountPaid || paidPayment?.totalAmount || project.budget || 0;
+    const refundAmount = paidPayment?.baseAmount || project.budget || 0;
 
     const updatedProject = await prisma.$transaction(async (tx) => {
       const nextProject = await tx.project.update({

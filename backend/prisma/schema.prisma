@@ -312,6 +312,19 @@ model Withdrawal {
   @@index([freelancerId, status])
 }
 
+model PlatformRevenue {
+  id            String   @id @default(cuid())
+  amount        Int
+  sourceType    String   // 'CLIENT_FEE' | 'FREELANCER_FEE'
+  referenceType String?  // 'PROJECT'
+  referenceId   String?  // projectId
+  description   String
+  createdAt     DateTime @default(now())
+
+  @@index([sourceType, createdAt])
+  @@index([referenceType, referenceId])
+}
+
 model Message {
   id         String   @id @default(cuid())
   senderId   String

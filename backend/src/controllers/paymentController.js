@@ -133,6 +133,16 @@ const processSuccessfulPayment = async (paymentId, amountPaid, paidAt = new Date
         where: { projectId: payment.projectId, status: 'PENDING' },
         data: { status: 'PAID' },
       }),
+      // Catat fee admin dari client ke kas platform
+      tx.platformRevenue.create({
+        data: {
+          amount: payment.adminFeeClient,
+          sourceType: 'CLIENT_FEE',
+          referenceType: 'PROJECT',
+          referenceId: payment.projectId,
+          description: `Fee admin 1% dari client untuk project ${payment.projectId}. Total dibayar: ${formatCurrency(amountPaid || payment.totalAmount)}.`,
+        },
+      }),
       tx.projectHistory.create({
         data: {
           projectId: payment.projectId,
@@ -627,6 +637,17 @@ exports.completeProjectSettlement = async (projectId, actorId = null, completion
       'PROJECT',
       projectId
     );
+
+    // Catat fee admin dari freelancer ke kas platform
+    await tx.platformRevenue.create({
+      data: {
+        amount: adminFeeWithdraw,
+        sourceType: 'FREELANCER_FEE',
+        referenceType: 'PROJECT',
+        referenceId: projectId,
+        description: `Fee admin 1% dari freelancer untuk project ${projectId}. Dana cair: ${formatCurrency(freelancerNet)}.`,
+      },
+    });
 
     await tx.projectHistory.create({
       data: {

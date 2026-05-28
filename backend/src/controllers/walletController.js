@@ -81,7 +81,7 @@ exports.createWithdrawal = async (req, res, next) => {
 exports.getEscrowOverview = async (req, res, next) => {
   try {
     const escrowStatuses = ['PAID', 'IN_PROGRESS', 'DELIVERED', 'DISPUTED'];
-    const [aggregate, payments] = await Promise.all([
+    const [aggregate, payments, revenueAggregate, revenueBreakdown] = await Promise.all([
       prisma.payment.aggregate({
         where: {
           status: 'PAID',
@@ -109,7 +109,22 @@ exports.getEscrowOverview = async (req, res, next) => {
         orderBy: { paidAt: 'desc' },
         take: 50,
       }),
+      // Total revenue platform
+      prisma.platformRevenue.aggregate({
+        _sum: { amount: true },
+        _count: { id: true },
+      }),
+      // Breakdown per sourceType
+      prisma.platformRevenue.groupBy({
+        by: ['sourceType'],
+        _sum: { amount: true },
+        _count: { id: true },
+      }),
     ]);
+
+    const revenueByType = Object.fromEntries(
+      revenueBreakdown.map((row) => [row.sourceType, { total: row._sum.amount || 0, count: row._count.id }])
+    );
 
     res.json({
       escrow: {
@@ -126,6 +141,21 @@ exports.getEscrowOverview = async (req, res, next) => {
           paidAt: payment.paidAt,
           project: payment.project,
         })),
+      },
+      platformRevenue: {
+        totalAmount: revenueAggregate._sum.amount || 0,
+        totalAmountFormatted: formatCurrency(revenueAggregate._sum.amount || 0),
+        totalTransactions: revenueAggregate._count.id,
+        clientFee: {
+          total: revenueByType.CLIENT_FEE?.total || 0,
+          totalFormatted: formatCurrency(revenueByType.CLIENT_FEE?.total || 0),
+          count: revenueByType.CLIENT_FEE?.count || 0,
+        },
+        freelancerFee: {
+          total: revenueByType.FREELANCER_FEE?.total || 0,
+          totalFormatted: formatCurrency(revenueByType.FREELANCER_FEE?.total || 0),
+          count: revenueByType.FREELANCER_FEE?.count || 0,
+        },
       },
     });
   } catch (error) {
