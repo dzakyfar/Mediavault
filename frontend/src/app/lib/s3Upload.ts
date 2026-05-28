@@ -1,7 +1,7 @@
 import { apiRequest } from './api';
 
 export type UploadScope = 'avatar' | 'message-image' | 'portfolio' | 'project-reference' | 'project-submission';
-const BACKEND_DIRECT_FALLBACK_MAX_BYTES = 5 * 1024 * 1024;
+const BACKEND_DIRECT_FALLBACK_MAX_BYTES = 100 * 1024 * 1024;
 
 interface PresignResponse {
   key: string;

@@ -1,5 +1,5 @@
 const prisma = require('../config/prisma');
-const { validateInlineImage } = require('../utils/uploadLimits');
+const { PORTFOLIO_IMAGE_MAX_BYTES, validateInlineImage } = require('../utils/uploadLimits');
 const { resolvePortfolioMedia } = require('../utils/mediaUrls');
 
 const serializePortfolioItem = async (item) => resolvePortfolioMedia({
@@ -42,6 +42,7 @@ exports.createPortfolioItem = async (req, res, next) => {
       imageUrl: fileUrl,
       imageMime: fileType,
       imageSize: fileSize,
+      maxBytes: PORTFOLIO_IMAGE_MAX_BYTES,
     }) : null;
 
     if (imageError) {
@@ -87,6 +88,7 @@ exports.updatePortfolioItem = async (req, res, next) => {
       imageUrl: fileUrl,
       imageMime: fileType,
       imageSize: fileSize,
+      maxBytes: PORTFOLIO_IMAGE_MAX_BYTES,
     }) : null;
 
     if (imageError) {

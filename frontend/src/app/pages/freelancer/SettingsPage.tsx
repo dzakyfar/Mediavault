@@ -8,13 +8,15 @@ import DraggableLocationMap from '../../components/dashboard/DraggableLocationMa
 import SearchableRegionSelect from '../../components/dashboard/SearchableRegionSelect';
 import SmoothToast from '../../components/dashboard/SmoothToast';
 import { useAuth } from '../../context/AuthContext';
-import { validateImageFile } from '../../lib/uploadLimits';
+import { PORTFOLIO_IMAGE_MAX_BYTES, validateImageFile } from '../../lib/uploadLimits';
 import { uploadFileToS3 } from '../../lib/s3Upload';
 import { apiRequest } from '../../lib/api';
 import {
   fetchRegionOptions,
+  fallbackPostalCodeForCity,
   findExactRegionByName,
   findRegionByName,
+  geocodeIndonesianAddress,
   getCurrentPosition,
   RegionOption,
 } from '../../lib/indonesiaRegions';
@@ -312,6 +314,42 @@ export default function FreelancerSettings() {
     if (match) setSelectedDistrictId(match.id);
   }, [districts, formData.district, selectedDistrictId]);
 
+  useEffect(() => {
+    if (formData.locationSource === 'share-location' || formData.locationSource === 'manual-map') return undefined;
+    const query = [
+      formData.addressDetail,
+      formData.village,
+      formData.district,
+      formData.city,
+      formData.province,
+    ].filter(Boolean).join(', ');
+
+    if (!query || query.length < 3) return undefined;
+
+    const timeout = window.setTimeout(async () => {
+      try {
+        const result = await geocodeIndonesianAddress(`${query}, Indonesia`);
+        const fallbackPostal = fallbackPostalCodeForCity(formData.city);
+        setFormData((current) => {
+          if (current.locationSource === 'share-location' || current.locationSource === 'manual-map') return current;
+          return {
+            ...current,
+            latitude: result?.latitude || current.latitude,
+            longitude: result?.longitude || current.longitude,
+            postalCode: current.postalCode || result?.postalCode || fallbackPostal,
+          };
+        });
+      } catch {
+        const fallbackPostal = fallbackPostalCodeForCity(formData.city);
+        if (fallbackPostal) {
+          setFormData((current) => current.postalCode ? current : { ...current, postalCode: fallbackPostal });
+        }
+      }
+    }, 900);
+
+    return () => window.clearTimeout(timeout);
+  }, [formData.addressDetail, formData.city, formData.district, formData.locationSource, formData.province, formData.village]);
+
   const saveProfile = async () => {
     try {
       setSaving(true);
@@ -373,7 +411,7 @@ export default function FreelancerSettings() {
   const uploadPortfolioFile = async (file?: File) => {
     if (!file) return;
 
-    const error = validateImageFile(file);
+    const error = validateImageFile(file, PORTFOLIO_IMAGE_MAX_BYTES);
     if (error) {
       setToast({ message: error, type: 'error' });
       return;

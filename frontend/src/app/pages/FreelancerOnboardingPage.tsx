@@ -7,12 +7,14 @@ import SearchableRegionSelect from '../components/dashboard/SearchableRegionSele
 import { useAuth } from '../context/AuthContext';
 import {
   fetchRegionOptions,
+  fallbackPostalCodeForCity,
   findExactRegionByName,
   findRegionByName,
+  geocodeIndonesianAddress,
   getCurrentPosition,
   RegionOption,
 } from '../lib/indonesiaRegions';
-import { MESSAGE_IMAGE_MAX_BYTES, validateImageFile } from '../lib/uploadLimits';
+import { PORTFOLIO_IMAGE_MAX_BYTES, validateImageFile } from '../lib/uploadLimits';
 import { uploadFileToS3 } from '../lib/s3Upload';
 import { serviceCatalog } from '../lib/serviceCatalog';
 
@@ -160,6 +162,42 @@ export default function FreelancerOnboardingPage() {
       active = false;
     };
   }, [selectedDistrictId]);
+
+  useEffect(() => {
+    if (form.locationSource === 'share-location' || form.locationSource === 'manual-map') return undefined;
+    const query = [
+      form.addressDetail,
+      form.village,
+      form.district,
+      form.city,
+      form.province,
+    ].filter(Boolean).join(', ');
+
+    if (!query || query.length < 3) return undefined;
+
+    const timeout = window.setTimeout(async () => {
+      try {
+        const result = await geocodeIndonesianAddress(`${query}, Indonesia`);
+        const fallbackPostal = fallbackPostalCodeForCity(form.city);
+        setForm((current) => {
+          if (current.locationSource === 'share-location' || current.locationSource === 'manual-map') return current;
+          return {
+            ...current,
+            latitude: result?.latitude || current.latitude,
+            longitude: result?.longitude || current.longitude,
+            postalCode: current.postalCode || result?.postalCode || fallbackPostal,
+          };
+        });
+      } catch {
+        const fallbackPostal = fallbackPostalCodeForCity(form.city);
+        if (fallbackPostal) {
+          setForm((current) => current.postalCode ? current : { ...current, postalCode: fallbackPostal });
+        }
+      }
+    }, 900);
+
+    return () => window.clearTimeout(timeout);
+  }, [form.addressDetail, form.city, form.district, form.locationSource, form.province, form.village]);
 
   const toggleCategory = (category: string) => {
     setForm((current) => {
@@ -366,7 +404,7 @@ export default function FreelancerOnboardingPage() {
 
   const attachPortfolio = async (file?: File) => {
     if (!file) return;
-    const validationError = validateImageFile(file, MESSAGE_IMAGE_MAX_BYTES);
+    const validationError = validateImageFile(file, PORTFOLIO_IMAGE_MAX_BYTES);
     if (validationError) {
       setError(validationError);
       return;

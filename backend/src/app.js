@@ -12,7 +12,7 @@ const paymentRoutes = require('./routes/paymentRoutes');
 const offeringRoutes = require('./routes/offeringRoutes');
 const walletRoutes = require('./routes/walletRoutes');
 const errorMiddleware = require('./middleware/errorMiddleware');
-const { isS3Configured } = require('./utils/s3Storage');
+const { isS3Configured, localUploadRoot } = require('./utils/s3Storage');
 
 const app = express();
 
@@ -20,6 +20,7 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: '160mb' }));
 app.use(express.urlencoded({ extended: true, limit: '160mb' }));
+app.use('/uploads-local', express.static(localUploadRoot));
 
 // Routes
 app.use('/api/auth', authRoutes);
@@ -39,7 +40,7 @@ app.get('/api/health', (req, res) => {
   res.json({
     status: 'OK',
     message: 'Backend MediaVault berjalan',
-    mediaStorage: isS3Configured() ? 's3' : 'not_configured',
+    mediaStorage: isS3Configured() ? 's3' : 'local_fallback',
   });
 });
 

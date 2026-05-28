@@ -56,15 +56,19 @@ export default function ProjectReviewPanel({
       return;
     }
 
-    const uploaded = await uploadFileToS3(file, 'project-submission');
-    setFileDraft({
-      key: uploaded.key,
-      previewUrl: uploaded.url,
-      name: uploaded.fileName,
-      type: uploaded.fileType,
-      size: uploaded.fileSize,
-    });
-    setError('');
+    try {
+      const uploaded = await uploadFileToS3(file, 'project-submission');
+      setFileDraft({
+        key: uploaded.key,
+        previewUrl: uploaded.url,
+        name: uploaded.fileName,
+        type: uploaded.fileType,
+        size: uploaded.fileSize,
+      });
+      setError('');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Gagal upload hasil kerja. Cek konfigurasi storage atau ukuran file.');
+    }
   };
 
   const submitDraft = async (event: FormEvent) => {

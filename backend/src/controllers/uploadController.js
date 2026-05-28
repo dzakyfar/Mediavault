@@ -1,5 +1,6 @@
 const {
   MESSAGE_IMAGE_MAX_BYTES,
+  PORTFOLIO_IMAGE_MAX_BYTES,
   PROJECT_SUBMISSION_MAX_BYTES,
   REFERENCE_FILE_MAX_BYTES,
   S3_TOTAL_LIMIT_BYTES,
@@ -12,6 +13,7 @@ const {
   createPresignedUpload,
   isS3Configured,
   isS3ObjectKey,
+  uploadLocalObject,
   uploadObject,
 } = require('../utils/s3Storage');
 
@@ -25,7 +27,7 @@ const scopeConfig = {
     allowedTypes: ALLOWED_INLINE_IMAGE_TYPES,
   },
   portfolio: {
-    maxBytes: MESSAGE_IMAGE_MAX_BYTES,
+    maxBytes: PORTFOLIO_IMAGE_MAX_BYTES,
     allowedTypes: ALLOWED_INLINE_IMAGE_TYPES,
   },
   'project-reference': {
@@ -94,11 +96,6 @@ exports.createUploadUrl = async (req, res, next) => {
 
 exports.uploadDirect = async (req, res, next) => {
   try {
-    if (!isS3Configured()) {
-      res.status(503);
-      throw new Error('S3 belum dikonfigurasi. Isi AWS_REGION, AWS_S3_BUCKET, AWS_ACCESS_KEY_ID, dan AWS_SECRET_ACCESS_KEY.');
-    }
-
     const { fileName, fileType, fileSize, scope, dataUrl } = req.body;
     const config = scopeConfig[scope];
 
@@ -147,8 +144,15 @@ exports.uploadDirect = async (req, res, next) => {
       fileName,
     });
 
-    await uploadObject({ key, body: buffer, contentType: fileType });
-    const downloadUrl = await createPresignedDownload(key);
+    let downloadUrl;
+    if (isS3Configured()) {
+      await uploadObject({ key, body: buffer, contentType: fileType });
+      downloadUrl = await createPresignedDownload(key);
+    } else {
+      await uploadLocalObject({ key, body: buffer, contentType: fileType });
+      const publicPath = key.replace(/^uploads\//, '');
+      downloadUrl = `${req.protocol}://${req.get('host')}/uploads-local/${publicPath}`;
+    }
 
     res.status(201).json({
       key,

@@ -3,7 +3,7 @@ const { OAuth2Client } = require('google-auth-library');
 const prisma = require('../config/prisma');
 const generateToken = require('../utils/generateToken');
 const { resolveUserMedia } = require('../utils/mediaUrls');
-const { validateInlineImage } = require('../utils/uploadLimits');
+const { PORTFOLIO_IMAGE_MAX_BYTES, validateInlineImage } = require('../utils/uploadLimits');
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
@@ -264,6 +264,7 @@ exports.registerFreelancer = async (req, res, next) => {
       imageUrl: portfolio.fileUrl,
       imageMime: portfolio.fileType,
       imageSize: portfolio.fileSize,
+      maxBytes: PORTFOLIO_IMAGE_MAX_BYTES,
     }) : null;
 
     if (portfolioError) {

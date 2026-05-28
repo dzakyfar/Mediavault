@@ -5,7 +5,7 @@ import EmptyState from '../../components/EmptyState';
 import ConfirmDialog from '../../components/dashboard/ConfirmDialog';
 import SmoothToast from '../../components/dashboard/SmoothToast';
 import { apiRequest } from '../../lib/api';
-import { MESSAGE_IMAGE_MAX_BYTES, validateImageFile } from '../../lib/uploadLimits';
+import { PORTFOLIO_IMAGE_MAX_BYTES, validateImageFile } from '../../lib/uploadLimits';
 import { getServicesForCategory, serviceCatalog } from '../../lib/serviceCatalog';
 import { uploadFileToS3 } from '../../lib/s3Upload';
 
@@ -108,7 +108,7 @@ export default function FreelancerPortfolio() {
 
   const attachImage = async (file?: File) => {
     if (!file) return;
-    const validationError = validateImageFile(file, MESSAGE_IMAGE_MAX_BYTES);
+    const validationError = validateImageFile(file, PORTFOLIO_IMAGE_MAX_BYTES);
     if (validationError) {
       setError(validationError);
       return;

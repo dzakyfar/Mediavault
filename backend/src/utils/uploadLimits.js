@@ -2,6 +2,7 @@ const MB = 1024 * 1024;
 const GB = 1024 * MB;
 
 const MESSAGE_IMAGE_MAX_BYTES = 1 * MB;
+const PORTFOLIO_IMAGE_MAX_BYTES = 5 * MB;
 const PROJECT_SUBMISSION_MAX_BYTES = 500 * MB;
 const REFERENCE_FILE_MAX_BYTES = 100 * MB;
 const S3_TOTAL_LIMIT_BYTES = 5 * GB;
@@ -21,7 +22,7 @@ const dataUrlSizeInBytes = (dataUrl = '') => {
   return Math.floor((base64.length * 3) / 4);
 };
 
-const validateInlineImage = ({ imageUrl, imageMime, imageSize }) => {
+const validateInlineImage = ({ imageUrl, imageMime, imageSize, maxBytes = MESSAGE_IMAGE_MAX_BYTES }) => {
   if (!imageUrl) return null;
 
   if (!ALLOWED_INLINE_IMAGE_TYPES.includes(imageMime)) {
@@ -29,8 +30,8 @@ const validateInlineImage = ({ imageUrl, imageMime, imageSize }) => {
   }
 
   const actualSize = Number(imageSize) || dataUrlSizeInBytes(imageUrl);
-  if (actualSize > MESSAGE_IMAGE_MAX_BYTES) {
-    return 'Ukuran gambar maksimal 1MB';
+  if (actualSize > maxBytes) {
+    return `Ukuran gambar maksimal ${Math.round(maxBytes / MB)}MB`;
   }
 
   if (isS3ObjectKey(imageUrl)) {
@@ -97,6 +98,7 @@ module.exports = {
   ALLOWED_INLINE_IMAGE_TYPES,
   ALLOWED_SUBMISSION_FILE_TYPES,
   MESSAGE_IMAGE_MAX_BYTES,
+  PORTFOLIO_IMAGE_MAX_BYTES,
   PROJECT_SUBMISSION_MAX_BYTES,
   REFERENCE_FILE_MAX_BYTES,
   S3_TOTAL_LIMIT_BYTES,

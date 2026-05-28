@@ -1,4 +1,5 @@
 const path = require('path');
+const fs = require('fs/promises');
 const { randomUUID } = require('crypto');
 const { S3Client, PutObjectCommand, GetObjectCommand } = require('@aws-sdk/client-s3');
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
@@ -7,6 +8,8 @@ const bucket = process.env.AWS_S3_BUCKET;
 const region = process.env.AWS_REGION;
 const endpoint = process.env.AWS_S3_ENDPOINT || undefined;
 const forcePathStyle = process.env.AWS_S3_FORCE_PATH_STYLE === 'true';
+const localUploadRoot = path.join(__dirname, '..', '..', 'uploads-local');
+const publicBaseUrl = process.env.BACKEND_PUBLIC_URL || process.env.API_PUBLIC_URL || `http://localhost:${process.env.PORT || 5000}`;
 
 const s3Client = bucket && region
   ? new S3Client({
@@ -76,7 +79,7 @@ const createPresignedDownload = async (key) => {
   if (!isS3ObjectKey(key)) return key || null;
 
   if (!isS3Configured()) {
-    return null;
+    return createLocalDownloadUrl(key);
   }
 
   const command = new GetObjectCommand({
@@ -85,6 +88,11 @@ const createPresignedDownload = async (key) => {
   });
 
   return getSignedUrl(s3Client, command, { expiresIn: 60 * 15 });
+};
+
+const createLocalDownloadUrl = (key) => {
+  if (!isS3ObjectKey(key)) return key || null;
+  return `${publicBaseUrl.replace(/\/$/, '')}/uploads-local/${key.replace(/^uploads\//, '')}`;
 };
 
 const uploadObject = async ({ key, body, contentType }) => {
@@ -102,12 +110,25 @@ const uploadObject = async ({ key, body, contentType }) => {
   await s3Client.send(command);
 };
 
+const uploadLocalObject = async ({ key, body }) => {
+  if (!isS3ObjectKey(key)) {
+    throw new Error('Local upload key tidak valid');
+  }
+
+  const targetPath = path.join(localUploadRoot, key.replace(/^uploads\//, ''));
+  await fs.mkdir(path.dirname(targetPath), { recursive: true });
+  await fs.writeFile(targetPath, body);
+};
+
 module.exports = {
   allowedScopes,
   createObjectKey,
   createPresignedDownload,
+  createLocalDownloadUrl,
   createPresignedUpload,
   isS3Configured,
   isS3ObjectKey,
+  localUploadRoot,
+  uploadLocalObject,
   uploadObject,
 };
