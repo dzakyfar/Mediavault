@@ -111,6 +111,7 @@ jobs:
             REQUIRED_AWS_S3_BUCKET='${{ secrets.AWS_S3_BUCKET_MEDIA }}'
             REQUIRED_AWS_ACCESS_KEY_ID='${{ secrets.AWS_MEDIA_ACCESS_KEY_ID }}'
             REQUIRED_AWS_SECRET_ACCESS_KEY='${{ secrets.AWS_MEDIA_SECRET_ACCESS_KEY }}'
+            REQUIRED_PUBLIC_APP_URL='${{ secrets.PUBLIC_APP_URL }}'
 
             # KlikQRIS: pilih credentials berdasarkan KLIKQRIS_MODE
             # Jika KLIKQRIS_MODE=sandbox → pakai _SANDBOX secrets
@@ -127,7 +128,7 @@ jobs:
               KLIKQRIS_MODE_VALUE="production"
             fi
 
-            for REQUIRED_NAME in REQUIRED_PROD_DATABASE_URL REQUIRED_JWT_SECRET REQUIRED_AWS_REGION REQUIRED_AWS_S3_BUCKET REQUIRED_AWS_ACCESS_KEY_ID REQUIRED_AWS_SECRET_ACCESS_KEY; do
+            for REQUIRED_NAME in REQUIRED_PROD_DATABASE_URL REQUIRED_JWT_SECRET REQUIRED_AWS_REGION REQUIRED_AWS_S3_BUCKET REQUIRED_AWS_ACCESS_KEY_ID REQUIRED_AWS_SECRET_ACCESS_KEY REQUIRED_PUBLIC_APP_URL; do
               if [ -z "${!REQUIRED_NAME}" ]; then
                 echo "$REQUIRED_NAME is empty. Check GitHub repository secrets before deploying."
                 exit 1
@@ -178,6 +179,14 @@ jobs:
               echo "AWS_S3_BUCKET=${{ secrets.AWS_S3_BUCKET_MEDIA }}"
               echo "AWS_ACCESS_KEY_ID=${{ secrets.AWS_MEDIA_ACCESS_KEY_ID }}"
               echo "AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_MEDIA_SECRET_ACCESS_KEY }}"
+              echo "PUBLIC_APP_URL=${{ secrets.PUBLIC_APP_URL }}"
+              echo "TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }}"
+              echo "TELEGRAM_BOT_USERNAME=${{ secrets.TELEGRAM_BOT_USERNAME }}"
+              # HTTP deploy / local-style deploy: gunakan polling karena Telegram webhook wajib HTTPS.
+              # Jika nanti backend sudah punya HTTPS domain, ubah secret TELEGRAM_BOT_MODE=webhook dan setWebhook ke /api/telegram/webhook.
+              echo "TELEGRAM_BOT_MODE=${{ secrets.TELEGRAM_BOT_MODE }}"
+              echo "TELEGRAM_POLLING_INTERVAL_MS=${{ secrets.TELEGRAM_POLLING_INTERVAL_MS }}"
+              echo "TELEGRAM_WEBHOOK_SECRET=${{ secrets.TELEGRAM_WEBHOOK_SECRET }}"
               echo "KLIKQRIS_API_KEY=$RESOLVED_KLIKQRIS_API_KEY"
               echo "KLIKQRIS_MERCHANT_ID=$RESOLVED_KLIKQRIS_MERCHANT_ID"
               echo "KLIKQRIS_BASE_URL=$RESOLVED_KLIKQRIS_BASE_URL"

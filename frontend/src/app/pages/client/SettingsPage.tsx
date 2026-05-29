@@ -4,6 +4,7 @@ import { Bell, Camera, Lock } from 'lucide-react';
 import DashboardLayout from '../../components/DashboardLayout';
 import ConfirmDialog from '../../components/dashboard/ConfirmDialog';
 import SmoothToast from '../../components/dashboard/SmoothToast';
+import TelegramNotificationCard from '../../components/dashboard/TelegramNotificationCard';
 import { useAuth } from '../../context/AuthContext';
 import { apiRequest } from '../../lib/api';
 import { validateImageFile } from '../../lib/uploadLimits';
@@ -360,6 +361,8 @@ export default function ClientSettings() {
             </button>
           </div>
         </div>
+
+        <TelegramNotificationCard onNotify={showToast} />
 
         <div className="bg-[#1A1A1A] border border-[#EF4444]/20 rounded-xl p-8">
           <h2 className="text-2xl font-bold mb-4 text-[#EF4444]" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>

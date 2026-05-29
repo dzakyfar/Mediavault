@@ -76,6 +76,12 @@ model User {
   avatarUrl      String?
   role           UserRole?
   phone          String?
+  telegramChatId String?
+  telegramUsername String?
+  telegramNotifyEnabled Boolean @default(false)
+  telegramLinkedAt DateTime?
+  telegramConnectToken String? @unique
+  telegramConnectExpiresAt DateTime?
   city           String?
   province       String?
   district       String?

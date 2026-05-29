@@ -11,8 +11,10 @@ const uploadRoutes = require('./routes/uploadRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
 const offeringRoutes = require('./routes/offeringRoutes');
 const walletRoutes = require('./routes/walletRoutes');
+const telegramRoutes = require('./routes/telegramRoutes');
 const errorMiddleware = require('./middleware/errorMiddleware');
 const { isS3Configured, localUploadRoot } = require('./utils/s3Storage');
+const { isTelegramConfigured } = require('./services/telegramService');
 
 const app = express();
 
@@ -34,6 +36,7 @@ app.use('/api/uploads', uploadRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/offerings', offeringRoutes);
 app.use('/api/wallet', walletRoutes);
+app.use('/api/telegram', telegramRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
@@ -41,6 +44,10 @@ app.get('/api/health', (req, res) => {
     status: 'OK',
     message: 'Backend MediaVault berjalan',
     mediaStorage: isS3Configured() ? 's3' : 'local_fallback',
+    telegramBot: {
+      configured: isTelegramConfigured(),
+      mode: (process.env.TELEGRAM_BOT_MODE || 'polling').toLowerCase(),
+    },
   });
 });
 

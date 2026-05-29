@@ -90,6 +90,7 @@ export default function RegisterPage() {
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
+    phone: '',
     password: '',
     confirmPassword: '',
     agreedToTerms: false
@@ -116,6 +117,7 @@ export default function RegisterPage() {
 
     if (!formData.fullName) newErrors.fullName = 'Full name is required';
     if (!formData.email) newErrors.email = 'Email is required';
+    if (!formData.phone) newErrors.phone = 'Phone number is required';
     if (!formData.password) newErrors.password = 'Password is required';
     if (formData.password.length < 8) newErrors.password = 'Password must be at least 8 characters';
     if (formData.password !== formData.confirmPassword) {
@@ -133,6 +135,7 @@ export default function RegisterPage() {
       const user = await register({
         fullName: formData.fullName,
         email: formData.email,
+        phone: formData.phone,
         password: formData.password,
       });
       navigate(getPostAuthPath(user.role));
@@ -167,13 +170,14 @@ export default function RegisterPage() {
     }
   };
 
-  const completeGoogleSignup = async (password: string) => {
+  const completeGoogleSignup = async ({ password, phone }: { password: string; phone: string }) => {
     try {
       setSubmitting(true);
       setGoogleConsentError('');
       const user = await loginWithGoogle(pendingGoogleCredential, {
         acceptedTerms: true,
         password,
+        phone,
       });
       setPendingGoogleCredential('');
       navigate(getPostAuthPath(user.role));
@@ -250,6 +254,19 @@ export default function RegisterPage() {
                 className={`w-full bg-[#1A1A1A] border ${errors.email ? 'border-[#EF4444]' : 'border-[#2A2A2A]'} rounded-lg px-4 py-3 text-white placeholder-[#888888] focus:border-[#F5C800] focus:outline-none focus:ring-2 focus:ring-[#F5C800]/20 transition-all`}
               />
               {errors.email && <p className="text-[#EF4444] text-sm mt-1">{errors.email}</p>}
+            </div>
+
+            <div className="mb-4">
+              <label className="block text-[#888888] text-sm mb-2">Phone Number</label>
+              <input
+                type="tel"
+                value={formData.phone}
+                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                placeholder="+62 812 3456 7890"
+                className={`w-full bg-[#1A1A1A] border ${errors.phone ? 'border-[#EF4444]' : 'border-[#2A2A2A]'} rounded-lg px-4 py-3 text-white placeholder-[#888888] focus:border-[#F5C800] focus:outline-none focus:ring-2 focus:ring-[#F5C800]/20 transition-all`}
+              />
+              <p className="text-xs text-[#888888] mt-1">Dipakai untuk kontak project dan opsi notifikasi Telegram.</p>
+              {errors.phone && <p className="text-[#EF4444] text-sm mt-1">{errors.phone}</p>}
             </div>
 
             <div className="mb-4">

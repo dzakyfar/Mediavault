@@ -8,6 +8,7 @@ const {
   normalizeKlikqrisStatus,
   parseAmount,
 } = require('../services/klikqrisService');
+const { notifyTelegramOnly } = require('../services/notificationService');
 
 const paymentInclude = {
   project: {
@@ -180,6 +181,21 @@ const processSuccessfulPayment = async (paymentId, amountPaid, paidAt = new Date
 
     return updatedPayment;
   });
+
+  await Promise.all([
+    notifyTelegramOnly({
+      userId: result.project.clientId,
+      title: 'Pembayaran berhasil',
+      body: `Pembayaran untuk project ${result.project.title} berhasil. Order dikirim ke freelancer untuk diterima.`,
+      actionPath: `/dashboard/client/payments/${result.id}`,
+    }),
+    result.project.freelancerId ? notifyTelegramOnly({
+      userId: result.project.freelancerId,
+      title: 'Order baru sudah dibayar',
+      body: `Client sudah membayar project ${result.project.title}. Terima order di halaman My Projects untuk mulai bekerja.`,
+      actionPath: `/dashboard/freelancer/projects/${result.projectId}`,
+    }) : Promise.resolve(false),
+  ]);
 
   return result;
 };
@@ -398,6 +414,13 @@ exports.payProjectWithWallet = async (req, res, next) => {
       });
 
       return createdPayment;
+    });
+
+    await notifyTelegramOnly({
+      userId: payment.project.freelancerId,
+      title: 'Order baru sudah dibayar',
+      body: `Client membayar project ${payment.project.title} memakai saldo MediaVault. Terima order di halaman My Projects untuk mulai bekerja.`,
+      actionPath: `/dashboard/freelancer/projects/${payment.projectId}`,
     });
 
     res.status(201).json({ payment: serializePayment(payment) });

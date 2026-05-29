@@ -2,6 +2,7 @@ const prisma = require('../config/prisma');
 const { shortName } = require('../utils/formatters');
 const { validateInlineImage } = require('../utils/uploadLimits');
 const { resolveMessageMedia } = require('../utils/mediaUrls');
+const { notifyUser } = require('../services/notificationService');
 
 const serializeMessage = (message, currentUserId) => ({
   id: message.id,
@@ -167,13 +168,14 @@ exports.sendMessage = async (req, res, next) => {
       },
     });
 
-    await prisma.notification.create({
-      data: {
-        userId: receiverId,
-        type: 'MESSAGE',
-        title: 'Pesan baru',
-        body: `${req.user.fullName}: ${cleanBody.slice(0, 120)}`,
-      },
+    await notifyUser({
+      userId: receiverId,
+      type: 'MESSAGE',
+      title: 'Pesan baru',
+      body: `${req.user.fullName}: ${cleanBody.slice(0, 120)}`,
+      telegramTitle: 'Pesan baru',
+      telegramBody: 'You have 1 new message.',
+      actionPath: '/dashboard/client/messages',
     }).catch(() => undefined);
 
     res.status(201).json({ message: await serializeMessageWithMedia(message, req.user.id) });

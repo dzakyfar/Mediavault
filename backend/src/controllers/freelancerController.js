@@ -2,6 +2,7 @@ const prisma = require('../config/prisma');
 const { formatCurrency, shortName } = require('../utils/formatters');
 const { resolveMediaUrl, resolvePortfolioMedia } = require('../utils/mediaUrls');
 const { serializeOffering } = require('./offeringController');
+const { notifyUser } = require('../services/notificationService');
 
 exports.listFreelancers = async (req, res, next) => {
   try {
@@ -284,13 +285,12 @@ exports.orderFreelancerService = async (req, res, next) => {
     });
 
     await Promise.all([
-      prisma.notification.create({
-        data: {
-          userId: freelancer.id,
-          type: 'PROJECT',
-          title: 'Pesanan jasa baru menunggu pembayaran',
-          body: `${req.user.fullName} ingin memesan jasa ${normalizedServiceType}. Project menunggu pembayaran QRIS.`,
-        },
+      notifyUser({
+        userId: freelancer.id,
+        type: 'PROJECT',
+        title: 'Pesanan jasa baru menunggu pembayaran',
+        body: `${req.user.fullName} ingin memesan jasa ${normalizedServiceType}. Project menunggu pembayaran QRIS.`,
+        actionPath: `/dashboard/freelancer/projects/${project.id}`,
       }),
       prisma.message.create({
         data: {

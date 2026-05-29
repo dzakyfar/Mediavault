@@ -56,13 +56,14 @@ export default function LoginPage() {
     }
   };
 
-  const completeGoogleSignup = async (password: string) => {
+  const completeGoogleSignup = async ({ password, phone }: { password: string; phone: string }) => {
     try {
       setSubmitting(true);
       setGoogleConsentError('');
       const user = await loginWithGoogle(pendingGoogleCredential, {
         acceptedTerms: true,
         password,
+        phone,
       });
       setPendingGoogleCredential('');
       navigate(dashboardPathForRole(user.role));

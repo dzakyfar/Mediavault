@@ -4,6 +4,7 @@ const { validateReferenceFiles, validateSubmissionFile } = require('../utils/upl
 const { resolveProjectMedia } = require('../utils/mediaUrls');
 const { completeProjectSettlement } = require('./paymentController');
 const { creditWallet } = require('../services/walletService');
+const { notifyTelegramOnly, notifyUser } = require('../services/notificationService');
 
 const parseBudget = (value) => {
   if (value === undefined || value === null || value === '') return null;
@@ -56,6 +57,8 @@ const createProjectHistory = (projectId, actorId, title, body, eventType) =>
   prisma.projectHistory.create({
     data: { projectId, actorId, title, body, eventType },
   });
+
+const countWords = (value = '') => String(value).trim().split(/\s+/).filter(Boolean).length;
 
 const serializeProjectWithMedia = async (project) => resolveProjectMedia(serializeProject(project));
 
@@ -119,14 +122,14 @@ exports.createProject = async (req, res, next) => {
       throw new Error('Judul, deskripsi, kategori, dan jasa yang dibutuhkan wajib diisi');
     }
 
-    if (title.trim().length < 10) {
+    if (countWords(title) > 64) {
       res.status(400);
-      throw new Error('Judul pekerjaan minimal 10 karakter');
+      throw new Error('Judul pekerjaan maksimal 64 kata');
     }
 
-    if (description.trim().length < 30) {
+    if (countWords(description) > 500) {
       res.status(400);
-      throw new Error('Deskripsi detail minimal 30 karakter');
+      throw new Error('Deskripsi maksimal 500 kata');
     }
 
     if (!eventDate || !deadline) {
@@ -546,6 +549,13 @@ exports.submitProjectReview = async (req, res, next) => {
       }),
     ]);
 
+    await notifyTelegramOnly({
+      userId: project.clientId,
+      title: 'Hasil pekerjaan siap direview',
+      body: `${req.user.fullName} mengirim hasil untuk ${project.title}. Harap review dalam 72 jam.`,
+      actionPath: `/dashboard/client/projects/${project.id}`,
+    });
+
     res.status(201).json({ submission, project: await serializeProjectWithMedia(updatedProject) });
   } catch (error) {
     next(error);
@@ -620,6 +630,13 @@ exports.reviewProjectSubmission = async (req, res, next) => {
 
       await completeProjectSettlement(projectId, req.user.id, 'COMPLETED');
 
+      await notifyTelegramOnly({
+        userId: submission.freelancerId,
+        title: 'Pekerjaan disetujui client',
+        body: 'Client mengkonfirmasi pekerjaan selesai. Dana diteruskan ke saldo kamu.',
+        actionPath: `/dashboard/freelancer/projects/${projectId}`,
+      });
+
       const updatedProject = await prisma.project.findUnique({
         where: { id: projectId },
         include: projectInclude,
@@ -671,6 +688,13 @@ exports.reviewProjectSubmission = async (req, res, next) => {
         },
       }),
     ]);
+
+    await notifyTelegramOnly({
+      userId: submission.freelancerId,
+      title: 'Client meminta revisi',
+      body: reviewComment,
+      actionPath: `/dashboard/freelancer/projects/${projectId}`,
+    });
 
     res.json({ project: await serializeProjectWithMedia(updatedProject) });
   } catch (error) {
@@ -814,13 +838,12 @@ exports.applyToProject = async (req, res, next) => {
       });
 
     await Promise.all([
-      prisma.notification.create({
-        data: {
-          userId: project.clientId,
-          type: 'PROJECT',
-          title: 'Freelancer mengirim request job',
-          body: `${req.user.fullName} mengirim request untuk ${project.title}`,
-        },
+      notifyUser({
+        userId: project.clientId,
+        type: 'PROJECT',
+        title: 'Freelancer mengirim request job',
+        body: `${req.user.fullName} mengirim request untuk ${project.title}`,
+        actionPath: `/dashboard/client/projects/${project.id}`,
       }),
       prisma.message.create({
         data: {
@@ -919,6 +942,13 @@ exports.respondToApplication = async (req, res, next) => {
         ),
       ]);
 
+      await notifyTelegramOnly({
+        userId: application.freelancerId,
+        title: 'Request job diterima',
+        body: `${req.user.fullName} menerima request Anda untuk ${application.project.title}. Project menunggu pembayaran client.`,
+        actionPath: `/dashboard/freelancer/projects/${application.projectId}`,
+      });
+
       res.json({ project: await serializeProjectWithMedia(updatedProject) });
       return;
     }
@@ -959,6 +989,13 @@ exports.respondToApplication = async (req, res, next) => {
     }
 
     await prisma.$transaction(rejectTransaction);
+
+    await notifyTelegramOnly({
+      userId: application.freelancerId,
+      title: 'Request job ditolak',
+      body: `${req.user.fullName} menolak request Anda untuk ${application.project.title}.`,
+      actionPath: '/dashboard/freelancer/requests',
+    });
 
     res.json({ message: 'Offer ditolak' });
   } catch (error) {

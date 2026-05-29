@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { ArrowLeft, ArrowRight, Check, FileUp, MapPin, X } from 'lucide-react';
 import DashboardLayout from '../components/DashboardLayout';
+import DraggableLocationMap from '../components/dashboard/DraggableLocationMap';
 import { apiRequest } from '../lib/api';
 import { getServicesForCategory, serviceCatalog } from '../lib/serviceCatalog';
 import { formatBytes, REFERENCE_FILE_MAX_BYTES, S3_TOTAL_LIMIT_BYTES, validateReferenceFile } from '../lib/uploadLimits';
@@ -57,6 +58,10 @@ const getCurrentPosition = (options: PositionOptions) => new Promise<Geolocation
   navigator.geolocation.getCurrentPosition(resolve, reject, options);
 });
 
+const TITLE_MAX_WORDS = 64;
+const DESCRIPTION_MAX_WORDS = 500;
+const countWords = (value = '') => value.trim().split(/\s+/).filter(Boolean).length;
+
 export default function PostJobPage() {
   const [searchParams] = useSearchParams();
   const requestedCategory = searchParams.get('category') || '';
@@ -109,11 +114,12 @@ export default function PostJobPage() {
 
   const categoryOptions = serviceCatalog.map((item) => item.category);
   const serviceOptions = getServicesForCategory(formData.category);
+  const titleWordCount = countWords(formData.title);
+  const descriptionWordCount = countWords(formData.description);
 
   const mapQuery = formData.latitude && formData.longitude
     ? `${formData.latitude},${formData.longitude}`
     : [formData.addressDetail, formData.village, formData.district, formData.city, formData.province].filter(Boolean).join(', ');
-  const hasMapPreview = Boolean(mapQuery);
 
   useEffect(() => {
     let active = true;
@@ -251,6 +257,14 @@ export default function PostJobPage() {
     const serviceReady = formData.serviceType && (formData.serviceType !== 'other' || formData.customServiceType.trim());
     if (step === 1 && (!formData.title || !categoryReady || !serviceReady || !formData.description)) {
       setError('Judul, kategori, jasa, dan deskripsi wajib diisi');
+      return;
+    }
+    if (step === 1 && titleWordCount > TITLE_MAX_WORDS) {
+      setError(`Judul maksimal ${TITLE_MAX_WORDS} kata`);
+      return;
+    }
+    if (step === 1 && descriptionWordCount > DESCRIPTION_MAX_WORDS) {
+      setError(`Deskripsi maksimal ${DESCRIPTION_MAX_WORDS} kata`);
       return;
     }
     if (step === 2 && (!formData.eventDate || !formData.deadline || !formData.province || !formData.city || !formData.district || !formData.village || !formData.addressDetail)) {
@@ -521,6 +535,9 @@ export default function PostJobPage() {
                     placeholder="e.g. Wedding Photography in Bali"
                     className="w-full bg-[#141414] border border-[#2A2A2A] rounded-lg px-4 py-3 text-white placeholder-[#888888] focus:border-[#F5C800] focus:outline-none focus:ring-2 focus:ring-[#F5C800]/20 transition-all"
                   />
+                  <div className={`mt-2 text-xs ${titleWordCount > TITLE_MAX_WORDS ? 'text-[#EF4444]' : 'text-[#888888]'}`}>
+                    {titleWordCount}/{TITLE_MAX_WORDS} kata
+                  </div>
                 </div>
                 <div>
                   <label className="block text-sm text-[#888888] mb-2">Category</label>
@@ -586,9 +603,12 @@ export default function PostJobPage() {
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                     placeholder="Describe what you need..."
-                    rows={6}
+                    rows={8}
                     className="w-full bg-[#141414] border border-[#2A2A2A] rounded-lg px-4 py-3 text-white placeholder-[#888888] focus:border-[#F5C800] focus:outline-none focus:ring-2 focus:ring-[#F5C800]/20 transition-all"
                   />
+                  <div className={`mt-2 text-xs ${descriptionWordCount > DESCRIPTION_MAX_WORDS ? 'text-[#EF4444]' : 'text-[#888888]'}`}>
+                    {descriptionWordCount}/{DESCRIPTION_MAX_WORDS} kata
+                  </div>
                 </div>
                 <div>
                   <label className="block text-sm text-[#888888] mb-2">Reference Files (Optional)</label>
@@ -765,16 +785,17 @@ export default function PostJobPage() {
                   )}
                 </div>
 
-                {hasMapPreview && (
-                  <div className="overflow-hidden rounded-xl border border-[#2A2A2A] bg-[#141414]">
-                    <iframe
-                      title="Preview lokasi job"
-                      src={`https://maps.google.com/maps?q=${encodeURIComponent(mapQuery)}&z=16&output=embed`}
-                      className="w-full h-64 border-0"
-                      loading="lazy"
-                    />
-                  </div>
-                )}
+                <DraggableLocationMap
+                  latitude={formData.latitude}
+                  longitude={formData.longitude}
+                  fallbackQuery={mapQuery}
+                  onChange={(latitude, longitude) => setFormData((current) => ({
+                    ...current,
+                    latitude,
+                    longitude,
+                    locationSource: 'map-pin',
+                  }))}
+                />
               </div>
             </div>
           )}

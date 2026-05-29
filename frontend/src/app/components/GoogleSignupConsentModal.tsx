@@ -44,7 +44,7 @@ interface GoogleSignupConsentModalProps {
   submitting?: boolean;
   error?: string;
   onCancel: () => void;
-  onConfirm: (password: string) => void;
+  onConfirm: (payload: { password: string; phone: string }) => void;
 }
 
 export default function GoogleSignupConsentModal({
@@ -58,6 +58,7 @@ export default function GoogleSignupConsentModal({
   const [step, setStep] = useState<SignupStep>('legal');
   const [approved, setApproved] = useState(false);
   const [password, setPassword] = useState('');
+  const [phone, setPhone] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [localError, setLocalError] = useState('');
   const activeCopy = legalCopy[activeTab];
@@ -75,13 +76,18 @@ export default function GoogleSignupConsentModal({
   };
 
   const submitPassword = () => {
+    if (phone.trim().length < 8) {
+      setLocalError('Nomor telepon wajib diisi.');
+      return;
+    }
+
     if (password.length < 8) {
       setLocalError('Password minimal 8 karakter.');
       return;
     }
 
     setLocalError('');
-    onConfirm(password);
+    onConfirm({ password, phone: phone.trim() });
   };
 
   return createPortal((
@@ -104,7 +110,7 @@ export default function GoogleSignupConsentModal({
                 Google Account Setup
               </p>
               <h2 className="text-4xl leading-tight" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>
-                {step === 'legal' ? 'Review Legal Agreement' : 'Create Your Local Password'}
+                {step === 'legal' ? 'Review Legal Agreement' : 'Complete Account Setup'}
               </h2>
             </div>
           </div>
@@ -165,10 +171,18 @@ export default function GoogleSignupConsentModal({
             </>
           ) : (
             <div className="rounded-2xl border border-[#D8DEE8] bg-[#F7F9FC] p-5 dark:border-[#2A2A2A] dark:bg-[#171717]">
-              <h3 className="mb-2 text-xl font-bold">Buat Password Akun</h3>
+              <h3 className="mb-2 text-xl font-bold">Lengkapi Kontak & Password</h3>
               <p className="mb-5 text-sm leading-relaxed text-[#667085] dark:text-[#A3A3A3]">
-                Password ini menjadi akses lokal tambahan untuk akun Google kamu. MediaVault menyimpannya dalam bentuk hash, bukan teks asli.
+                Nomor telepon dipakai untuk kontak project dan opsi notifikasi Telegram. Password menjadi akses lokal tambahan untuk akun Google kamu.
               </p>
+              <label className="mb-2 block text-sm text-[#667085] dark:text-[#A3A3A3]">Nomor Telepon</label>
+              <input
+                type="tel"
+                value={phone}
+                onChange={(event) => setPhone(event.target.value)}
+                placeholder="+62 812 3456 7890"
+                className="mb-4 w-full rounded-xl border border-[#D8DEE8] bg-white px-4 py-3 text-[#111827] placeholder-[#667085] focus:border-[#D9A900] focus:outline-none dark:border-[#2A2A2A] dark:bg-[#101010] dark:text-white dark:placeholder-[#888888] dark:focus:border-[#F5C800]"
+              />
               <label className="mb-2 block text-sm text-[#667085] dark:text-[#A3A3A3]">Password Lokal</label>
               <div className="relative">
                 <input

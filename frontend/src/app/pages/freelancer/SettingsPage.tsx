@@ -7,6 +7,7 @@ import ConfirmDialog from '../../components/dashboard/ConfirmDialog';
 import DraggableLocationMap from '../../components/dashboard/DraggableLocationMap';
 import SearchableRegionSelect from '../../components/dashboard/SearchableRegionSelect';
 import SmoothToast from '../../components/dashboard/SmoothToast';
+import TelegramNotificationCard from '../../components/dashboard/TelegramNotificationCard';
 import { useAuth } from '../../context/AuthContext';
 import { PORTFOLIO_IMAGE_MAX_BYTES, validateImageFile } from '../../lib/uploadLimits';
 import { uploadFileToS3 } from '../../lib/s3Upload';
@@ -1083,6 +1084,8 @@ export default function FreelancerSettings() {
         </div>
 
         <ChangePasswordCard onNotify={(message, type) => setToast({ message, type })} />
+
+        <TelegramNotificationCard onNotify={(message, type) => setToast({ message, type })} />
 
         <div className="bg-[#1A1A1A] border border-[#EF4444]/20 rounded-xl p-8">
           <h2 className="text-2xl font-bold mb-4 text-[#EF4444]" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>

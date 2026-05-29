@@ -14,6 +14,10 @@ const publicUserSelect = {
   avatarUrl: true,
   role: true,
   phone: true,
+  telegramChatId: true,
+  telegramUsername: true,
+  telegramNotifyEnabled: true,
+  telegramLinkedAt: true,
   city: true,
   province: true,
   district: true,
@@ -45,11 +49,11 @@ const parseOptionalCoordinate = (value) => {
 
 exports.register = async (req, res, next) => {
   try {
-    const { fullName, email, password, role } = req.body;
+    const { fullName, email, password, phone, role } = req.body;
 
-    if (!fullName || !email || !password) {
+    if (!fullName || !email || !password || !phone) {
       res.status(400);
-      throw new Error('Nama lengkap, email, dan password wajib diisi');
+      throw new Error('Nama lengkap, email, nomor telepon, dan password wajib diisi');
     }
 
     if (password.length < 8) {
@@ -71,6 +75,7 @@ exports.register = async (req, res, next) => {
       data: {
         fullName,
         email: email.toLowerCase(),
+        phone: String(phone).trim(),
         passwordHash,
         role: normalizeRole(role),
         isAvailable: false,
@@ -130,7 +135,7 @@ exports.login = async (req, res, next) => {
 
 exports.googleLogin = async (req, res, next) => {
   try {
-    const { credential, acceptedTerms, password } = req.body;
+    const { credential, acceptedTerms, password, phone } = req.body;
 
     if (!process.env.GOOGLE_CLIENT_ID) {
       res.status(500);
@@ -166,6 +171,11 @@ exports.googleLogin = async (req, res, next) => {
       throw new Error('Password lokal minimal 8 karakter untuk akun Google baru');
     }
 
+    if (!existingUser && !String(phone || '').trim()) {
+      res.status(400);
+      throw new Error('Nomor telepon wajib diisi untuk akun Google baru');
+    }
+
     const user = existingUser
       ? await prisma.user.update({
         where: { id: existingUser.id },
@@ -183,6 +193,7 @@ exports.googleLogin = async (req, res, next) => {
           googleId: payload.sub,
           avatarUrl: payload.picture,
           passwordHash: await bcrypt.hash(password, 12),
+          phone: String(phone).trim(),
           role: null,
           isAvailable: false,
         },
