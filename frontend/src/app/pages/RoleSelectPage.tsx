@@ -1,13 +1,25 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
-import { Zap, ShoppingBag, Camera, Check } from 'lucide-react';
+import { Send, Zap, ShoppingBag, Camera, Check } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { UserRole } from '../lib/api';
+import { UserRole, apiRequest } from '../lib/api';
+
+interface TelegramConnectInfo {
+  chatUrl: string;
+  botHandle: string;
+  startCommand: string;
+}
 
 export default function RoleSelectPage() {
   const [selectedRole, setSelectedRole] = useState<'client' | 'freelancer' | 'both' | null>(null);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  // Step: 'role' | 'telegram'
+  const [step, setStep] = useState<'role' | 'telegram'>('role');
+  const [telegramInfo, setTelegramInfo] = useState<TelegramConnectInfo | null>(null);
+  const [telegramBusy, setTelegramBusy] = useState(false);
+  const [telegramDone, setTelegramDone] = useState(false);
+  const [pendingPath, setPendingPath] = useState('');
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { user, updateRole } = useAuth();
@@ -36,16 +48,159 @@ export default function RoleSelectPage() {
     try {
       setSubmitting(true);
       setError('');
-      const user = await updateRole(roleMap[selectedRole]);
-      navigate(user.role === 'FREELANCER' || selectedRole !== 'client'
+      const updatedUser = await updateRole(roleMap[selectedRole]);
+      const destination = updatedUser.role === 'FREELANCER' || selectedRole !== 'client'
         ? '/freelancer-onboarding'
-        : '/dashboard/client', { replace: true });
+        : '/dashboard/client';
+
+      // Cek apakah Telegram bot dikonfigurasi di server
+      try {
+        const response = await apiRequest<{ telegram: { configured: boolean; connected: boolean } }>('/telegram/status');
+        if (response.telegram.configured && !response.telegram.connected) {
+          // Bot tersedia dan user belum connect → tampilkan step Telegram
+          setPendingPath(destination);
+          setStep('telegram');
+          return;
+        }
+      } catch {
+        // Telegram tidak tersedia atau error → skip langsung ke dashboard
+      }
+
+      navigate(destination, { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Gagal menyimpan role');
     } finally {
       setSubmitting(false);
     }
   };
+
+  const connectTelegram = async () => {
+    try {
+      setTelegramBusy(true);
+      const response = await apiRequest<{
+        chatUrl?: string;
+        botHandle?: string;
+        startCommand?: string;
+      }>('/telegram/connect', { method: 'POST' });
+      setTelegramInfo({
+        chatUrl: response.chatUrl || '',
+        botHandle: response.botHandle || '',
+        startCommand: response.startCommand || '',
+      });
+      if (response.startCommand) {
+        await navigator.clipboard?.writeText(response.startCommand).catch(() => undefined);
+      }
+      if (response.chatUrl) {
+        window.open(response.chatUrl, '_blank', 'noopener,noreferrer');
+      }
+    } catch {
+      // Gagal connect — user bisa skip
+    } finally {
+      setTelegramBusy(false);
+    }
+  };
+
+  const checkTelegramConnected = async () => {
+    try {
+      setTelegramBusy(true);
+      const response = await apiRequest<{ telegram: { connected: boolean } }>('/telegram/sync-pending', { method: 'POST' });
+      if (response.telegram.connected) {
+        setTelegramDone(true);
+        setTimeout(() => navigate(pendingPath, { replace: true }), 1000);
+      }
+    } catch {
+      // ignore
+    } finally {
+      setTelegramBusy(false);
+    }
+  };
+
+  if (step === 'telegram') {
+    return (
+      <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center p-8 mv-ambient" style={{ fontFamily: 'DM Sans, sans-serif' }}>
+        <div className="w-full max-w-lg text-center">
+          <Link to="/" className="inline-flex items-center gap-2 mb-10">
+            <Zap className="w-6 h-6 text-[#F5C800]" />
+            <span className="text-xl font-bold text-white" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>MediaVault</span>
+          </Link>
+
+          <div className="flex items-center justify-center w-16 h-16 rounded-2xl bg-[#F5C800]/10 text-[#F5C800] mx-auto mb-6">
+            <Send className="w-8 h-8" />
+          </div>
+
+          <h1 className="text-5xl text-white mb-3" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>
+            Aktifkan Notifikasi Telegram
+          </h1>
+          <p className="text-[#888888] mb-8">
+            Terima update order, payment, dan revisi langsung di Telegram — tanpa harus buka dashboard terus.
+          </p>
+
+          {telegramDone ? (
+            <div className="p-4 rounded-xl bg-[#22C55E]/10 border border-[#22C55E] text-[#22C55E] font-bold mb-6">
+              ✓ Telegram berhasil terhubung! Mengarahkan ke dashboard...
+            </div>
+          ) : (
+            <>
+              {!telegramInfo ? (
+                <button
+                  type="button"
+                  onClick={connectTelegram}
+                  disabled={telegramBusy}
+                  className="w-full py-4 bg-[#F5C800] text-black font-bold rounded-full hover:shadow-[0_0_20px_rgba(245,200,0,0.4)] transition-all disabled:opacity-60 mb-4"
+                >
+                  {telegramBusy ? 'Membuka Telegram...' : 'Hubungkan Telegram Sekarang'}
+                </button>
+              ) : (
+                <div className="bg-[#141414] border border-[#2A2A2A] rounded-xl p-5 mb-4 text-left">
+                  <p className="text-sm text-[#888888] mb-3">
+                    Command sudah disalin. Paste ke chat bot <strong className="text-white">{telegramInfo.botHandle}</strong> lalu kirim.
+                  </p>
+                  <code className="block text-sm text-white bg-[#0A0A0A] rounded-lg p-3 break-all mb-3 select-all">
+                    {telegramInfo.startCommand}
+                  </code>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => navigator.clipboard?.writeText(telegramInfo.startCommand)}
+                      className="px-3 py-2 border border-[#2A2A2A] text-[#888888] rounded-lg text-sm hover:border-[#F5C800] hover:text-[#F5C800]"
+                    >
+                      Copy Ulang
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => window.open(telegramInfo.chatUrl, '_blank', 'noopener,noreferrer')}
+                      className="px-3 py-2 border border-[#F5C800] text-[#F5C800] rounded-lg text-sm hover:bg-[#F5C800] hover:text-black"
+                    >
+                      Buka Bot Lagi
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {telegramInfo && (
+                <button
+                  type="button"
+                  onClick={checkTelegramConnected}
+                  disabled={telegramBusy}
+                  className="w-full py-4 bg-[#F5C800] text-black font-bold rounded-full hover:shadow-[0_0_20px_rgba(245,200,0,0.4)] transition-all disabled:opacity-60 mb-4"
+                >
+                  {telegramBusy ? 'Mengecek...' : 'Saya Sudah Kirim Command'}
+                </button>
+              )}
+            </>
+          )}
+
+          <button
+            type="button"
+            onClick={() => navigate(pendingPath, { replace: true })}
+            className="text-[#888888] hover:text-white text-sm transition-colors"
+          >
+            Lewati dulu, bisa diatur nanti di Settings
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center p-8 mv-ambient" style={{ fontFamily: 'DM Sans, sans-serif' }}>

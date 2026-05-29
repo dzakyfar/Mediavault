@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { UserRole } from '../lib/api';
 import GoogleSignInButton from '../components/GoogleSignInButton';
 import GoogleSignupConsentModal from '../components/GoogleSignupConsentModal';
+import PhoneInput from '../components/dashboard/PhoneInput';
 
 type LegalModalType = 'terms' | 'privacy' | null;
 
@@ -258,15 +259,13 @@ export default function RegisterPage() {
 
             <div className="mb-4">
               <label className="block text-[#888888] text-sm mb-2">Phone Number</label>
-              <input
-                type="tel"
+              <PhoneInput
                 value={formData.phone}
-                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                placeholder="+62 812 3456 7890"
-                className={`w-full bg-[#1A1A1A] border ${errors.phone ? 'border-[#EF4444]' : 'border-[#2A2A2A]'} rounded-lg px-4 py-3 text-white placeholder-[#888888] focus:border-[#F5C800] focus:outline-none focus:ring-2 focus:ring-[#F5C800]/20 transition-all`}
+                onChange={(value) => setFormData({ ...formData, phone: value })}
+                error={errors.phone}
+                disabled={submitting}
               />
               <p className="text-xs text-[#888888] mt-1">Dipakai untuk kontak project dan opsi notifikasi Telegram.</p>
-              {errors.phone && <p className="text-[#EF4444] text-sm mt-1">{errors.phone}</p>}
             </div>
 
             <div className="mb-4">

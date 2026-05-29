@@ -5,6 +5,7 @@ import DashboardLayout from '../../components/DashboardLayout';
 import ChangePasswordCard from '../../components/dashboard/ChangePasswordCard';
 import ConfirmDialog from '../../components/dashboard/ConfirmDialog';
 import DraggableLocationMap from '../../components/dashboard/DraggableLocationMap';
+import PhoneInput from '../../components/dashboard/PhoneInput';
 import SearchableRegionSelect from '../../components/dashboard/SearchableRegionSelect';
 import SmoothToast from '../../components/dashboard/SmoothToast';
 import TelegramNotificationCard from '../../components/dashboard/TelegramNotificationCard';
@@ -843,11 +844,9 @@ export default function FreelancerSettings() {
             </div>
             <div>
               <label className="block text-sm text-[#888888] mb-2">Phone Number</label>
-              <input
-                type="tel"
+              <PhoneInput
                 value={formData.phone}
-                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                className="w-full bg-[#141414] border border-[#2A2A2A] rounded-lg px-4 py-3 text-white focus:border-[#F5C800] focus:outline-none focus:ring-2 focus:ring-[#F5C800]/20 transition-all"
+                onChange={(value) => setFormData({ ...formData, phone: value })}
               />
             </div>
             <div>

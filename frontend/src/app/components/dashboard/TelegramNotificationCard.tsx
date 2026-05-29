@@ -206,7 +206,7 @@ export default function TelegramNotificationCard({ onNotify }: TelegramNotificat
         <button
           type="button"
           onClick={toggleTelegram}
-          disabled={busy || loading || telegram?.configured === false}
+          disabled={busy || loading}
           className={`relative h-7 w-14 rounded-full transition-colors disabled:opacity-60 ${
             telegram?.enabled ? 'bg-[#D9A900] dark:bg-[#F5C800]' : 'bg-[#D8DEE8] dark:bg-[#2A2A2A]'
           }`}
@@ -254,7 +254,7 @@ export default function TelegramNotificationCard({ onNotify }: TelegramNotificat
           <button
             type="button"
             onClick={startConnect}
-            disabled={busy || telegram?.configured === false}
+            disabled={busy}
             className="rounded-lg bg-[#D9A900] px-4 py-2 text-sm font-bold text-[#111827] transition-all hover:shadow-[0_0_18px_rgba(217,169,0,0.26)] disabled:opacity-60 dark:bg-[#F5C800] dark:text-black"
           >
             {telegram?.connected ? 'Reconnect' : 'Connect Telegram'}
