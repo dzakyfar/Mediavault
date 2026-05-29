@@ -8,7 +8,7 @@ const {
   normalizeKlikqrisStatus,
   parseAmount,
 } = require('../services/klikqrisService');
-const { notifyTelegramOnly } = require('../services/notificationService');
+const { notifyTelegramOnly, notifyUser } = require('../services/notificationService');
 
 const paymentInclude = {
   project: {
@@ -153,22 +153,28 @@ const processSuccessfulPayment = async (paymentId, amountPaid, paidAt = new Date
           eventType: 'PAYMENT_PAID',
         },
       }),
-      tx.notification.create({
-        data: {
-          userId: payment.project.clientId,
-          type: 'PAYMENT',
-          title: 'Pembayaran berhasil',
-          body: 'Pembayaran berhasil! Order dikirim ke freelancer untuk diterima.',
-        },
-      }),
-      payment.project.freelancerId ? tx.notification.create({
-        data: {
-          userId: payment.project.freelancerId,
-          type: 'PAYMENT',
-          title: 'Order baru sudah dibayar',
-          body: 'Client sudah membayar. Terima order di halaman My Projects untuk mulai bekerja, atau tolak agar dana dikembalikan ke saldo client.',
-        },
-      }) : tx.projectHistory.create({
+    ]);
+
+    await notifyUser({
+      tx,
+      userId: payment.project.clientId,
+      type: 'PAYMENT',
+      title: 'Pembayaran berhasil',
+      body: 'Pembayaran berhasil! Order dikirim ke freelancer untuk diterima.',
+      actionPath: `/dashboard/client/projects/${payment.projectId}`,
+    });
+
+    if (payment.project.freelancerId) {
+      await notifyUser({
+        tx,
+        userId: payment.project.freelancerId,
+        type: 'PAYMENT',
+        title: 'Order baru sudah dibayar',
+        body: 'Client sudah membayar. Terima order di halaman My Projects untuk mulai bekerja, atau tolak agar dana dikembalikan ke saldo client.',
+        actionPath: `/dashboard/freelancer/projects/${payment.projectId}`,
+      });
+    } else {
+      await tx.projectHistory.create({
         data: {
           projectId: payment.projectId,
           actorId: payment.project.clientId,
@@ -176,8 +182,8 @@ const processSuccessfulPayment = async (paymentId, amountPaid, paidAt = new Date
           body: 'Payment berhasil, tetapi project belum memiliki freelancer.',
           eventType: 'PAYMENT_PAID_WITHOUT_FREELANCER',
         },
-      }),
-    ]);
+      });
+    }
 
     return updatedPayment;
   });
@@ -682,13 +688,13 @@ exports.completeProjectSettlement = async (projectId, actorId = null, completion
       },
     });
 
-    await tx.notification.create({
-      data: {
-        userId: project.freelancerId,
-        type: 'PAYMENT',
-        title: 'Dana masuk ke saldo',
-        body: `Dana ${formatCurrency(freelancerNet)} telah masuk ke saldo kamu.`,
-      },
+    await notifyUser({
+      tx,
+      userId: project.freelancerId,
+      type: 'PAYMENT',
+      title: 'Dana masuk ke saldo',
+      body: `Dana ${formatCurrency(freelancerNet)} telah masuk ke saldo kamu.`,
+      actionPath: '/dashboard/freelancer/earnings',
     });
 
     return nextProject;
