@@ -5,6 +5,7 @@ import EmptyState from '../EmptyState';
 import { apiRequest } from '../../lib/api';
 import { MESSAGE_IMAGE_MAX_BYTES, validateImageFile } from '../../lib/uploadLimits';
 import { uploadFileToS3 } from '../../lib/s3Upload';
+import { useLanguage } from '../../context/LanguageContext';
 
 interface Message {
   id: string;
@@ -38,9 +39,10 @@ interface MessagesResponse {
 }
 
 export default function MessageCenter({ userType }: { userType: 'client' | 'freelancer' }) {
+  const { t } = useLanguage();
   const [searchParams] = useSearchParams();
   const requestedPeerId = searchParams.get('peerId') || '';
-  const requestedPeerName = searchParams.get('peerName') || 'Conversation';
+  const requestedPeerName = searchParams.get('peerName') || t('Percakapan', 'Conversation');
   const [messages, setMessages] = useState<Message[]>([]);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activePeerId, setActivePeerId] = useState('');
@@ -67,7 +69,7 @@ export default function MessageCenter({ userType }: { userType: 'client' | 'free
           {
             peerId: requestedPeerId,
             peerName: requestedPeerName,
-            lastMessage: 'Mulai percakapan',
+            lastMessage: t('Mulai percakapan', 'Start a conversation'),
             lastMessageAt: new Date().toISOString(),
             unreadCount: 0,
           },
@@ -89,7 +91,7 @@ export default function MessageCenter({ userType }: { userType: 'client' | 'free
       });
       setError('');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Gagal memuat pesan');
+      setError(err instanceof Error ? err.message : t('Gagal memuat pesan', 'Failed to load messages'));
     } finally {
       if (!silent) setLoading(false);
     }
@@ -108,6 +110,7 @@ export default function MessageCenter({ userType }: { userType: 'client' | 'free
       body: JSON.stringify({ peerId: activePeerId }),
     }).then(() => {
       window.dispatchEvent(new Event('mediavault:notifications-refresh'));
+      window.dispatchEvent(new Event('mediavault:messages-refresh'));
       return loadMessages(true);
     }).catch(() => undefined);
   }, [activePeerId]);
@@ -139,8 +142,9 @@ export default function MessageCenter({ userType }: { userType: 'client' | 'free
       setImageDraft(null);
       await loadMessages(true);
       window.dispatchEvent(new Event('mediavault:notifications-refresh'));
+      window.dispatchEvent(new Event('mediavault:messages-refresh'));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Gagal mengirim pesan');
+      setError(err instanceof Error ? err.message : t('Gagal mengirim pesan', 'Failed to send message'));
     } finally {
       setSending(false);
     }
@@ -165,15 +169,15 @@ export default function MessageCenter({ userType }: { userType: 'client' | 'free
       });
       setError('');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Gagal membaca gambar');
+      setError(err instanceof Error ? err.message : t('Gagal membaca gambar', 'Failed to read image'));
     }
   };
 
   return (
     <div>
       <div className="flex items-center justify-between mb-8">
-        <h1 className="text-5xl" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>
-          Messages
+          <h1 className="text-5xl" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>
+          {t('Pesan', 'Messages')}
         </h1>
         <button
           type="button"
@@ -181,7 +185,7 @@ export default function MessageCenter({ userType }: { userType: 'client' | 'free
           className="inline-flex items-center gap-2 px-4 py-2 border border-[#888888] text-white rounded-lg hover:border-[#F5C800] hover:text-[#F5C800] transition-colors"
         >
           <RefreshCw className="w-4 h-4" />
-          Refresh
+          {t('Muat Ulang', 'Refresh')}
         </button>
       </div>
 
@@ -191,14 +195,14 @@ export default function MessageCenter({ userType }: { userType: 'client' | 'free
         </div>
       )}
 
-      {loading && <EmptyState title="Memuat pesan" description="Menyiapkan percakapan terbaru Anda." />}
+      {loading && <EmptyState title={t('Memuat pesan', 'Loading messages')} description={t('Menyiapkan percakapan terbaru Anda.', 'Preparing your latest conversations.')} />}
 
       {!loading && conversations.length === 0 && (
         <EmptyState
-          title="Belum ada pesan"
+          title={t('Belum ada pesan', 'No messages yet')}
           description={userType === 'client'
-            ? 'Percakapan dari request job dan pemesanan jasa akan tampil di sini.'
-            : 'Pesan dari request job dan pemesanan jasa akan tampil di sini.'}
+            ? t('Percakapan dari request job dan pemesanan jasa akan tampil di sini.', 'Conversations from job requests and service orders will appear here.')
+            : t('Pesan dari request job dan pemesanan jasa akan tampil di sini.', 'Messages from job requests and service orders will appear here.')}
         />
       )}
 
@@ -231,8 +235,8 @@ export default function MessageCenter({ userType }: { userType: 'client' | 'free
 
           <section className="bg-[#141414] border border-[#2A2A2A] rounded-xl flex flex-col min-h-[560px]">
             <div className="p-5 border-b border-[#2A2A2A]">
-              <h2 className="text-xl font-bold text-white">{activeConversation?.peerName || 'Conversation'}</h2>
-              <p className="text-sm text-[#888888]">Percakapan diperbarui otomatis saat halaman terbuka.</p>
+              <h2 className="text-xl font-bold text-white">{activeConversation?.peerName || t('Percakapan', 'Conversation')}</h2>
+              <p className="text-sm text-[#888888]">{t('Percakapan diperbarui otomatis saat halaman terbuka.', 'Conversations update automatically while this page is open.')}</p>
             </div>
 
             <div className="flex-1 p-5 space-y-3 overflow-y-auto">
@@ -246,12 +250,12 @@ export default function MessageCenter({ userType }: { userType: 'client' | 'free
                   }`}
                 >
                   <div className="text-xs opacity-70 mb-1">
-                    {message.isMine ? `To ${message.receiver}` : `From ${message.sender}`}
+                    {message.isMine ? t(`Ke ${message.receiver}`, `To ${message.receiver}`) : t(`Dari ${message.sender}`, `From ${message.sender}`)}
                   </div>
                   {message.imageUrl && (
                     <img
                       src={message.imageUrl}
-                      alt={message.imageName || 'Message attachment'}
+                      alt={message.imageName || t('Lampiran pesan', 'Message attachment')}
                       className="mb-3 max-h-72 rounded-lg object-contain bg-black/10"
                     />
                   )}
@@ -266,7 +270,7 @@ export default function MessageCenter({ userType }: { userType: 'client' | 'free
                   <img src={imageDraft.previewUrl} alt={imageDraft.name} className="w-16 h-16 rounded object-cover" />
                   <div className="flex-1">
                     <div className="font-bold text-white">{imageDraft.name}</div>
-                    <div className="text-sm text-[#888888]">PNG/JPEG, maksimal 1MB</div>
+                    <div className="text-sm text-[#888888]">{t('PNG/JPEG, maksimal 1MB', 'PNG/JPEG, maximum 1MB')}</div>
                   </div>
                   <button type="button" onClick={() => setImageDraft(null)} className="text-[#888888] hover:text-[#EF4444]">
                     <X className="w-5 h-5" />
@@ -286,7 +290,7 @@ export default function MessageCenter({ userType }: { userType: 'client' | 'free
                 <input
                   value={draft}
                   onChange={(event) => setDraft(event.target.value)}
-                  placeholder="Tulis balasan..."
+                  placeholder={t('Tulis balasan...', 'Write a reply...')}
                   className="flex-1 bg-[#1A1A1A] border border-[#2A2A2A] rounded-lg px-4 py-3 text-white placeholder-[#888888] focus:border-[#F5C800] focus:outline-none"
                 />
                 <button
@@ -295,7 +299,7 @@ export default function MessageCenter({ userType }: { userType: 'client' | 'free
                   className="inline-flex items-center gap-2 px-5 py-3 bg-[#F5C800] text-black font-bold rounded-lg disabled:opacity-50"
                 >
                   <Send className="w-4 h-4" />
-                  Send
+                  {t('Kirim', 'Send')}
                 </button>
               </div>
             </form>

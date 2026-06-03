@@ -7,6 +7,7 @@ import EmptyState from '../../components/EmptyState';
 import ProjectTracker from '../../components/dashboard/ProjectTracker';
 import ProjectReviewPanel, { ProjectSubmission } from '../../components/dashboard/ProjectReviewPanel';
 import { apiRequest } from '../../lib/api';
+import { useLanguage } from '../../context/LanguageContext';
 
 interface ProjectDetail {
   id: string;
@@ -107,6 +108,7 @@ const normalizeProjectDetail = (project: ProjectDetail): ProjectDetail => ({
 });
 
 export default function ClientProjectDetail() {
+  const { t } = useLanguage();
   const { id } = useParams();
   const navigate = useNavigate();
   const [project, setProject] = useState<ProjectDetail | null>(null);
@@ -133,7 +135,7 @@ export default function ClientProjectDetail() {
         setProject(nextProject);
         if (nextProject.latestPayment) setPayment(nextProject.latestPayment);
       })
-      .catch((err) => setError(err instanceof Error ? err.message : 'Gagal memuat detail project'))
+      .catch((err) => setError(err instanceof Error ? err.message : t('Gagal memuat detail proyek', 'Failed to load project details')))
       .finally(() => setLoading(false));
   }, [id]);
 
@@ -149,7 +151,7 @@ export default function ClientProjectDetail() {
           setProject(normalizeProjectDetail(projectResponse.project));
         }
       } catch (err) {
-        setPaymentError(err instanceof Error ? err.message : 'Gagal memperbarui status pembayaran');
+        setPaymentError(err instanceof Error ? err.message : t('Gagal memperbarui status pembayaran', 'Failed to update payment status'));
       }
     }, 5000);
 
@@ -176,7 +178,7 @@ export default function ClientProjectDetail() {
       setPayment(response.payment);
       setPaymentOpen(true);
     } catch (err) {
-      setPaymentError(err instanceof Error ? err.message : 'Gagal membuat QRIS pembayaran');
+      setPaymentError(err instanceof Error ? err.message : t('Gagal membuat QRIS pembayaran', 'Failed to create QRIS payment'));
     } finally {
       setPaymentLoading(false);
     }
@@ -198,7 +200,7 @@ export default function ClientProjectDetail() {
       setProject(nextProject);
       await createOrOpenPayment();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Gagal mengkonfirmasi freelancer');
+      setError(err instanceof Error ? err.message : t('Gagal mengonfirmasi freelancer', 'Failed to confirm freelancer'));
     } finally {
       setAcceptingOfferId('');
     }
@@ -209,9 +211,9 @@ export default function ClientProjectDetail() {
       <div className="flex items-start justify-between gap-3 mb-3">
         <div>
           <div className="font-bold text-white">{offer.freelancerFullName || offer.freelancer}</div>
-          <div className="text-sm text-[#888888]">{offer.freelancerSpecialty || offer.serviceType || project?.serviceType || 'Jasa kreatif'}</div>
+          <div className="text-sm text-[#888888]">{offer.freelancerSpecialty || offer.serviceType || project?.serviceType || t('Jasa kreatif', 'Creative service')}</div>
         </div>
-        <span className="text-sm text-[#F5C800]">{offer.rating ? `★ ${offer.rating}` : 'Baru'}</span>
+        <span className="text-sm text-[#F5C800]">{offer.rating ? `Rating ${offer.rating}` : t('Baru', 'New')}</span>
       </div>
       {offer.message && <p className="text-sm text-[#888888] mb-4 line-clamp-2">{offer.message}</p>}
       <div className="flex flex-wrap gap-2">
@@ -219,20 +221,20 @@ export default function ClientProjectDetail() {
           to={`/dashboard/client/messages?peerId=${offer.freelancerId}&peerName=${encodeURIComponent(offer.freelancerFullName || offer.freelancer || 'Freelancer')}`}
           className="px-3 py-2 border border-[#888888] text-white rounded-lg text-sm hover:border-[#F5C800] hover:text-[#F5C800] transition-colors"
         >
-          Message
+          {t('Pesan', 'Message')}
         </Link>
         <Link
           to={`/freelancer/${offer.freelancerId}`}
           className="px-3 py-2 border border-[#888888] text-white rounded-lg text-sm hover:border-[#F5C800] hover:text-[#F5C800] transition-colors"
         >
-          View Profile
+          {t('Lihat Profil', 'View Profile')}
         </Link>
         <button
           onClick={() => confirmOffer(offer)}
           disabled={acceptingOfferId === offer.id}
           className="px-3 py-2 bg-[#F5C800] text-black rounded-lg text-sm font-bold hover:shadow-[0_0_10px_rgba(245,200,0,0.4)] transition-all"
         >
-          {acceptingOfferId === offer.id ? 'Processing...' : 'Confirm & Pay'}
+          {acceptingOfferId === offer.id ? t('Memproses...', 'Processing...') : t('Konfirmasi & Bayar', 'Confirm & Pay')}
         </button>
       </div>
     </div>
@@ -254,7 +256,7 @@ export default function ClientProjectDetail() {
       setProject(normalizeProjectDetail(response.project));
       setReviewForm({ rating: '5', comment: '' });
     } catch (err) {
-      setReviewError(err instanceof Error ? err.message : 'Gagal menyimpan ulasan');
+      setReviewError(err instanceof Error ? err.message : t('Gagal menyimpan ulasan', 'Failed to save review'));
     } finally {
       setReviewSaving(false);
     }
@@ -263,12 +265,12 @@ export default function ClientProjectDetail() {
   return (
     <DashboardLayout userType="client">
       <Link to="/dashboard/client/projects" className="text-[#888888] hover:text-[#F5C800] transition-colors">
-        Back to projects
+        {t('Kembali ke proyek', 'Back to projects')}
       </Link>
 
       <div className="mt-8">
-        {loading && <EmptyState title="Memuat project" description="Menyiapkan detail project dan penawaran terbaru." />}
-        {error && <EmptyState title="Project tidak ditemukan" description={error} />}
+        {loading && <EmptyState title={t('Memuat proyek', 'Loading project')} description={t('Menyiapkan detail proyek dan penawaran terbaru.', 'Preparing project details and latest offers.')} />}
+        {error && <EmptyState title={t('Proyek tidak ditemukan', 'Project not found')} description={error} />}
 
         {project && (
           <div className="space-y-6">
@@ -285,15 +287,15 @@ export default function ClientProjectDetail() {
 
               <div className="grid md:grid-cols-2 gap-4 text-sm">
                 <div className="bg-[#141414] rounded-lg p-4">
-                  <div className="text-[#888888] mb-1">Jasa</div>
+                  <div className="text-[#888888] mb-1">{t('Jasa', 'Service')}</div>
                   <div className="text-white font-bold">{project.serviceType || project.category}</div>
                 </div>
                 <div className="bg-[#141414] rounded-lg p-4">
-                  <div className="text-[#888888] mb-1">Budget</div>
+                  <div className="text-[#888888] mb-1">{t('Budget/Harga', 'Budget/Price')}</div>
                   <div className="text-[#F5C800] font-bold">{project.amount}</div>
                 </div>
                 <div className="bg-[#141414] rounded-lg p-4">
-                  <div className="text-[#888888] mb-1">Tanggal Pelaksanaan</div>
+                  <div className="text-[#888888] mb-1">{t('Tanggal Pelaksanaan', 'Event Date')}</div>
                   <div className="text-white font-bold">{project.eventDate}</div>
                 </div>
                 <div className="bg-[#141414] rounded-lg p-4">
@@ -301,12 +303,12 @@ export default function ClientProjectDetail() {
                   <div className="text-white font-bold">{project.due}</div>
                 </div>
                 <div className="bg-[#141414] rounded-lg p-4 md:col-span-2">
-                  <div className="text-[#888888] mb-1">Lokasi</div>
+                  <div className="text-[#888888] mb-1">{t('Lokasi', 'Location')}</div>
                   <div className="text-white font-bold">
                     {[project.village, project.district, project.city, project.province].filter(Boolean).join(', ') || '-'}
                   </div>
                   <p className="text-[#888888] mt-2">{project.addressDetail || project.address || '-'}</p>
-                  {project.postalCode && <p className="text-[#888888] mt-1">Kode Pos: {project.postalCode}</p>}
+                  {project.postalCode && <p className="text-[#888888] mt-1">{t('Kode Pos:', 'Postal Code:')} {project.postalCode}</p>}
                   {project.latitude && project.longitude && (
                     <a
                       href={`https://www.google.com/maps?q=${project.latitude},${project.longitude}`}
@@ -314,7 +316,7 @@ export default function ClientProjectDetail() {
                       rel="noreferrer"
                       className="inline-block mt-3 text-[#F5C800] hover:underline"
                     >
-                      Open Maps
+                      {t('Buka Maps', 'Open Maps')}
                     </a>
                   )}
                 </div>
@@ -324,13 +326,13 @@ export default function ClientProjectDetail() {
             {project.pendingOffers.length > 0 && (
               <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-8">
                 <div className="flex items-center justify-between gap-4 mb-4">
-                  <h2 className="text-3xl" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>Freelancer Requests</h2>
+                  <h2 className="text-3xl" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>{t('Permintaan Freelancer', 'Freelancer Requests')}</h2>
                   {project.pendingOffers.length > 3 && (
                     <button
                       onClick={() => setShowAllApplicants(true)}
                       className="px-4 py-2 border border-[#888888] text-white rounded-lg text-sm hover:border-[#F5C800] hover:text-[#F5C800] transition-colors"
                     >
-                      View All
+                      {t('Lihat Semua', 'View All')}
                     </button>
                   )}
                 </div>
@@ -347,10 +349,10 @@ export default function ClientProjectDetail() {
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                   <div>
                     <h2 className="text-3xl mb-2" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>
-                      Pembayaran QRIS
+                      {t('Pembayaran QRIS', 'QRIS Payment')}
                     </h2>
                     <p className="text-[#888888]">
-                      Buat QRIS dinamis untuk mengunci freelancer dan mencatat dana escrow internal.
+                      {t('Buat QRIS dinamis untuk mengunci freelancer dan mencatat dana escrow internal.', 'Create a dynamic QRIS to lock the freelancer and record the internal escrow funds.')}
                     </p>
                     {paymentError && <p className="mt-3 text-sm text-[#EF4444]">{paymentError}</p>}
                   </div>
@@ -360,7 +362,7 @@ export default function ClientProjectDetail() {
                     disabled={paymentLoading}
                     className="px-5 py-3 bg-[#F5C800] text-black rounded-lg font-bold disabled:opacity-60"
                   >
-                    {paymentLoading ? 'Membuat QR...' : payment ? 'Lihat QRIS' : 'Bayar dengan QRIS'}
+                    {paymentLoading ? t('Membuat QR...', 'Creating QR...') : payment ? t('Lihat QRIS', 'View QRIS') : t('Bayar dengan QRIS', 'Pay with QRIS')}
                   </button>
                 </div>
               </div>
@@ -377,7 +379,7 @@ export default function ClientProjectDetail() {
             {project.referenceFiles.length > 0 && (
               <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-8">
                 <h2 className="text-3xl mb-4" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>
-                  Reference Files
+                  {t('File Referensi', 'Reference Files')}
                 </h2>
                 <div className="grid md:grid-cols-2 gap-3">
                   {project.referenceFiles.map((file) => (
@@ -395,7 +397,7 @@ export default function ClientProjectDetail() {
               </div>
             )}
 
-            {project.freelancer && project.freelancer !== 'Belum ada freelancer' && (
+            {project.freelancer && project.freelancer !== t('Belum ada freelancer', 'No freelancer yet') && (
               <ProjectReviewPanel
                 projectId={project.id}
                 userType="client"
@@ -405,13 +407,13 @@ export default function ClientProjectDetail() {
               />
             )}
 
-            {project.freelancer && project.freelancer !== 'Belum ada freelancer' && ['Completed', 'Auto Completed'].includes(project.status) && (
+            {project.freelancer && project.freelancer !== t('Belum ada freelancer', 'No freelancer yet') && ['Completed', 'Auto Completed'].includes(project.status) && (
               <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-8">
                 <h2 className="text-3xl mb-4" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>
-                  Freelancer Review
+                  {t('Ulasan Freelancer', 'Freelancer Review')}
                 </h2>
                 <p className="text-[#888888] mb-5">
-                  Bagikan ulasan setelah pekerjaan selesai dan dana diteruskan ke freelancer.
+                  {t('Bagikan ulasan setelah pekerjaan selesai dan dana diteruskan ke freelancer.', 'Share a review after the project is complete and funds are released to the freelancer.')}
                 </p>
 
                 {project.review ? (
@@ -438,17 +440,17 @@ export default function ClientProjectDetail() {
                         className="w-full bg-[#141414] border border-[#2A2A2A] rounded-lg px-4 py-3 text-white focus:border-[#F5C800] focus:outline-none"
                       >
                         {[5, 4, 3, 2, 1].map((value) => (
-                          <option key={value} value={value}>{value} Star</option>
+                          <option key={value} value={value}>{value} bintang</option>
                         ))}
                       </select>
                     </div>
                     <div>
-                      <label className="block text-sm text-[#888888] mb-2">Ulasan</label>
+                      <label className="block text-sm text-[#888888] mb-2">{t('Ulasan', 'Review')}</label>
                       <textarea
                         value={reviewForm.comment}
                         onChange={(event) => setReviewForm({ ...reviewForm, comment: event.target.value })}
                         rows={4}
-                        placeholder="Ceritakan kualitas kerja freelancer..."
+                        placeholder={t('Ceritakan kualitas kerja freelancer...', 'Tell us about the freelancer work quality...')}
                         className="w-full bg-[#141414] border border-[#2A2A2A] rounded-lg px-4 py-3 text-white placeholder-[#888888] focus:border-[#F5C800] focus:outline-none"
                       />
                     </div>
@@ -458,7 +460,7 @@ export default function ClientProjectDetail() {
                       disabled={reviewSaving}
                       className="px-5 py-3 bg-[#F5C800] text-black rounded-lg font-bold disabled:opacity-60"
                     >
-                      {reviewSaving ? 'Saving...' : 'Submit Review'}
+                      {reviewSaving ? t('Menyimpan...', 'Saving...') : t('Kirim Ulasan', 'Send Review')}
                     </button>
                   </div>
                 )}
@@ -473,12 +475,12 @@ export default function ClientProjectDetail() {
         <div className="fixed inset-y-0 left-0 right-0 z-50 bg-black/70 flex items-center justify-center p-4 md:left-60">
           <div className="w-full max-w-4xl max-h-[85vh] overflow-y-auto bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-6">
             <div className="flex items-center justify-between gap-4 mb-5">
-              <h2 className="text-3xl" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>All Freelancer Requests</h2>
+              <h2 className="text-3xl" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>{t('Semua Permintaan Freelancer', 'All Freelancer Requests')}</h2>
               <button
                 onClick={() => setShowAllApplicants(false)}
                 className="px-4 py-2 border border-[#888888] text-white rounded-lg text-sm hover:border-[#F5C800] hover:text-[#F5C800] transition-colors"
               >
-                Close
+                {t('Tutup', 'Close')}
               </button>
             </div>
             <div className="grid md:grid-cols-2 gap-3">
@@ -497,7 +499,7 @@ export default function ClientProjectDetail() {
               <div>
                 <div className="flex items-center gap-3 mb-1">
                   <h2 className="text-3xl" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>
-                    PEMBAYARAN QRIS
+                    {t('PEMBAYARAN QRIS', 'QRIS PAYMENT')}
                   </h2>
                   {payment.isSandbox && (
                     <span className="px-2 py-1 rounded-md bg-orange-500/20 border border-orange-500 text-orange-400 text-xs font-bold tracking-widest">
@@ -516,7 +518,7 @@ export default function ClientProjectDetail() {
                 type="button"
                 onClick={() => setPaymentOpen(false)}
                 className="p-2 border border-[#888888] text-white rounded-lg hover:border-[#F5C800] hover:text-[#F5C800] transition-colors"
-                aria-label="Tutup modal pembayaran"
+                aria-label={t('Tutup modal pembayaran', 'Close payment modal')}
               >
                 <X className="w-4 h-4" />
               </button>
@@ -526,9 +528,9 @@ export default function ClientProjectDetail() {
               <div className="relative">
                 <div className="bg-white rounded-lg p-4 min-h-[240px] flex items-center justify-center">
                   {payment.qrisUrl ? (
-                    <img src={payment.qrisUrl} alt="QRIS pembayaran" className="w-full h-auto" />
+                    <img src={payment.qrisUrl} alt={t('QRIS pembayaran', 'QRIS payment')} className="w-full h-auto" />
                   ) : (
-                    <span className="text-black text-sm text-center">QRIS tidak tersedia dari gateway</span>
+                    <span className="text-black text-sm text-center">{t('QRIS tidak tersedia dari gateway', 'QRIS is not available from the gateway')}</span>
                   )}
                 </div>
                 {payment.isSandbox && (
@@ -542,41 +544,41 @@ export default function ClientProjectDetail() {
 
               <div className="space-y-3 text-sm">
                 <div className="flex justify-between gap-4">
-                  <span className="text-[#888888]">Pekerjaan</span>
+                  <span className="text-[#888888]">{t('Pekerjaan', 'Job')}</span>
                   <span className="text-white text-right font-bold">{project?.title}</span>
                 </div>
                 <div className="flex justify-between gap-4">
-                  <span className="text-[#888888]">Harga Dasar</span>
+                  <span className="text-[#888888]">{t('Harga Dasar', 'Base Price')}</span>
                   <span className="text-white font-bold">{payment.baseAmountFormatted}</span>
                 </div>
                 <div className="flex justify-between gap-4">
-                  <span className="text-[#888888]">Biaya Admin 1%</span>
+                  <span className="text-[#888888]">{t('Biaya Admin 1%', 'Admin Fee 1%')}</span>
                   <span className="text-white font-bold">{payment.adminFeeClientFormatted}</span>
                 </div>
                 {payment.gatewayAdjustment > 0 && (
                   <div className="flex justify-between gap-4">
-                    <span className="text-[#888888]">Kode Unik / Penyesuaian KlikQRIS</span>
+                    <span className="text-[#888888]">{t('Kode Unik / Penyesuaian KlikQRIS', 'Unique Code / KlikQRIS Adjustment')}</span>
                     <span className="text-white font-bold">{payment.gatewayAdjustmentFormatted}</span>
                   </div>
                 )}
                 <div className="flex justify-between gap-4">
-                  <span className="text-[#888888]">Total Estimasi MediaVault</span>
+                  <span className="text-[#888888]">{t('Total Estimasi MediaVault', 'MediaVault Estimated Total')}</span>
                   <span className="text-white font-bold">{payment.amountRequestFormatted}</span>
                 </div>
                 <div className="h-px bg-[#2A2A2A]" />
                 <div className="flex justify-between gap-4 text-base">
-                  <span className="text-[#888888]">Total Bayar QRIS</span>
+                  <span className="text-[#888888]">{t('Total Bayar QRIS', 'QRIS Payment Total')}</span>
                   <span className="text-[#F5C800] font-bold">{payment.totalAmountFormatted}</span>
                 </div>
                 <div className="flex justify-between gap-4">
-                  <span className="text-[#888888]">Status</span>
+                  <span className="text-[#888888]">{t('Status', 'Status')}</span>
                   <span className={payment.status === 'PAID' ? 'text-[#22C55E] font-bold' : 'text-[#F5C800] font-bold'}>
-                    {payment.status === 'PAID' ? 'Pembayaran Berhasil' : 'Menunggu Pembayaran'}
+                    {payment.status === 'PAID' ? t('Pembayaran Berhasil', 'Payment Successful') : t('Menunggu Pembayaran', 'Waiting for Payment')}
                   </span>
                 </div>
                 {payment.expiredAt && (
                   <div className="flex justify-between gap-4">
-                    <span className="text-[#888888]">Berlaku Hingga</span>
+                    <span className="text-[#888888]">{t('Berlaku Hingga', 'Valid Until')}</span>
                     <span className="text-white text-right">
                       {new Date(payment.expiredAt).toLocaleString('id-ID', {
                         day: '2-digit',
@@ -596,7 +598,7 @@ export default function ClientProjectDetail() {
                       <span className="text-[#888888] text-xs">— Transaction Signature Key</span>
                     </div>
                     <p className="text-xs text-[#888888] mb-2">
-                      Salin signature ini ke halaman <strong className="text-orange-400">Sandbox Transactions</strong> di dashboard KlikQRIS untuk simulasi pembayaran sukses.
+                      {t('Salin signature ini ke halaman Sandbox Transactions di dasbor KlikQRIS untuk simulasi pembayaran sukses.', 'Copy this signature to the Sandbox Transactions page in the KlikQRIS dashboard to simulate a successful payment.')}
                     </p>
                     <code className="block text-xs text-white break-all bg-[#0A0A0A] rounded-md p-2 select-all">{payment.signature}</code>
                     <button
@@ -604,7 +606,7 @@ export default function ClientProjectDetail() {
                       onClick={() => navigator.clipboard?.writeText(payment.signature || '')}
                       className="mt-3 px-3 py-2 bg-orange-500 text-white rounded-lg text-xs font-bold hover:bg-orange-400 transition-colors"
                     >
-                      Copy Signature
+                      {t('Salin Signature', 'Copy Signature')}
                     </button>
                   </div>
                 )}
@@ -617,13 +619,13 @@ export default function ClientProjectDetail() {
                         const response = await apiRequest<{ payment: PaymentDetail }>(`/payments/${payment.klikqrisOrderId}/status`);
                         setPayment(response.payment);
                       } catch (err) {
-                        setPaymentError(err instanceof Error ? err.message : 'Gagal refresh status pembayaran');
+                        setPaymentError(err instanceof Error ? err.message : t('Gagal memuat ulang status pembayaran', 'Failed to refresh payment status'));
                       }
                     }}
                     className="inline-flex items-center gap-2 px-4 py-2 border border-[#888888] text-white rounded-lg text-sm hover:border-[#F5C800] hover:text-[#F5C800] transition-colors"
                   >
                     <RefreshCcw className="w-4 h-4" />
-                    Refresh Status
+                    {t('Muat Ulang Status', 'Refresh Status')}
                   </button>
                   {payment.directUrl && (
                     <a
@@ -632,7 +634,7 @@ export default function ClientProjectDetail() {
                       rel="noreferrer"
                       className="px-4 py-2 bg-[#F5C800] text-black rounded-lg text-sm font-bold"
                     >
-                      Buka Halaman Bayar
+                      {t('Buka Halaman Bayar', 'Open Payment Page')}
                     </a>
                   )}
                 </div>

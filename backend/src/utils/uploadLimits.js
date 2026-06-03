@@ -4,7 +4,6 @@ const GB = 1024 * MB;
 const MESSAGE_IMAGE_MAX_BYTES = 1 * MB;
 const PORTFOLIO_IMAGE_MAX_BYTES = 1 * MB;
 const PORTFOLIO_VIDEO_MAX_BYTES = 100 * MB;
-const PORTFOLIO_MAX_ITEMS = 5;
 const PORTFOLIO_MAX_IMAGES_PER_ITEM = 5;
 const PORTFOLIO_MAX_VIDEOS_PER_ITEM = 1;
 const PROJECT_SUBMISSION_MAX_BYTES = 500 * MB;
@@ -107,7 +106,7 @@ const validateSubmissionFile = ({ fileUrl, fileType, fileSize }) => {
   if (!fileUrl) return 'File bukti wajib diupload';
 
   if (!ALLOWED_SUBMISSION_FILE_TYPES.includes(fileType)) {
-    return 'File bukti harus berupa PNG, JPEG, atau PDF';
+    return 'File bukti harus berupa PNG, JPEG, PDF, MP4, MOV, atau WebM';
   }
 
   const actualSize = Number(fileSize) || dataUrlSizeInBytes(fileUrl);
@@ -159,7 +158,6 @@ module.exports = {
   MESSAGE_IMAGE_MAX_BYTES,
   PORTFOLIO_IMAGE_MAX_BYTES,
   PORTFOLIO_VIDEO_MAX_BYTES,
-  PORTFOLIO_MAX_ITEMS,
   PORTFOLIO_MAX_IMAGES_PER_ITEM,
   PORTFOLIO_MAX_VIDEOS_PER_ITEM,
   PROJECT_SUBMISSION_MAX_BYTES,

@@ -1,5 +1,5 @@
 const prisma = require('../config/prisma');
-const { PORTFOLIO_MAX_ITEMS, validatePortfolioMediaFiles } = require('../utils/uploadLimits');
+const { validatePortfolioMediaFiles } = require('../utils/uploadLimits');
 const { resolvePortfolioMedia } = require('../utils/mediaUrls');
 
 const serializePortfolioItem = async (item) => resolvePortfolioMedia({
@@ -67,15 +67,6 @@ exports.createPortfolioItem = async (req, res, next) => {
     if (!title?.trim()) {
       res.status(400);
       throw new Error('Judul portfolio wajib diisi');
-    }
-
-    // Enforce max 5 items total
-    const existingCount = await prisma.portfolioItem.count({
-      where: { freelancerId: req.user.id },
-    });
-    if (existingCount >= PORTFOLIO_MAX_ITEMS) {
-      res.status(400);
-      throw new Error(`Maksimal ${PORTFOLIO_MAX_ITEMS} item portfolio`);
     }
 
     const mediaFiles = normalizeMediaFiles({ files, fileUrl, fileName, fileType, fileSize });

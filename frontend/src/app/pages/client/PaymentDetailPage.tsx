@@ -4,6 +4,7 @@ import { CheckCircle2, Circle, Download, MessageCircle } from 'lucide-react';
 import DashboardLayout from '../../components/DashboardLayout';
 import EmptyState from '../../components/EmptyState';
 import { apiRequest } from '../../lib/api';
+import { useLanguage } from '../../context/LanguageContext';
 
 interface PaymentDetail {
   id: string;
@@ -79,6 +80,7 @@ const progressIndex = (status: string) => {
 const formatDateTime = (date: string | null) => date ? new Date(date).toLocaleString('id-ID') : '-';
 
 export default function ClientPaymentDetail() {
+  const { t } = useLanguage();
   const { id } = useParams();
   const [payment, setPayment] = useState<PaymentDetail | null>(null);
   const [timeline, setTimeline] = useState<TimelineItem[]>([]);
@@ -98,7 +100,7 @@ export default function ClientPaymentDetail() {
         setTimeline(response.timeline || []);
         setSubmissions(response.submissions || []);
       })
-      .catch((err) => setError(err instanceof Error ? err.message : 'Gagal memuat invoice'))
+      .catch((err) => setError(err instanceof Error ? err.message : t('Gagal memuat invoice', 'Failed to load invoice')))
       .finally(() => setLoading(false));
   };
 
@@ -116,12 +118,12 @@ export default function ClientPaymentDetail() {
     try {
       await apiRequest(`/projects/${payment.projectId}/submissions/${pendingSubmission.id}`, {
         method: 'PATCH',
-        body: JSON.stringify({ action: 'approve', comment: 'Pekerjaan dikonfirmasi selesai dari halaman invoice.' }),
+        body: JSON.stringify({ action: 'approve', comment: t('Pekerjaan dikonfirmasi selesai dari halaman invoice.', 'Work confirmed complete from the invoice page.') }),
       });
-      setActionMessage('Pekerjaan selesai. Dana diteruskan ke saldo freelancer.');
+      setActionMessage(t('Pekerjaan selesai. Dana diteruskan ke saldo freelancer.', 'Project completed. Funds were released to the freelancer balance.'));
       loadDetail();
     } catch (err) {
-      setActionMessage(err instanceof Error ? err.message : 'Gagal konfirmasi pekerjaan');
+      setActionMessage(err instanceof Error ? err.message : t('Gagal konfirmasi pekerjaan', 'Failed to confirm project completion'));
     } finally {
       setSubmitting(false);
     }
@@ -132,12 +134,12 @@ export default function ClientPaymentDetail() {
   return (
     <DashboardLayout userType="client">
       <Link to="/dashboard/client/payments" className="text-[#888888] hover:text-[#F5C800] transition-colors">
-        Back to payments
+        {t('Kembali ke pembayaran', 'Back to payments')}
       </Link>
 
       <div className="mt-8">
-        {loading && <EmptyState title="Memuat invoice" description="Menyiapkan detail transaksi dan status pembayaran." />}
-        {error && <EmptyState title="Invoice tidak ditemukan" description={error} />}
+        {loading && <EmptyState title={t('Memuat invoice', 'Loading invoice')} description={t('Menyiapkan detail transaksi dan status pembayaran.', 'Preparing transaction details and payment status.')} />}
+        {error && <EmptyState title={t('Invoice tidak ditemukan', 'Invoice not found')} description={error} />}
 
         {payment && (
           <div className="space-y-6">
@@ -146,10 +148,10 @@ export default function ClientPaymentDetail() {
                 <div>
                   <div className="text-sm text-[#888888]">{payment.invoiceNumber}</div>
                   <h1 className="text-5xl mt-1" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>
-                    Invoice Transaksi
+                    {t('Invoice Transaksi', 'Transaction Invoice')}
                   </h1>
                   <p className="text-[#888888] mt-2">
-                    Status pembayaran: {payment.status === 'PAID' ? 'Menunggu Konfirmasi Freelancer / Progress Pekerjaan' : payment.status}
+                    {t('Status pembayaran:', 'Payment status:')} {payment.status === 'PAID' ? t('Menunggu Konfirmasi Freelancer / Progress Pekerjaan', 'Waiting for Freelancer Confirmation / Work Progress') : payment.status}
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -159,12 +161,12 @@ export default function ClientPaymentDetail() {
                       disabled={submitting}
                       className="px-4 py-3 bg-[#F5C800] text-black rounded-lg font-bold disabled:opacity-60"
                     >
-                      {submitting ? 'Memproses...' : 'Konfirmasi Selesai'}
+                      {submitting ? t('Memproses...', 'Processing...') : t('Konfirmasi Selesai', 'Confirm Complete')}
                     </button>
                   )}
                   <button onClick={printInvoice} className="inline-flex items-center gap-2 px-4 py-3 border border-[#888888] rounded-lg text-white hover:border-[#F5C800] hover:text-[#F5C800]">
                     <Download className="w-4 h-4" />
-                    Download Invoice
+                    {t('Download Invoice', 'Download Invoice')}
                   </button>
                   <Link to="/dashboard/client/messages" className="inline-flex items-center gap-2 px-4 py-3 border border-[#888888] rounded-lg text-white hover:border-[#F5C800] hover:text-[#F5C800]">
                     <MessageCircle className="w-4 h-4" />
@@ -180,10 +182,19 @@ export default function ClientPaymentDetail() {
                 {steps.map((step, index) => {
                   const done = index <= activeStep;
                   const Icon = done ? CheckCircle2 : Circle;
+                  const stepLabel = {
+                    PAID: t('Pembayaran Berhasil', 'Payment Successful'),
+                    WAITING_FREELANCER: t('Menunggu Konfirmasi Freelancer', 'Waiting for Freelancer Confirmation'),
+                    IN_PROGRESS: t('Pekerjaan Berlangsung', 'Work in Progress'),
+                    DELIVERED: t('Freelancer Selesai', 'Freelancer Delivered'),
+                    WAITING_CLIENT: t('Menunggu Konfirmasi Klien', 'Waiting for Client Confirmation'),
+                    COMPLETED: t('Dana Cair', 'Funds Released'),
+                    DONE: t('Transaksi Selesai', 'Transaction Completed'),
+                  }[step.key] || step.label;
                   return (
                     <div key={step.key} className={`rounded-lg border p-3 ${done ? 'border-[#22C55E]/50 bg-[#22C55E]/10' : 'border-[#2A2A2A] bg-[#141414]'}`}>
                       <Icon className={`w-5 h-5 mb-2 ${done ? 'text-[#22C55E]' : 'text-[#888888]'}`} />
-                      <div className="text-sm font-bold text-white">{step.label}</div>
+                      <div className="text-sm font-bold text-white">{stepLabel}</div>
                     </div>
                   );
                 })}
@@ -197,7 +208,7 @@ export default function ClientPaymentDetail() {
                   onClick={() => setActiveTab(tab)}
                   className={`px-4 py-2 rounded-lg border font-bold ${activeTab === tab ? 'bg-[#F5C800] text-black border-[#F5C800]' : 'border-[#2A2A2A] text-white bg-[#141414]'}`}
                 >
-                  {tab === 'detail' ? 'Detail Pesanan' : tab === 'progress' ? 'Tracking Progress' : tab === 'invoice' ? 'Invoice' : 'Chat'}
+                  {tab === 'detail' ? t('Detail Pesanan', 'Order Details') : tab === 'progress' ? t('Tracking Progress', 'Progress Tracking') : tab === 'invoice' ? 'Invoice' : 'Chat'}
                 </button>
               ))}
             </div>
@@ -205,15 +216,15 @@ export default function ClientPaymentDetail() {
             {activeTab === 'detail' && (
               <section className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-6 grid md:grid-cols-2 gap-4">
                 <Info label="Freelancer" value={payment.project.freelancer || '-'} />
-                <Info label="Jenis Jasa" value={payment.project.serviceType || '-'} />
-                <Info label="Nama Pesanan" value={payment.project.title} />
-                <Info label="Tanggal" value={`${formatDateTime(payment.project.eventDate)} - ${formatDateTime(payment.project.deadline)}`} />
+                <Info label={t('Jenis Jasa', 'Service Type')} value={payment.project.serviceType || '-'} />
+                <Info label={t('Nama Pesanan', 'Order Name')} value={payment.project.title} />
+                <Info label={t('Tanggal', 'Date')} value={`${formatDateTime(payment.project.eventDate)} - ${formatDateTime(payment.project.deadline)}`} />
                 <div className="md:col-span-2">
-                  <Info label="Deskripsi" value={payment.project.description} />
+                  <Info label={t('Deskripsi', 'Description')} value={payment.project.description} />
                 </div>
                 <div className="md:col-span-2">
                   <Info
-                    label="Alamat Client"
+                    label={t('Alamat Klien', 'Client Address')}
                     value={[
                       payment.project.addressDetail || payment.project.address,
                       payment.project.village,
@@ -229,9 +240,9 @@ export default function ClientPaymentDetail() {
 
             {activeTab === 'progress' && (
               <section className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-6">
-                <h2 className="text-3xl mb-4" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>Tracking Progress</h2>
+                <h2 className="text-3xl mb-4" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>{t('Tracking Progress', 'Progress Tracking')}</h2>
                 <div className="space-y-3">
-                  {timeline.length === 0 && <p className="text-sm text-[#888888]">Belum ada update progress.</p>}
+                  {timeline.length === 0 && <p className="text-sm text-[#888888]">{t('Belum ada update progress.', 'No progress updates yet.')}</p>}
                   {timeline.map((item) => (
                     <div key={item.id} className="bg-[#141414] border border-[#2A2A2A] rounded-lg p-4">
                       <div className="flex items-center justify-between gap-3">
@@ -247,29 +258,29 @@ export default function ClientPaymentDetail() {
 
             {activeTab === 'invoice' && (
               <section className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-6">
-                <h2 className="text-3xl mb-4" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>Rincian Biaya</h2>
+                <h2 className="text-3xl mb-4" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>{t('Rincian Biaya', 'Cost Details')}</h2>
                 <div className="space-y-3 text-sm">
-                  <Row label="ID Transaksi" value={payment.invoiceNumber} />
+                  <Row label={t('ID Transaksi', 'Transaction ID')} value={payment.invoiceNumber} />
                   <Row label="KlikQRIS Order ID" value={payment.klikqrisOrderId} />
-                  <Row label="Biaya Jasa + Transport/Orang" value={payment.baseAmountFormatted} />
-                  <Row label="Admin MediaVault 1%" value={payment.adminFeeClientFormatted} />
-                  <Row label="Total Estimasi MediaVault" value={payment.amountRequestFormatted} />
+                  <Row label={t('Biaya Jasa + Transport/Orang', 'Service + Transport/Person Fee')} value={payment.baseAmountFormatted} />
+                  <Row label={t('Admin MediaVault 1%', 'MediaVault Admin 1%')} value={payment.adminFeeClientFormatted} />
+                  <Row label={t('Total Estimasi MediaVault', 'MediaVault Estimated Total')} value={payment.amountRequestFormatted} />
                   {payment.gatewayAdjustment > 0 && (
-                    <Row label="Kode Unik / Penyesuaian KlikQRIS" value={payment.gatewayAdjustmentFormatted} />
+                    <Row label={t('Kode Unik / Penyesuaian KlikQRIS', 'Unique Code / KlikQRIS Adjustment')} value={payment.gatewayAdjustmentFormatted} />
                   )}
-                  <Row label="Total Dibayar" value={payment.amountPaidFormatted || payment.totalAmountFormatted} strong />
-                  <Row label="Timestamp Pembayaran" value={formatDateTime(payment.paidAt)} />
+                  <Row label={t('Total Dibayar', 'Total Paid')} value={payment.amountPaidFormatted || payment.totalAmountFormatted} strong />
+                  <Row label={t('Waktu Pembayaran', 'Payment Time')} value={formatDateTime(payment.paidAt)} />
                 </div>
               </section>
             )}
 
             {activeTab === 'chat' && (
               <section className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-6">
-                <h2 className="text-3xl mb-2" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>Chat Transaksi</h2>
-                <p className="text-[#888888] mb-4">Percakapan transaksi masih memakai halaman Messages utama.</p>
+                <h2 className="text-3xl mb-2" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>{t('Chat Transaksi', 'Transaction Chat')}</h2>
+                <p className="text-[#888888] mb-4">{t('Percakapan transaksi tersedia di halaman Pesan utama.', 'Transaction conversations are available on the main Messages page.')}</p>
                 <Link to="/dashboard/client/messages" className="inline-flex items-center gap-2 px-4 py-3 bg-[#F5C800] text-black rounded-lg font-bold">
                   <MessageCircle className="w-4 h-4" />
-                  Buka Chat
+                  {t('Buka Chat', 'Open Chat')}
                 </Link>
               </section>
             )}

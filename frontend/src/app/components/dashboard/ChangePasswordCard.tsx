@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Lock } from 'lucide-react';
 import { apiRequest } from '../../lib/api';
+import { useLanguage } from '../../context/LanguageContext';
 
 const createCaptcha = () => {
   const a = Math.floor(Math.random() * 8) + 2;
@@ -9,6 +10,7 @@ const createCaptcha = () => {
 };
 
 export default function ChangePasswordCard({ onNotify }: { onNotify: (message: string, type: 'success' | 'error') => void }) {
+  const { t } = useLanguage();
   const [saving, setSaving] = useState(false);
   const [captcha, setCaptcha] = useState(createCaptcha);
   const [form, setForm] = useState({
@@ -22,9 +24,9 @@ export default function ChangePasswordCard({ onNotify }: { onNotify: (message: s
   const submit = async () => {
     try {
       setSaving(true);
-      if (form.newPassword.length < 8) throw new Error('Password baru minimal 8 karakter');
-      if (form.newPassword !== form.confirmPassword) throw new Error('Konfirmasi password tidak sama');
-      if (!captchaValid) throw new Error('Captcha sederhana belum benar');
+      if (form.newPassword.length < 8) throw new Error(t('Password baru minimal 8 karakter', 'New password must be at least 8 characters'));
+      if (form.newPassword !== form.confirmPassword) throw new Error(t('Konfirmasi password tidak sama', 'Password confirmation does not match'));
+      if (!captchaValid) throw new Error(t('Captcha sederhana belum benar', 'The simple captcha answer is incorrect'));
 
       await apiRequest('/auth/password', {
         method: 'PATCH',
@@ -36,9 +38,9 @@ export default function ChangePasswordCard({ onNotify }: { onNotify: (message: s
 
       setForm({ currentPassword: '', newPassword: '', confirmPassword: '', captchaAnswer: '' });
       setCaptcha(createCaptcha());
-      onNotify('Password berhasil diubah', 'success');
+      onNotify(t('Password berhasil diubah', 'Password updated successfully'), 'success');
     } catch (error) {
-      onNotify(error instanceof Error ? error.message : 'Gagal mengubah password', 'error');
+      onNotify(error instanceof Error ? error.message : t('Gagal mengubah password', 'Failed to update password'), 'error');
       setCaptcha(createCaptcha());
       setForm((current) => ({ ...current, captchaAnswer: '' }));
     } finally {
@@ -51,7 +53,7 @@ export default function ChangePasswordCard({ onNotify }: { onNotify: (message: s
       <div className="flex items-center gap-3 mb-6">
         <Lock className="w-5 h-5 text-[#F5C800]" />
         <h2 className="text-2xl font-bold" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>
-          Change Password
+          {t('Ubah Password', 'Change Password')}
         </h2>
       </div>
       <div className="grid md:grid-cols-2 gap-4">
@@ -59,21 +61,21 @@ export default function ChangePasswordCard({ onNotify }: { onNotify: (message: s
           type="password"
           value={form.currentPassword}
           onChange={(event) => setForm({ ...form, currentPassword: event.target.value })}
-          placeholder="Current password"
+          placeholder={t('Password saat ini', 'Current password')}
           className="bg-[#141414] border border-[#2A2A2A] rounded-lg px-4 py-3 text-white placeholder-[#888888] focus:border-[#F5C800] focus:outline-none"
         />
         <input
           type="password"
           value={form.newPassword}
           onChange={(event) => setForm({ ...form, newPassword: event.target.value })}
-          placeholder="New password"
+          placeholder={t('Password baru', 'New password')}
           className="bg-[#141414] border border-[#2A2A2A] rounded-lg px-4 py-3 text-white placeholder-[#888888] focus:border-[#F5C800] focus:outline-none"
         />
         <input
           type="password"
           value={form.confirmPassword}
           onChange={(event) => setForm({ ...form, confirmPassword: event.target.value })}
-          placeholder="Confirm new password"
+          placeholder={t('Konfirmasi password baru', 'Confirm new password')}
           className="bg-[#141414] border border-[#2A2A2A] rounded-lg px-4 py-3 text-white placeholder-[#888888] focus:border-[#F5C800] focus:outline-none"
         />
         <div className="flex gap-3">
@@ -83,7 +85,7 @@ export default function ChangePasswordCard({ onNotify }: { onNotify: (message: s
           <input
             value={form.captchaAnswer}
             onChange={(event) => setForm({ ...form, captchaAnswer: event.target.value })}
-            placeholder="Answer"
+            placeholder={t('Jawaban', 'Answer')}
             className="flex-1 bg-[#141414] border border-[#2A2A2A] rounded-lg px-4 py-3 text-white placeholder-[#888888] focus:border-[#F5C800] focus:outline-none"
           />
         </div>
@@ -94,7 +96,7 @@ export default function ChangePasswordCard({ onNotify }: { onNotify: (message: s
         disabled={saving}
         className="mt-5 px-6 py-3 bg-[#F5C800] text-black font-bold rounded-lg disabled:opacity-60"
       >
-        {saving ? 'Saving...' : 'Change Password'}
+        {saving ? t('Menyimpan...', 'Saving...') : t('Ubah Password', 'Change Password')}
       </button>
     </div>
   );

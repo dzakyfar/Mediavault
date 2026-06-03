@@ -348,6 +348,37 @@ select {
   mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
 }
 
+.mv-testimonial-section {
+  position: relative;
+  isolation: isolate;
+}
+
+.mv-testimonial-section::before,
+.mv-testimonial-section::after {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  pointer-events: none;
+  border-radius: 999px;
+  filter: blur(48px);
+}
+
+.mv-testimonial-section::before {
+  width: 22rem;
+  height: 22rem;
+  left: max(-9rem, -10vw);
+  top: 12%;
+  background: rgba(245, 200, 0, 0.12);
+}
+
+.mv-testimonial-section::after {
+  width: 18rem;
+  height: 18rem;
+  right: max(-8rem, -8vw);
+  bottom: 8%;
+  background: rgba(59, 130, 246, 0.08);
+}
+
 .mv-testimonial-track {
   display: flex;
   width: max-content;
@@ -362,6 +393,57 @@ select {
 
 .mv-testimonial-track:hover {
   animation-play-state: paused;
+}
+
+.mv-testimonial-card {
+  position: relative;
+  overflow: hidden;
+  min-height: 18rem;
+}
+
+.mv-testimonial-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 12% 12%, rgba(245, 200, 0, 0.16), transparent 34%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.04), transparent 45%);
+  opacity: 0.8;
+}
+
+.mv-testimonial-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+[data-theme='light'] .mv-testimonial-section {
+  background:
+    radial-gradient(circle at 18% 12%, rgba(217, 169, 0, 0.2), transparent 30%),
+    radial-gradient(circle at 82% 80%, rgba(59, 130, 246, 0.1), transparent 28%),
+    linear-gradient(180deg, #f6f0df 0%, #eef2f6 100%) !important;
+}
+
+[data-theme='light'] .mv-testimonial-strip {
+  mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+}
+
+[data-theme='light'] .mv-testimonial-card {
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.92), rgba(255, 249, 231, 0.9)),
+    radial-gradient(circle at 16% 14%, rgba(217, 169, 0, 0.18), transparent 38%) !important;
+  border-color: rgba(184, 134, 11, 0.22) !important;
+  box-shadow:
+    0 20px 60px rgba(91, 70, 20, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.72) !important;
+}
+
+[data-theme='light'] .mv-testimonial-card:hover {
+  border-color: rgba(217, 169, 0, 0.5) !important;
+  box-shadow:
+    0 26px 72px rgba(91, 70, 20, 0.18),
+    0 0 0 1px rgba(217, 169, 0, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.82) !important;
 }
 
 [data-theme='light'] body {

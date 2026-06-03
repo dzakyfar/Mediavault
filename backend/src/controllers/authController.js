@@ -368,6 +368,11 @@ exports.updateRole = async (req, res, next) => {
       throw new Error('Role harus CLIENT, FREELANCER, atau BOTH');
     }
 
+    if (req.user.role && req.user.role !== role) {
+      res.status(400);
+      throw new Error('Role akun sudah dipilih. Gunakan onboarding freelancer jika ingin menambahkan profil freelancer.');
+    }
+
     const user = await prisma.user.update({
       where: { id: req.user.id },
       data: { role },

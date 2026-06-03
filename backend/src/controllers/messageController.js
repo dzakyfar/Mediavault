@@ -29,20 +29,31 @@ const serializeMessageWithMedia = async (message, currentUserId) =>
 
 exports.listMessages = async (req, res, next) => {
   try {
-    const [messages, applications] = await Promise.all([
+    const messageWhere = {
+      OR: [
+        { senderId: req.user.id },
+        { receiverId: req.user.id },
+      ],
+    };
+
+    const [messages, conversationMessages, applications] = await Promise.all([
       prisma.message.findMany({
-        where: {
-          OR: [
-            { senderId: req.user.id },
-            { receiverId: req.user.id },
-          ],
-        },
+        where: messageWhere,
         include: {
           sender: { select: { id: true, fullName: true } },
           receiver: { select: { id: true, fullName: true } },
         },
         orderBy: { createdAt: 'desc' },
         take: 50,
+      }),
+      prisma.message.findMany({
+        where: messageWhere,
+        include: {
+          sender: { select: { id: true, fullName: true } },
+          receiver: { select: { id: true, fullName: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 300,
       }),
       prisma.projectApplication.findMany({
         where: {
@@ -73,7 +84,7 @@ exports.listMessages = async (req, res, next) => {
     )).reverse();
 
     const conversationMap = new Map();
-    messages.forEach((message) => {
+    conversationMessages.forEach((message) => {
       const serialized = serializeMessage(message, req.user.id);
       const current = conversationMap.get(serialized.peerId);
       if (!current) {
@@ -115,6 +126,21 @@ exports.listMessages = async (req, res, next) => {
         (a, b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime()
       ),
     });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.getUnreadMessageCount = async (req, res, next) => {
+  try {
+    const unreadCount = await prisma.message.count({
+      where: {
+        receiverId: req.user.id,
+        readAt: null,
+      },
+    });
+
+    res.json({ unreadCount });
   } catch (error) {
     next(error);
   }

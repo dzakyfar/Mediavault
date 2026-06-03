@@ -4,6 +4,30 @@ const { resolveMediaUrl, resolvePortfolioMedia } = require('../utils/mediaUrls')
 const { serializeOffering } = require('./offeringController');
 const { notifyUser } = require('../services/notificationService');
 
+const parseMoney = (value) => {
+  if (value === undefined || value === null || value === '') return null;
+  const normalized = typeof value === 'string' ? value.replace(/[^\d]/g, '') : value;
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? Math.round(parsed) : null;
+};
+
+const countCharacters = (value = '') => String(value).length;
+
+const parseRequiredDate = (value, label) => {
+  const parsed = new Date(value);
+  if (!value || Number.isNaN(parsed.getTime())) {
+    throw new Error(`${label} wajib diisi dengan tanggal valid`);
+  }
+  return parsed;
+};
+
+const startOfTomorrow = () => {
+  const tomorrow = new Date();
+  tomorrow.setHours(0, 0, 0, 0);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  return tomorrow;
+};
+
 exports.listFreelancers = async (req, res, next) => {
   try {
     const freelancers = await prisma.user.findMany({
@@ -256,7 +280,37 @@ exports.orderFreelancerService = async (req, res, next) => {
     const normalizedServiceType = selectedOffering?.serviceType || serviceType;
     const normalizedNeedType = selectedOffering?.title || needType;
 
-    const amount = Number(budget);
+    if (countCharacters(title || `${normalizedServiceType} - ${normalizedNeedType}`) > 64) {
+      res.status(400);
+      throw new Error('Judul pekerjaan maksimal 64 karakter');
+    }
+
+    if (countCharacters(description) > 500) {
+      res.status(400);
+      throw new Error('Deskripsi maksimal 500 karakter');
+    }
+
+    let parsedEventDate;
+    let parsedDeadline;
+    try {
+      parsedEventDate = parseRequiredDate(eventDate, 'Tanggal pelaksanaan');
+      parsedDeadline = parseRequiredDate(deadline, 'Deadline');
+    } catch (validationError) {
+      res.status(400);
+      throw validationError;
+    }
+
+    if (parsedDeadline < startOfTomorrow()) {
+      res.status(400);
+      throw new Error('Deadline minimal H+1');
+    }
+
+    const amount = parseMoney(budget);
+    if (!amount || amount < 10000) {
+      res.status(400);
+      throw new Error('Budget minimal Rp 10.000');
+    }
+
     const composedAddress = [addressDetail, village, district, city, province, postalCode].filter(Boolean).join(', ');
     const project = await prisma.project.create({
       data: {
@@ -265,9 +319,9 @@ exports.orderFreelancerService = async (req, res, next) => {
         category: normalizedServiceType,
         serviceType: normalizedServiceType,
         province,
-        budget: Number.isFinite(amount) ? Math.round(amount) : null,
-        eventDate: new Date(eventDate),
-        deadline: new Date(deadline),
+        budget: amount,
+        eventDate: parsedEventDate,
+        deadline: parsedDeadline,
         city,
         district,
         village,

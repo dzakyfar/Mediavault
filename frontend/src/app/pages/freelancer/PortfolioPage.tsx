@@ -7,12 +7,12 @@ import SmoothToast from '../../components/dashboard/SmoothToast';
 import { apiRequest } from '../../lib/api';
 import {
   PORTFOLIO_MAX_IMAGES_PER_ITEM,
-  PORTFOLIO_MAX_ITEMS,
   PORTFOLIO_MAX_VIDEOS_PER_ITEM,
   validatePortfolioFile,
 } from '../../lib/uploadLimits';
 import { getServicesForCategory, serviceCatalog } from '../../lib/serviceCatalog';
 import { uploadFileToS3 } from '../../lib/s3Upload';
+import { useLanguage } from '../../context/LanguageContext';
 
 interface PortfolioMedia {
   id?: string;
@@ -84,6 +84,7 @@ const emptyOfferingForm = {
 };
 
 export default function FreelancerPortfolio() {
+  const { t } = useLanguage();
   const [items, setItems] = useState<PortfolioItem[]>([]);
   const [form, setForm] = useState(emptyForm);
   const [loading, setLoading] = useState(true);
@@ -103,7 +104,7 @@ export default function FreelancerPortfolio() {
       setItems(response.items);
       setError('');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Gagal memuat portfolio');
+      setError(err instanceof Error ? err.message : t('Gagal memuat portofolio', 'Failed to load portfolio'));
     } finally {
       setLoading(false);
     }
@@ -114,7 +115,7 @@ export default function FreelancerPortfolio() {
       const response = await apiRequest<{ offerings: Offering[] }>('/offerings/mine');
       setOfferings(response.offerings);
     } catch (err) {
-      setToast({ message: err instanceof Error ? err.message : 'Gagal memuat katalog jasa', type: 'error' });
+      setToast({ message: err instanceof Error ? err.message : t('Gagal memuat katalog jasa', 'Failed to load service catalog'), type: 'error' });
     }
   };
 
@@ -133,12 +134,12 @@ export default function FreelancerPortfolio() {
     const incomingVideos = files.filter((file) => file.type.startsWith('video/')).length;
 
     if (currentImages + incomingImages > PORTFOLIO_MAX_IMAGES_PER_ITEM) {
-      setError(`Maksimal ${PORTFOLIO_MAX_IMAGES_PER_ITEM} gambar dalam satu portfolio`);
+      setError(t(`Maksimal ${PORTFOLIO_MAX_IMAGES_PER_ITEM} gambar dalam satu portofolio`, `Maximum ${PORTFOLIO_MAX_IMAGES_PER_ITEM} images in one portfolio item`));
       return;
     }
 
     if (currentVideos + incomingVideos > PORTFOLIO_MAX_VIDEOS_PER_ITEM) {
-      setError('Maksimal 1 video dalam satu portfolio');
+      setError(t('Maksimal 1 video dalam satu portofolio', 'Maximum 1 video in one portfolio item'));
       return;
     }
 
@@ -176,7 +177,7 @@ export default function FreelancerPortfolio() {
       });
       setError('');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Gagal mengupload media portfolio');
+      setError(err instanceof Error ? err.message : t('Gagal mengupload media portofolio', 'Failed to upload portfolio media'));
     } finally {
       setSaving(false);
     }
@@ -239,12 +240,12 @@ export default function FreelancerPortfolio() {
   const saveItem = async (event: FormEvent) => {
     event.preventDefault();
     if (!form.title.trim()) {
-      setError('Judul portfolio wajib diisi');
+      setError(t('Judul portofolio wajib diisi', 'Portfolio title is required'));
       return;
     }
 
     if (!form.category || !form.serviceType) {
-      setError('Kategori dan jasa portfolio wajib dipilih');
+      setError(t('Kategori dan jasa portofolio wajib dipilih', 'Portfolio category and service are required'));
       return;
     }
 
@@ -274,7 +275,7 @@ export default function FreelancerPortfolio() {
       resetForm();
       await loadItems();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Gagal menyimpan portfolio');
+      setError(err instanceof Error ? err.message : t('Gagal menyimpan portofolio', 'Failed to save portfolio'));
     } finally {
       setSaving(false);
     }
@@ -283,11 +284,11 @@ export default function FreelancerPortfolio() {
   const deleteItem = async (id: string) => {
     try {
       await apiRequest(`/portfolio/${id}`, { method: 'DELETE' });
-      setToast({ message: 'Portfolio berhasil dihapus', type: 'success' });
+      setToast({ message: t('Portofolio berhasil dihapus', 'Portfolio deleted successfully'), type: 'success' });
       setDeleteTargetId('');
       await loadItems();
     } catch (err) {
-      setToast({ message: err instanceof Error ? err.message : 'Gagal menghapus portfolio', type: 'error' });
+      setToast({ message: err instanceof Error ? err.message : t('Gagal menghapus portofolio', 'Failed to delete portfolio'), type: 'error' });
     }
   };
 
@@ -306,17 +307,17 @@ export default function FreelancerPortfolio() {
     const parsedRatePerHour = Number(offeringForm.ratePerHour);
 
     if (!serviceType) {
-      setError('Jenis jasa wajib dipilih');
+      setError(t('Jenis jasa wajib dipilih', 'Service type is required'));
       return;
     }
 
     if (!Number.isFinite(parsedRatePerHour) || parsedRatePerHour < 1) {
-      setError('Harga per jam wajib diisi minimal Rp 1');
+      setError(t('Harga per jam wajib diisi minimal Rp 1', 'Hourly rate must be at least Rp 1'));
       return;
     }
 
     if (!offeringForm.description.trim()) {
-      setError('Deskripsi atau benefit jasa wajib diisi');
+      setError(t('Deskripsi atau benefit jasa wajib diisi', 'Service description or benefits are required'));
       return;
     }
 
@@ -341,9 +342,9 @@ export default function FreelancerPortfolio() {
       });
       setOfferings((current) => [response.offering, ...current]);
       setOfferingForm(emptyOfferingForm);
-      setToast({ message: 'Jasa berhasil ditambahkan ke katalog', type: 'success' });
+      setToast({ message: t('Jasa berhasil ditambahkan ke katalog', 'Service added to catalog'), type: 'success' });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Gagal menyimpan jasa');
+      setError(err instanceof Error ? err.message : t('Gagal menyimpan jasa', 'Failed to save service'));
     } finally {
       setOfferingSaving(false);
     }
@@ -354,9 +355,9 @@ export default function FreelancerPortfolio() {
       await apiRequest(`/offerings/${id}`, { method: 'DELETE' });
       setOfferings((current) => current.filter((offering) => offering.id !== id));
       setOfferingDeleteTargetId('');
-      setToast({ message: 'Jasa dinonaktifkan dari katalog', type: 'success' });
+      setToast({ message: t('Jasa dinonaktifkan dari katalog', 'Service deactivated from catalog'), type: 'success' });
     } catch (err) {
-      setToast({ message: err instanceof Error ? err.message : 'Gagal menghapus jasa', type: 'error' });
+      setToast({ message: err instanceof Error ? err.message : t('Gagal menghapus jasa', 'Failed to delete service'), type: 'error' });
     }
   };
 
@@ -365,18 +366,18 @@ export default function FreelancerPortfolio() {
       <SmoothToast message={toast.message} type={toast.type} onClose={() => setToast({ message: '', type: 'info' })} />
       <ConfirmDialog
         open={Boolean(deleteTargetId)}
-        title="Delete Portfolio"
-        description="Portfolio ini akan dihapus permanen dari profile Anda."
-        confirmLabel="Delete"
+        title={t('Hapus Portofolio', 'Delete Portfolio')}
+        description={t('Portofolio ini akan dihapus permanen dari profil Anda.', 'This portfolio item will be permanently deleted from your profile.')}
+        confirmLabel={t('Hapus', 'Delete')}
         danger
         onCancel={() => setDeleteTargetId('')}
         onConfirm={() => deleteItem(deleteTargetId)}
       />
       <ConfirmDialog
         open={Boolean(offeringDeleteTargetId)}
-        title="Nonaktifkan Jasa"
-        description="Jasa ini akan dinonaktifkan dari katalog publik freelancer."
-        confirmLabel="Nonaktifkan"
+        title={t('Nonaktifkan Jasa', 'Deactivate Service')}
+        description={t('Jasa ini akan dinonaktifkan dari katalog publik freelancer.', 'This service will be deactivated from your public freelancer catalog.')}
+        confirmLabel={t('Nonaktifkan', 'Deactivate')}
         danger
         onCancel={() => setOfferingDeleteTargetId('')}
         onConfirm={() => deleteOffering(offeringDeleteTargetId)}
@@ -384,9 +385,9 @@ export default function FreelancerPortfolio() {
       <div className="flex items-center justify-between gap-4 mb-8 flex-wrap">
         <div>
           <h1 className="text-5xl" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>
-            Portfolio & Katalog Jasa
+            {t('Portofolio & Katalog Jasa', 'Portfolio & Service Catalog')}
           </h1>
-          <p className="text-[#888888] mt-2">Kelola karya visual dan rate jasa dari satu tempat.</p>
+          <p className="text-[#888888] mt-2">{t('Kelola karya visual dan rate jasa dari satu tempat.', 'Manage your visual work and service rates in one place.')}</p>
         </div>
       </div>
 
@@ -399,11 +400,11 @@ export default function FreelancerPortfolio() {
       <section className="grid xl:grid-cols-[1.05fr_0.95fr] gap-6 mb-8">
       <form onSubmit={saveItem} className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-6">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-2xl font-bold">{form.id ? 'Edit Portfolio' : 'Tambah Portfolio'}</h2>
+          <h2 className="text-2xl font-bold">{form.id ? t('Edit Portofolio', 'Edit Portfolio') : t('Tambah Portofolio', 'Add Portfolio')}</h2>
           <div className="flex items-center gap-3">
             {!form.id && (
-              <span className={`text-sm font-medium ${items.length >= PORTFOLIO_MAX_ITEMS ? 'text-[#EF4444]' : 'text-[#888888]'}`}>
-                {items.length}/{PORTFOLIO_MAX_ITEMS} item
+              <span className="text-sm font-medium text-[#888888]">
+                {items.length} {t('portofolio tersimpan', 'portfolio saved')}
               </span>
             )}
             {form.id && (
@@ -417,7 +418,7 @@ export default function FreelancerPortfolio() {
           <input
             value={form.title}
             onChange={(event) => setForm({ ...form, title: event.target.value })}
-            placeholder="Judul project portfolio"
+            placeholder={t('Judul project portofolio', 'Portfolio project title')}
             className="bg-[#141414] border border-[#2A2A2A] rounded-lg px-4 py-3 text-white placeholder-[#888888] focus:border-[#F5C800] focus:outline-none"
           />
           <select
@@ -432,7 +433,7 @@ export default function FreelancerPortfolio() {
             }}
             className="bg-[#141414] border border-[#2A2A2A] rounded-lg px-4 py-3 text-white placeholder-[#888888] focus:border-[#F5C800] focus:outline-none"
           >
-            <option value="">Pilih kategori</option>
+            <option value="">{t('Pilih kategori', 'Select category')}</option>
             {serviceCatalog.map((item) => (
               <option key={item.category} value={item.category}>{item.category}</option>
             ))}
@@ -443,7 +444,7 @@ export default function FreelancerPortfolio() {
             disabled={!form.category}
             className="md:col-span-2 bg-[#141414] border border-[#2A2A2A] rounded-lg px-4 py-3 text-white focus:border-[#F5C800] focus:outline-none disabled:opacity-60"
           >
-            <option value="">Pilih jasa</option>
+            <option value="">{t('Pilih jasa', 'Select service')}</option>
             {getServicesForCategory(form.category).map((service) => (
               <option key={service} value={service}>{service}</option>
             ))}
@@ -451,7 +452,7 @@ export default function FreelancerPortfolio() {
           <textarea
             value={form.description}
             onChange={(event) => setForm({ ...form, description: event.target.value })}
-            placeholder="Deskripsi singkat"
+            placeholder={t('Deskripsi singkat', 'Short description')}
             rows={4}
             className="md:col-span-2 bg-[#141414] border border-[#2A2A2A] rounded-lg px-4 py-3 text-white placeholder-[#888888] focus:border-[#F5C800] focus:outline-none"
           />
@@ -460,7 +461,7 @@ export default function FreelancerPortfolio() {
         <div className="mt-4 flex items-center gap-4">
           <label className="inline-flex items-center gap-2 px-4 py-3 border border-[#888888] text-white rounded-lg hover:border-[#F5C800] hover:text-[#F5C800] cursor-pointer transition-colors">
             <ImagePlus className="w-4 h-4" />
-            Upload Gambar / Video
+            {t('Upload Gambar / Video', 'Upload Images / Video')}
             <input
               type="file"
               accept="image/png,image/jpeg,video/mp4,video/quicktime,video/webm"
@@ -472,7 +473,7 @@ export default function FreelancerPortfolio() {
               }}
             />
           </label>
-          <span className="text-sm text-[#888888]">Maks. 5 gambar (1MB/gambar) dan 1 video (100MB)</span>
+          <span className="text-sm text-[#888888]">{t('Maks. 5 gambar (1MB/gambar) dan 1 video (100MB)', 'Max. 5 images (1MB/image) and 1 video (100MB)')}</span>
         </div>
 
         {form.media.length > 0 && (
@@ -496,7 +497,7 @@ export default function FreelancerPortfolio() {
                   type="button"
                   onClick={() => removeMedia(index)}
                   className="absolute right-2 top-2 rounded-full bg-black/70 p-1 text-white hover:bg-[#EF4444] transition-colors"
-                  aria-label="Hapus media"
+                  aria-label={t('Hapus media', 'Remove media')}
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -511,10 +512,10 @@ export default function FreelancerPortfolio() {
 
         <button
           type="submit"
-          disabled={saving || (!form.id && items.length >= PORTFOLIO_MAX_ITEMS)}
+          disabled={saving}
           className="mt-5 px-6 py-3 bg-[#F5C800] text-black font-bold rounded-lg disabled:opacity-60"
         >
-          {saving ? 'Saving...' : form.id ? 'Update Portfolio' : items.length >= PORTFOLIO_MAX_ITEMS ? `Maks. ${PORTFOLIO_MAX_ITEMS} item` : 'Add Portfolio'}
+          {saving ? t('Menyimpan...', 'Saving...') : form.id ? t('Update Portofolio', 'Update Portfolio') : t('Tambah Portofolio', 'Add Portfolio')}
         </button>
       </form>
 
@@ -524,8 +525,8 @@ export default function FreelancerPortfolio() {
             <Tags className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="text-2xl font-bold">Katalog Jasa & Rate</h2>
-            <p className="text-sm text-[#888888]">Paket aktif akan muncul di profile publik dan bisa dipilih client.</p>
+            <h2 className="text-2xl font-bold">{t('Katalog Jasa & Rate', 'Service Catalog & Rates')}</h2>
+            <p className="text-sm text-[#888888]">{t('Paket aktif akan muncul di profil publik dan bisa dipilih klien.', 'Active packages appear on your public profile and can be selected by clients.')}</p>
           </div>
         </div>
 
@@ -542,28 +543,28 @@ export default function FreelancerPortfolio() {
           <input
             value={offeringForm.title}
             onChange={(event) => setOfferingForm({ ...offeringForm, title: event.target.value })}
-            placeholder="Nama tampilan jasa"
+            placeholder={t('Nama tampilan jasa', 'Service display name')}
             className="bg-[#141414] border border-[#2A2A2A] rounded-lg px-4 py-3 text-white placeholder-[#888888] focus:border-[#F5C800] focus:outline-none"
           />
           <input
             type="number"
             value={offeringForm.ratePerHour}
             onChange={(event) => setOfferingForm({ ...offeringForm, ratePerHour: event.target.value })}
-            placeholder="Harga per jam (Rp)"
+            placeholder={t('Harga per jam (Rp)', 'Hourly rate (Rp)')}
             className="bg-[#141414] border border-[#2A2A2A] rounded-lg px-4 py-3 text-white placeholder-[#888888] focus:border-[#F5C800] focus:outline-none"
           />
           <input
             type="number"
             value={offeringForm.ratePerPhoto}
             onChange={(event) => setOfferingForm({ ...offeringForm, ratePerPhoto: event.target.value })}
-            placeholder="Rate per foto (opsional)"
+            placeholder={t('Rate per foto (opsional)', 'Rate per photo (optional)')}
             className="bg-[#141414] border border-[#2A2A2A] rounded-lg px-4 py-3 text-white placeholder-[#888888] focus:border-[#F5C800] focus:outline-none"
           />
           <input
             type="number"
             value={offeringForm.extraPersonFee}
             onChange={(event) => setOfferingForm({ ...offeringForm, extraPersonFee: event.target.value })}
-            placeholder="Biaya orang tambahan"
+            placeholder={t('Biaya orang tambahan', 'Extra person fee')}
             className="bg-[#141414] border border-[#2A2A2A] rounded-lg px-4 py-3 text-white placeholder-[#888888] focus:border-[#F5C800] focus:outline-none"
           />
           <select
@@ -572,7 +573,7 @@ export default function FreelancerPortfolio() {
             className="bg-[#141414] border border-[#2A2A2A] rounded-lg px-4 py-3 text-white focus:border-[#F5C800] focus:outline-none"
           >
             {[1, 2, 3, 4, 5, 6, 8, 10, 12].map((hour) => (
-              <option key={hour} value={hour}>{hour} jam estimasi</option>
+              <option key={hour} value={hour}>{hour} {t('jam estimasi', 'estimated hours')}</option>
             ))}
           </select>
           <input
@@ -580,20 +581,20 @@ export default function FreelancerPortfolio() {
             min="1"
             value={offeringForm.capacityPersons}
             onChange={(event) => setOfferingForm({ ...offeringForm, capacityPersons: event.target.value })}
-            placeholder="Kapasitas tim"
+            placeholder={t('Kapasitas tim', 'Team capacity')}
             className="bg-[#141414] border border-[#2A2A2A] rounded-lg px-4 py-3 text-white placeholder-[#888888] focus:border-[#F5C800] focus:outline-none"
           />
           <textarea
             value={offeringForm.description}
             onChange={(event) => setOfferingForm({ ...offeringForm, description: event.target.value })}
-            placeholder="Benefit/deskripsi jasa. Pisahkan benefit per baris."
+            placeholder={t('Benefit/deskripsi jasa. Pisahkan benefit per baris.', 'Service benefits/description. Put each benefit on a separate line.')}
             rows={4}
             className="md:col-span-2 bg-[#141414] border border-[#2A2A2A] rounded-lg px-4 py-3 text-white placeholder-[#888888] focus:border-[#F5C800] focus:outline-none"
           />
         </div>
 
         <div className="mt-4">
-          <div className="text-sm text-[#888888] mb-2">Label jasa</div>
+          <div className="text-sm text-[#888888] mb-2">{t('Label jasa', 'Service labels')}</div>
           <div className="flex flex-wrap gap-2">
             {tagOptions.map((tag) => (
               <button
@@ -618,15 +619,15 @@ export default function FreelancerPortfolio() {
           className="mt-5 inline-flex items-center gap-2 px-6 py-3 bg-[#F5C800] text-black font-bold rounded-lg disabled:opacity-60"
         >
           <Plus className="w-4 h-4" />
-          {offeringSaving ? 'Menyimpan...' : 'Tambah Jasa'}
+          {offeringSaving ? t('Menyimpan...', 'Saving...') : t('Tambah Jasa', 'Add Service')}
         </button>
       </form>
       </section>
 
       <section className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-6 mb-8">
-        <h2 className="text-2xl font-bold mb-4">Katalog Jasa Aktif</h2>
+        <h2 className="text-2xl font-bold mb-4">{t('Katalog Jasa Aktif', 'Active Service Catalog')}</h2>
         {offerings.length === 0 ? (
-          <p className="text-sm text-[#888888]">Belum ada jasa. Tambahkan minimal satu paket agar client bisa memesan dari profile.</p>
+          <p className="text-sm text-[#888888]">{t('Belum ada jasa. Tambahkan minimal satu paket agar klien bisa memesan dari profil.', 'No services yet. Add at least one package so clients can order from your profile.')}</p>
         ) : (
           <div className="grid md:grid-cols-2 gap-4">
             {offerings.map((offering) => (
@@ -636,16 +637,16 @@ export default function FreelancerPortfolio() {
                     <div className="text-sm text-[#F5C800] font-bold">{offering.serviceType}</div>
                     <h3 className="text-xl text-white font-bold">{offering.title || offering.serviceType}</h3>
                     <p className="text-sm text-[#888888] mt-1">
-                      {offering.ratePerHourFormatted}/jam
-                      {offering.ratePerPhotoFormatted ? ` - ${offering.ratePerPhotoFormatted}/foto` : ''}
+                      {offering.ratePerHourFormatted}/{t('jam', 'hour')}
+                      {offering.ratePerPhotoFormatted ? ` - ${offering.ratePerPhotoFormatted}/${t('foto', 'photo')}` : ''}
                     </p>
-                    <p className="text-sm text-[#888888]">Estimasi {offering.estimatedHours} jam - kapasitas {offering.capacityPersons || 1} orang</p>
+                    <p className="text-sm text-[#888888]">{t('Estimasi', 'Estimate')} {offering.estimatedHours} {t('jam', 'hours')} - {t('kapasitas', 'capacity')} {offering.capacityPersons || 1} {t('orang', 'people')}</p>
                   </div>
                   <button
                     type="button"
                     onClick={() => setOfferingDeleteTargetId(offering.id)}
                     className="p-2 text-[#888888] hover:text-[#EF4444]"
-                    aria-label="Nonaktifkan jasa"
+                    aria-label={t('Nonaktifkan jasa', 'Deactivate service')}
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -663,12 +664,12 @@ export default function FreelancerPortfolio() {
         )}
       </section>
 
-      {loading && <EmptyState title="Memuat portfolio" description="Menyiapkan karya dan katalog jasa Anda." />}
+      {loading && <EmptyState title={t('Memuat portofolio', 'Loading portfolio')} description={t('Menyiapkan karya dan katalog jasa Anda.', 'Preparing your work and service catalog.')} />}
 
       {!loading && items.length === 0 && (
         <EmptyState
-          title="Portfolio masih kosong"
-          description="Tambahkan contoh hasil kerja agar client bisa menilai gaya visual Anda."
+          title={t('Portofolio masih kosong', 'Portfolio is still empty')}
+          description={t('Tambahkan contoh hasil kerja agar client bisa menilai gaya visual Anda.', 'Add work samples so clients can review your visual style.')}
         />
       )}
 
@@ -699,28 +700,28 @@ export default function FreelancerPortfolio() {
               )
             ) : (
               <div className="w-full h-48 bg-[#141414] flex items-center justify-center text-[#888888]">
-                No image
+                {t('Belum ada gambar', 'No image yet')}
               </div>
             )}
             {media.length > 1 && (
               <div className="mx-5 -mt-9 mb-3 relative z-10 inline-flex rounded-full bg-black/70 px-3 py-1 text-xs font-bold text-white">
-                {media.filter((itemMediaItem) => itemMediaItem.fileType?.startsWith('image/')).length} gambar
-                {media.some((itemMediaItem) => itemMediaItem.fileType?.startsWith('video/')) ? ' + 1 video' : ''}
+                {media.filter((itemMediaItem) => itemMediaItem.fileType?.startsWith('image/')).length} {t('gambar', 'images')}
+                {media.some((itemMediaItem) => itemMediaItem.fileType?.startsWith('video/')) ? ` + 1 ${t('video', 'video')}` : ''}
               </div>
             )}
             <div className="p-5">
-              <div className="text-sm text-[#F5C800] font-bold mb-1">{item.category || 'Portfolio'}</div>
+              <div className="text-sm text-[#F5C800] font-bold mb-1">{item.category || t('Portofolio', 'Portfolio')}</div>
               <h3 className="text-xl font-bold text-white">{item.title}</h3>
               {item.serviceType && <p className="text-sm text-[#888888] mt-1">{item.serviceType}</p>}
               {item.description && <p className="text-[#888888] mt-2">{item.description}</p>}
               <div className="flex gap-2 mt-4">
                 <button onClick={() => editItem(item)} className="inline-flex items-center gap-2 px-3 py-2 border border-[#888888] text-white rounded-lg text-sm hover:border-[#F5C800]">
                   <Edit2 className="w-4 h-4" />
-                  Edit
+                  {t('Edit', 'Edit')}
                 </button>
                 <button onClick={() => setDeleteTargetId(item.id)} className="inline-flex items-center gap-2 px-3 py-2 border border-[#EF4444] text-[#EF4444] rounded-lg text-sm hover:bg-[#EF4444] hover:text-white">
                   <Trash2 className="w-4 h-4" />
-                  Delete
+                  {t('Hapus', 'Delete')}
                 </button>
               </div>
             </div>

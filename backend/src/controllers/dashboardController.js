@@ -179,6 +179,12 @@ exports.getFreelancerDashboard = async (req, res, next) => {
         where: {
           status: 'OPEN',
           clientId: { not: req.user.id },
+          applications: {
+            none: {
+              freelancerId: req.user.id,
+              status: 'PENDING',
+            },
+          },
         },
         include: {
           client: { select: { fullName: true } },

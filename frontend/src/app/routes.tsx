@@ -6,8 +6,8 @@ import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import RoleSelectPage from "./pages/RoleSelectPage";
 import ExplorePage from "./pages/ExplorePage";
-import PricingPage from "./pages/PricingPage";
 import AboutUsPage from "./pages/AboutUsPage";
+import SuccessStoriesPage from "./pages/SuccessStoriesPage";
 
 // Client Dashboard Pages
 import ClientDashboard from "./pages/client/DashboardPage";
@@ -64,12 +64,12 @@ export const router = createBrowserRouter([
     Component: ExplorePage,
   },
   {
-    path: "/pricing",
-    Component: PricingPage,
-  },
-  {
     path: "/about",
     Component: AboutUsPage,
+  },
+  {
+    path: "/success-stories",
+    Component: SuccessStoriesPage,
   },
   // Client Dashboard Routes
   {

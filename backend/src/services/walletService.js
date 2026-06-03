@@ -33,20 +33,36 @@ const recordMutation = async (
     throw new Error('Nominal mutasi saldo harus lebih dari Rp 0');
   }
 
-  const currentBalance = await getWalletBalance(client, userId);
-  const balanceAfter = type === 'CREDIT'
-    ? currentBalance + normalizedAmount
-    : currentBalance - normalizedAmount;
-
-  if (balanceAfter < 0) {
-    throw new Error('Saldo tidak cukup');
-  }
-
   await client.wallet.upsert({
     where: { userId },
-    update: { balance: balanceAfter },
-    create: { userId, balance: balanceAfter },
+    update: {},
+    create: { userId, balance: 0 },
   });
+
+  if (type === 'DEBIT') {
+    const debited = await client.wallet.updateMany({
+      where: {
+        userId,
+        balance: { gte: normalizedAmount },
+      },
+      data: {
+        balance: { decrement: normalizedAmount },
+      },
+    });
+
+    if (!debited.count) {
+      throw new Error('Saldo tidak cukup');
+    }
+  } else {
+    await client.wallet.update({
+      where: { userId },
+      data: {
+        balance: { increment: normalizedAmount },
+      },
+    });
+  }
+
+  const balanceAfter = await getWalletBalance(client, userId);
 
   return client.walletTransaction.create({
     data: {

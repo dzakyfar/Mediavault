@@ -29,7 +29,7 @@ const scopeConfig = {
     allowedTypes: ALLOWED_INLINE_IMAGE_TYPES,
   },
   portfolio: {
-    // Limit per-file: gambar 5MB, video 100MB — dicek dinamis di bawah
+    // Limit per-file: gambar 1MB, video 100MB. Kuota per portfolio divalidasi saat item disimpan.
     maxBytes: PORTFOLIO_VIDEO_MAX_BYTES,
     allowedTypes: ALLOWED_PORTFOLIO_TYPES,
   },

@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
-import { Send, Zap, ShoppingBag, Camera, Check } from 'lucide-react';
+import { Camera, Check, Send, ShoppingBag, Zap } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import { UserRole, apiRequest } from '../lib/api';
 
 interface TelegramConnectInfo {
@@ -11,10 +12,10 @@ interface TelegramConnectInfo {
 }
 
 export default function RoleSelectPage() {
+  const { t } = useLanguage();
   const [selectedRole, setSelectedRole] = useState<'client' | 'freelancer' | 'both' | null>(null);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  // Step: 'role' | 'telegram'
   const [step, setStep] = useState<'role' | 'telegram'>('role');
   const [telegramInfo, setTelegramInfo] = useState<TelegramConnectInfo | null>(null);
   const [telegramBusy, setTelegramBusy] = useState(false);
@@ -53,22 +54,20 @@ export default function RoleSelectPage() {
         ? '/freelancer-onboarding'
         : '/dashboard/client';
 
-      // Cek apakah Telegram bot dikonfigurasi di server
       try {
         const response = await apiRequest<{ telegram: { configured: boolean; connected: boolean } }>('/telegram/status');
         if (response.telegram.configured && !response.telegram.connected) {
-          // Bot tersedia dan user belum connect → tampilkan step Telegram
           setPendingPath(destination);
           setStep('telegram');
           return;
         }
       } catch {
-        // Telegram tidak tersedia atau error → skip langsung ke dashboard
+        // Telegram is optional; continue if the service is unavailable.
       }
 
       navigate(destination, { replace: true });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Gagal menyimpan role');
+      setError(err instanceof Error ? err.message : t('Gagal menyimpan role', 'Failed to save role'));
     } finally {
       setSubmitting(false);
     }
@@ -93,8 +92,6 @@ export default function RoleSelectPage() {
       if (response.chatUrl) {
         window.open(response.chatUrl, '_blank', 'noopener,noreferrer');
       }
-    } catch {
-      // Gagal connect — user bisa skip
     } finally {
       setTelegramBusy(false);
     }
@@ -108,8 +105,6 @@ export default function RoleSelectPage() {
         setTelegramDone(true);
         setTimeout(() => navigate(pendingPath, { replace: true }), 1000);
       }
-    } catch {
-      // ignore
     } finally {
       setTelegramBusy(false);
     }
@@ -129,15 +124,15 @@ export default function RoleSelectPage() {
           </div>
 
           <h1 className="text-5xl text-white mb-3" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>
-            Aktifkan Notifikasi Telegram
+            {t('Aktifkan Notifikasi Telegram', 'Enable Telegram Notifications')}
           </h1>
           <p className="text-[#888888] mb-8">
-            Terima update order, payment, dan revisi langsung di Telegram — tanpa harus buka dashboard terus.
+            {t('Terima update order, pembayaran, dan revisi langsung di Telegram tanpa harus membuka dasbor terus.', 'Receive order, payment, and revision updates directly on Telegram without keeping the dashboard open.')}
           </p>
 
           {telegramDone ? (
             <div className="p-4 rounded-xl bg-[#22C55E]/10 border border-[#22C55E] text-[#22C55E] font-bold mb-6">
-              ✓ Telegram berhasil terhubung! Mengarahkan ke dashboard...
+              {t('Telegram berhasil terhubung! Mengarahkan ke dasbor...', 'Telegram connected successfully! Redirecting to dashboard...')}
             </div>
           ) : (
             <>
@@ -148,12 +143,12 @@ export default function RoleSelectPage() {
                   disabled={telegramBusy}
                   className="w-full py-4 bg-[#F5C800] text-black font-bold rounded-full hover:shadow-[0_0_20px_rgba(245,200,0,0.4)] transition-all disabled:opacity-60 mb-4"
                 >
-                  {telegramBusy ? 'Membuka Telegram...' : 'Hubungkan Telegram Sekarang'}
+                  {telegramBusy ? t('Membuka Telegram...', 'Opening Telegram...') : t('Hubungkan Telegram Sekarang', 'Connect Telegram Now')}
                 </button>
               ) : (
                 <div className="bg-[#141414] border border-[#2A2A2A] rounded-xl p-5 mb-4 text-left">
                   <p className="text-sm text-[#888888] mb-3">
-                    Command sudah disalin. Paste ke chat bot <strong className="text-white">{telegramInfo.botHandle}</strong> lalu kirim.
+                    {t('Perintah sudah disalin. Tempel ke chat bot', 'Command copied. Paste it into the bot chat')} <strong className="text-white">{telegramInfo.botHandle}</strong> {t('lalu kirim.', 'then send it.')}
                   </p>
                   <code className="block text-sm text-white bg-[#0A0A0A] rounded-lg p-3 break-all mb-3 select-all">
                     {telegramInfo.startCommand}
@@ -164,14 +159,14 @@ export default function RoleSelectPage() {
                       onClick={() => navigator.clipboard?.writeText(telegramInfo.startCommand)}
                       className="px-3 py-2 border border-[#2A2A2A] text-[#888888] rounded-lg text-sm hover:border-[#F5C800] hover:text-[#F5C800]"
                     >
-                      Copy Ulang
+                      {t('Salin Ulang', 'Copy Again')}
                     </button>
                     <button
                       type="button"
                       onClick={() => window.open(telegramInfo.chatUrl, '_blank', 'noopener,noreferrer')}
                       className="px-3 py-2 border border-[#F5C800] text-[#F5C800] rounded-lg text-sm hover:bg-[#F5C800] hover:text-black"
                     >
-                      Buka Bot Lagi
+                      {t('Buka Bot Lagi', 'Open Bot Again')}
                     </button>
                   </div>
                 </div>
@@ -184,7 +179,7 @@ export default function RoleSelectPage() {
                   disabled={telegramBusy}
                   className="w-full py-4 bg-[#F5C800] text-black font-bold rounded-full hover:shadow-[0_0_20px_rgba(245,200,0,0.4)] transition-all disabled:opacity-60 mb-4"
                 >
-                  {telegramBusy ? 'Mengecek...' : 'Saya Sudah Kirim Command'}
+                  {telegramBusy ? t('Mengecek...', 'Checking...') : t('Saya Sudah Mengirim Perintah', 'I Have Sent The Command')}
                 </button>
               )}
             </>
@@ -195,7 +190,7 @@ export default function RoleSelectPage() {
             onClick={() => navigate(pendingPath, { replace: true })}
             className="text-[#888888] hover:text-white text-sm transition-colors"
           >
-            Lewati dulu, bisa diatur nanti di Settings
+            {t('Lewati dulu, bisa diatur nanti di Pengaturan', 'Skip for now, this can be configured later in Settings')}
           </button>
         </div>
       </div>
@@ -211,13 +206,14 @@ export default function RoleSelectPage() {
             <span className="text-xl font-bold text-white" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>MediaVault</span>
           </Link>
           <h1 className="text-6xl text-white mb-4" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>
-            How will you use MediaVault?
+            {t('Bagaimana kamu ingin memakai MediaVault?', 'How will you use MediaVault?')}
           </h1>
-          <p className="text-[#888888]">You can always switch later.</p>
+          <p className="text-[#888888]">{t('Kamu tetap bisa mengganti role nanti.', 'You can always switch later.')}</p>
         </div>
 
         <div className="grid md:grid-cols-2 gap-6 mb-8">
           <button
+            type="button"
             onClick={() => setSelectedRole('client')}
             className={`p-8 rounded-xl border-2 transition-all ${
               selectedRole === 'client'
@@ -233,19 +229,19 @@ export default function RoleSelectPage() {
             <div className="w-16 h-16 bg-[#F5C800] rounded-lg flex items-center justify-center mb-6">
               <ShoppingBag className="w-8 h-8 text-black" />
             </div>
-            <h3 className="text-2xl font-bold text-white mb-3">I'm a Client</h3>
+            <h3 className="text-2xl font-bold text-white mb-3">{t('Saya Klien', "I'm a Client")}</h3>
             <p className="text-[#888888] mb-6">
-              I want to book photographers and videographers for my projects.
+              {t('Saya ingin memesan fotografer atau videografer untuk project saya.', 'I want to book photographers and videographers for my projects.')}
             </p>
             <div className="flex flex-wrap gap-2">
-              <span className="px-3 py-1 bg-[#1A1A1A] text-[#888888] text-sm rounded-full">Wedding</span>
-              <span className="px-3 py-1 bg-[#1A1A1A] text-[#888888] text-sm rounded-full">Product Shoot</span>
-              <span className="px-3 py-1 bg-[#1A1A1A] text-[#888888] text-sm rounded-full">Event</span>
-              <span className="px-3 py-1 bg-[#1A1A1A] text-[#888888] text-sm rounded-full">Corporate</span>
+              {['Wedding', 'Product Shoot', 'Event', 'Corporate'].map((item) => (
+                <span key={item} className="px-3 py-1 bg-[#1A1A1A] text-[#888888] text-sm rounded-full">{item}</span>
+              ))}
             </div>
           </button>
 
           <button
+            type="button"
             onClick={() => setSelectedRole('freelancer')}
             className={`p-8 rounded-xl border-2 transition-all ${
               selectedRole === 'freelancer'
@@ -261,24 +257,25 @@ export default function RoleSelectPage() {
             <div className="w-16 h-16 bg-[#F5C800] rounded-lg flex items-center justify-center mb-6">
               <Camera className="w-8 h-8 text-black" />
             </div>
-            <h3 className="text-2xl font-bold text-white mb-3">I'm a Freelancer</h3>
+            <h3 className="text-2xl font-bold text-white mb-3">{t('Saya Freelancer', "I'm a Freelancer")}</h3>
             <p className="text-[#888888] mb-6">
-              I want to offer my photography or video services and get hired.
+              {t('Saya ingin menawarkan jasa foto atau video dan mendapatkan client.', 'I want to offer my photography or video services and get hired.')}
             </p>
             <div className="flex flex-wrap gap-2">
-              <span className="px-3 py-1 bg-[#1A1A1A] text-[#888888] text-sm rounded-full">Build Portfolio</span>
-              <span className="px-3 py-1 bg-[#1A1A1A] text-[#888888] text-sm rounded-full">Get Clients</span>
-              <span className="px-3 py-1 bg-[#1A1A1A] text-[#888888] text-sm rounded-full">Earn Money</span>
+              <span className="px-3 py-1 bg-[#1A1A1A] text-[#888888] text-sm rounded-full">{t('Bangun Portofolio', 'Build Portfolio')}</span>
+              <span className="px-3 py-1 bg-[#1A1A1A] text-[#888888] text-sm rounded-full">{t('Dapatkan Klien', 'Get Clients')}</span>
+              <span className="px-3 py-1 bg-[#1A1A1A] text-[#888888] text-sm rounded-full">{t('Tambah Pendapatan', 'Earn Money')}</span>
             </div>
           </button>
         </div>
 
         <div className="text-center mb-8">
           <button
+            type="button"
             onClick={() => setSelectedRole('both')}
             className="text-[#F5C800] hover:underline"
           >
-            I'm both - Client & Freelancer
+            {t('Saya keduanya - Klien & Freelancer', "I'm both - Client & Freelancer")}
           </button>
         </div>
 
@@ -289,6 +286,7 @@ export default function RoleSelectPage() {
             </div>
           )}
           <button
+            type="button"
             onClick={handleContinue}
             disabled={!selectedRole || submitting}
             className={`px-12 py-4 rounded-full font-bold transition-all ${
@@ -297,10 +295,10 @@ export default function RoleSelectPage() {
                 : 'bg-[#2A2A2A] text-[#888888] cursor-not-allowed'
             }`}
           >
-            {submitting ? 'SAVING...' : 'CONTINUE'}
+            {submitting ? t('MENYIMPAN...', 'SAVING...') : t('LANJUTKAN', 'CONTINUE')}
           </button>
           <p className="text-[#888888] text-sm mt-4">
-            You can switch roles anytime from your dashboard settings.
+            {t('Anda bisa mengganti role kapan saja dari pengaturan dasbor.', 'You can switch roles anytime from your dashboard settings.')}
           </p>
         </div>
       </div>

@@ -5,6 +5,7 @@ import EmptyState from '../../components/EmptyState';
 import ProjectTracker from '../../components/dashboard/ProjectTracker';
 import ProjectReviewPanel, { ProjectSubmission } from '../../components/dashboard/ProjectReviewPanel';
 import { apiRequest } from '../../lib/api';
+import { useLanguage } from '../../context/LanguageContext';
 
 interface ProjectDetail {
   id: string;
@@ -62,6 +63,7 @@ const normalizeProjectDetail = (project: ProjectDetail): ProjectDetail => ({
 });
 
 export default function FreelancerProjectDetail() {
+  const { t } = useLanguage();
   const { id } = useParams();
   const [project, setProject] = useState<ProjectDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -71,18 +73,18 @@ export default function FreelancerProjectDetail() {
     if (!id) return;
     apiRequest<{ project: ProjectDetail }>(`/projects/${id}`)
       .then((response) => setProject(normalizeProjectDetail(response.project)))
-      .catch((err) => setError(err instanceof Error ? err.message : 'Gagal memuat detail project'))
+      .catch((err) => setError(err instanceof Error ? err.message : t('Gagal memuat detail proyek', 'Failed to load project details')))
       .finally(() => setLoading(false));
   }, [id]);
 
   return (
     <DashboardLayout userType="freelancer">
       <Link to="/dashboard/freelancer/projects" className="text-[#888888] hover:text-[#F5C800] transition-colors">
-        Back to projects
+        {t('Kembali ke proyek', 'Back to projects')}
       </Link>
       <div className="mt-8">
-        {loading && <EmptyState title="Memuat project" description="Menyiapkan detail project dan progress terbaru." />}
-        {error && <EmptyState title="Project tidak ditemukan" description={error} />}
+        {loading && <EmptyState title={t('Memuat proyek', 'Loading project')} description={t('Menyiapkan detail proyek dan progres terbaru.', 'Preparing project details and latest progress.')} />}
+        {error && <EmptyState title={t('Proyek tidak ditemukan', 'Project not found')} description={error} />}
         {project && (
           <div className="space-y-6">
             <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-8">
@@ -97,23 +99,23 @@ export default function FreelancerProjectDetail() {
               </div>
               <div className="grid md:grid-cols-2 gap-4 text-sm">
                 <div className="bg-[#141414] rounded-lg p-4">
-                  <div className="text-[#888888] mb-1">Client</div>
+                  <div className="text-[#888888] mb-1">{t('Klien', 'Client')}</div>
                   <div className="text-white font-bold">{project.client}</div>
                   {project.clientId && (
                     <Link
                       to={`/dashboard/freelancer/messages?peerId=${project.clientId}&peerName=${encodeURIComponent(project.client)}`}
                       className="inline-block mt-3 px-4 py-2 border border-[#888888] text-white rounded-lg text-sm hover:border-[#F5C800] hover:text-[#F5C800] transition-colors"
                     >
-                      Chat Client
+                      {t('Chat Klien', 'Chat Client')}
                     </Link>
                   )}
                 </div>
                 <div className="bg-[#141414] rounded-lg p-4">
-                  <div className="text-[#888888] mb-1">Jasa</div>
+                  <div className="text-[#888888] mb-1">{t('Jasa', 'Service')}</div>
                   <div className="text-white font-bold">{project.serviceType || project.category}</div>
                 </div>
                 <div className="bg-[#141414] rounded-lg p-4">
-                  <div className="text-[#888888] mb-1">Tanggal Pelaksanaan</div>
+                  <div className="text-[#888888] mb-1">{t('Tanggal Pelaksanaan', 'Event Date')}</div>
                   <div className="text-white font-bold">{project.eventDate}</div>
                 </div>
                 <div className="bg-[#141414] rounded-lg p-4">
@@ -121,16 +123,16 @@ export default function FreelancerProjectDetail() {
                   <div className="text-white font-bold">{project.due}</div>
                 </div>
                 <div className="bg-[#141414] rounded-lg p-4">
-                  <div className="text-[#888888] mb-1">Budget</div>
+                  <div className="text-[#888888] mb-1">{t('Budget/Harga', 'Budget/Price')}</div>
                   <div className="text-[#F5C800] font-bold">{project.amount}</div>
                 </div>
                 <div className="bg-[#141414] rounded-lg p-4 md:col-span-2">
-                  <div className="text-[#888888] mb-1">Lokasi</div>
+                  <div className="text-[#888888] mb-1">{t('Lokasi', 'Location')}</div>
                   <div className="text-white font-bold">
                     {[project.village, project.district, project.city, project.province].filter(Boolean).join(', ') || '-'}
                   </div>
                   <p className="text-[#888888] mt-2">{project.addressDetail || project.address || '-'}</p>
-                  {project.postalCode && <p className="text-[#888888] mt-1">Kode Pos: {project.postalCode}</p>}
+                  {project.postalCode && <p className="text-[#888888] mt-1">{t('Kode Pos:', 'Postal Code:')} {project.postalCode}</p>}
                   {project.latitude && project.longitude && (
                     <a
                       href={`https://www.google.com/maps?q=${project.latitude},${project.longitude}`}
@@ -138,7 +140,7 @@ export default function FreelancerProjectDetail() {
                       rel="noreferrer"
                       className="inline-block mt-3 text-[#F5C800] hover:underline"
                     >
-                      Open Maps
+                      {t('Buka Maps', 'Open Maps')}
                     </a>
                   )}
                 </div>
@@ -154,7 +156,7 @@ export default function FreelancerProjectDetail() {
             {project.referenceFiles.length > 0 && (
               <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-8">
                 <h2 className="text-3xl mb-4" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>
-                  Reference Files
+                  {t('File Referensi', 'Reference Files')}
                 </h2>
                 <div className="grid md:grid-cols-2 gap-3">
                   {project.referenceFiles.map((file) => (

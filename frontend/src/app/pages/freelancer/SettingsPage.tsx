@@ -5,11 +5,14 @@ import DashboardLayout from '../../components/DashboardLayout';
 import ChangePasswordCard from '../../components/dashboard/ChangePasswordCard';
 import ConfirmDialog from '../../components/dashboard/ConfirmDialog';
 import DraggableLocationMap from '../../components/dashboard/DraggableLocationMap';
+import LanguagePreferenceCard from '../../components/dashboard/LanguagePreferenceCard';
 import PhoneInput from '../../components/dashboard/PhoneInput';
 import SearchableRegionSelect from '../../components/dashboard/SearchableRegionSelect';
 import SmoothToast from '../../components/dashboard/SmoothToast';
 import TelegramNotificationCard from '../../components/dashboard/TelegramNotificationCard';
+import UserAvatar from '../../components/UserAvatar';
 import { useAuth } from '../../context/AuthContext';
+import { useLanguage } from '../../context/LanguageContext';
 import { PORTFOLIO_IMAGE_MAX_BYTES, validateImageFile } from '../../lib/uploadLimits';
 import { uploadFileToS3 } from '../../lib/s3Upload';
 import { apiRequest } from '../../lib/api';
@@ -92,6 +95,7 @@ const offeringTemplates = [
 
 export default function FreelancerSettings() {
   const { user, updateProfile, deleteAccount } = useAuth();
+  const { t } = useLanguage();
   const navigate = useNavigate();
   const [statusMessage, setStatusMessage] = useState('');
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' }>({ message: '', type: 'info' });
@@ -204,7 +208,7 @@ export default function FreelancerSettings() {
         if (match) setSelectedProvinceId(match.id);
       })
       .catch(() => {
-        if (active) setLocationWarning('Data provinsi gagal dimuat. Coba refresh halaman.');
+        if (active) setLocationWarning(t('Data provinsi gagal dimuat. Coba refresh halaman.', 'Province data failed to load. Please refresh the page.'));
       })
       .finally(() => {
         if (active) setRegionLoading((current) => ({ ...current, provinces: false }));
@@ -230,7 +234,7 @@ export default function FreelancerSettings() {
         if (match) setSelectedCityId(match.id);
       })
       .catch(() => {
-        if (active) setLocationWarning('Data kota/kabupaten gagal dimuat.');
+        if (active) setLocationWarning(t('Data kota/kabupaten gagal dimuat.', 'City/regency data failed to load.'));
       })
       .finally(() => {
         if (active) setRegionLoading((current) => ({ ...current, cities: false }));
@@ -256,7 +260,7 @@ export default function FreelancerSettings() {
         if (match) setSelectedDistrictId(match.id);
       })
       .catch(() => {
-        if (active) setLocationWarning('Data kecamatan gagal dimuat.');
+        if (active) setLocationWarning(t('Data kecamatan gagal dimuat.', 'District data failed to load.'));
       })
       .finally(() => {
         if (active) setRegionLoading((current) => ({ ...current, districts: false }));
@@ -279,7 +283,7 @@ export default function FreelancerSettings() {
         if (active) setVillages(items);
       })
       .catch(() => {
-        if (active) setLocationWarning('Data desa/kelurahan gagal dimuat.');
+        if (active) setLocationWarning(t('Data desa/kelurahan gagal dimuat.', 'Village data failed to load.'));
       })
       .finally(() => {
         if (active) setRegionLoading((current) => ({ ...current, villages: false }));
@@ -375,9 +379,9 @@ export default function FreelancerSettings() {
         startingPrice: formData.startingPrice ? Number(formData.startingPrice) : null,
         isAvailable: formData.isAvailable,
       });
-      setStatusMessage('Profile berhasil disimpan');
+      setStatusMessage(t('Profil berhasil disimpan', 'Profile saved successfully'));
     } catch (error) {
-      setStatusMessage(error instanceof Error ? error.message : 'Gagal menyimpan profile');
+      setStatusMessage(error instanceof Error ? error.message : t('Gagal menyimpan profil', 'Failed to save profile'));
     } finally {
       setSaving(false);
     }
@@ -401,10 +405,10 @@ export default function FreelancerSettings() {
       const uploaded = await uploadFileToS3(file, 'avatar');
       setFormData((current) => ({ ...current, avatarUrl: uploaded.key }));
       setAvatarPreview(uploaded.url);
-      setToast({ message: 'Foto profile siap disimpan', type: 'success' });
+      setToast({ message: t('Foto profil siap disimpan', 'Profile photo is ready to save'), type: 'success' });
     } catch (uploadError) {
       setToast({
-        message: uploadError instanceof Error ? uploadError.message : 'Gagal upload foto profile',
+        message: uploadError instanceof Error ? uploadError.message : t('Gagal upload foto profil', 'Failed to upload profile photo'),
         type: 'error',
       });
     }
@@ -429,10 +433,10 @@ export default function FreelancerSettings() {
         fileType: uploaded.fileType,
         fileSize: uploaded.fileSize,
       }));
-      setToast({ message: 'File portfolio siap disimpan', type: 'success' });
+      setToast({ message: t('File portfolio siap disimpan', 'Portfolio file is ready to save'), type: 'success' });
     } catch (uploadError) {
       setToast({
-        message: uploadError instanceof Error ? uploadError.message : 'Gagal upload portfolio',
+        message: uploadError instanceof Error ? uploadError.message : t('Gagal upload portfolio', 'Failed to upload portfolio'),
         type: 'error',
       });
     }
@@ -440,12 +444,12 @@ export default function FreelancerSettings() {
 
   const savePortfolioItem = async () => {
     if (!portfolioForm.title.trim()) {
-      setStatusMessage('Judul portfolio wajib diisi.');
+      setStatusMessage(t('Judul portfolio wajib diisi.', 'Portfolio title is required.'));
       return;
     }
 
     if (!portfolioForm.fileUrl) {
-      setStatusMessage('Upload file portfolio terlebih dahulu.');
+      setStatusMessage(t('Upload file portfolio terlebih dahulu.', 'Upload a portfolio file first.'));
       return;
     }
 
@@ -477,9 +481,9 @@ export default function FreelancerSettings() {
         fileType: '',
         fileSize: 0,
       });
-      setToast({ message: 'Portfolio berhasil ditambahkan dan tampil di profile', type: 'success' });
+      setToast({ message: t('Portofolio berhasil ditambahkan dan tampil di profil', 'Portfolio added successfully and now appears on your profile'), type: 'success' });
     } catch (error) {
-      setStatusMessage(error instanceof Error ? error.message : 'Gagal menyimpan portfolio');
+      setStatusMessage(error instanceof Error ? error.message : t('Gagal menyimpan portfolio', 'Failed to save portfolio'));
     } finally {
       setPortfolioSaving(false);
     }
@@ -489,9 +493,9 @@ export default function FreelancerSettings() {
     try {
       await apiRequest(`/portfolio/${id}`, { method: 'DELETE' });
       setPortfolioItems((current) => current.filter((item) => item.id !== id));
-      setToast({ message: 'Portfolio dihapus dari profile', type: 'success' });
+      setToast({ message: t('Portofolio dihapus dari profil', 'Portfolio removed from profile'), type: 'success' });
     } catch (error) {
-      setStatusMessage(error instanceof Error ? error.message : 'Gagal menghapus portfolio');
+      setStatusMessage(error instanceof Error ? error.message : t('Gagal menghapus portfolio', 'Failed to delete portfolio'));
     }
   };
 
@@ -580,7 +584,7 @@ export default function FreelancerSettings() {
 
   const useCurrentLocation = async () => {
     if (!navigator.geolocation) {
-      setStatusMessage('Browser tidak mendukung fitur lokasi.');
+      setStatusMessage(t('Browser tidak mendukung fitur lokasi.', 'Your browser does not support location access.'));
       return;
     }
 
@@ -673,11 +677,11 @@ export default function FreelancerSettings() {
           || `Koordinat: ${latitude}, ${longitude}`;
 
         if (!provinceMatch || !cityMatch || !districtMatch || !villageMatch) {
-          setLocationWarning('Lokasi berhasil diambil, tapi sebagian wilayah tidak match persis. Mohon verifikasi manual.');
+          setLocationWarning(t('Lokasi berhasil diambil, tapi sebagian wilayah tidak match persis. Mohon verifikasi manual.', 'Location captured, but some region details did not match exactly. Please verify manually.'));
         }
       } catch {
         addressDetail = addressDetail || `Koordinat: ${latitude}, ${longitude}`;
-        setLocationWarning('Koordinat berhasil diambil, tetapi detail alamat perlu dilengkapi manual.');
+        setLocationWarning(t('Koordinat berhasil diambil, tetapi detail alamat perlu dilengkapi manual.', 'Coordinates captured, but address details still need to be completed manually.'));
       }
 
       setFormData((current) => ({
@@ -695,8 +699,8 @@ export default function FreelancerSettings() {
     } catch (geoError) {
       const code = Number((geoError as GeolocationPositionError)?.code || 0);
       setStatusMessage(code === 1
-        ? 'Izin lokasi ditolak. Aktifkan permission lokasi browser atau isi manual.'
-        : 'Gagal mengambil lokasi. Coba lagi atau isi alamat manual.');
+        ? t('Izin lokasi ditolak. Aktifkan permission lokasi browser atau isi manual.', 'Location permission was denied. Enable browser location permission or fill the address manually.')
+        : t('Gagal mengambil lokasi. Coba lagi atau isi alamat manual.', 'Failed to get location. Try again or fill the address manually.'));
     } finally {
       setLocating(false);
     }
@@ -713,17 +717,17 @@ export default function FreelancerSettings() {
       const parsedEstimatedHours = Number(offeringForm.estimatedHours || 1);
 
       if (!serviceType) {
-        setStatusMessage('Jenis jasa wajib diisi.');
+        setStatusMessage(t('Jenis jasa wajib diisi.', 'Service type is required.'));
         return;
       }
 
       if (!Number.isFinite(parsedRatePerHour) || parsedRatePerHour < 1) {
-        setStatusMessage('Isi Harga Per Jam minimal Rp 1.');
+        setStatusMessage(t('Isi Harga Per Jam minimal Rp 1.', 'Hourly rate must be at least Rp 1.'));
         return;
       }
 
       if (!Number.isFinite(parsedEstimatedHours) || parsedEstimatedHours < 1) {
-        setStatusMessage('Pilih estimasi durasi minimal 1 jam.');
+        setStatusMessage(t('Pilih estimasi durasi minimal 1 jam.', 'Estimated duration must be at least 1 hour.'));
         return;
       }
 
@@ -756,9 +760,9 @@ export default function FreelancerSettings() {
         relatedSpecs: [],
         description: '',
       });
-      setToast({ message: 'Jasa berhasil ditambahkan', type: 'success' });
+      setToast({ message: t('Jasa berhasil ditambahkan', 'Service added successfully'), type: 'success' });
     } catch (error) {
-      setStatusMessage(error instanceof Error ? error.message : 'Gagal menyimpan jasa');
+      setStatusMessage(error instanceof Error ? error.message : t('Gagal menyimpan jasa', 'Failed to save service'));
     } finally {
       setOfferingSaving(false);
     }
@@ -768,9 +772,9 @@ export default function FreelancerSettings() {
     try {
       await apiRequest(`/offerings/${offeringId}`, { method: 'DELETE' });
       setOfferings((current) => current.filter((offering) => offering.id !== offeringId));
-      setToast({ message: 'Jasa dinonaktifkan', type: 'success' });
+      setToast({ message: t('Jasa dinonaktifkan', 'Service disabled'), type: 'success' });
     } catch (error) {
-      setStatusMessage(error instanceof Error ? error.message : 'Gagal menghapus jasa');
+      setStatusMessage(error instanceof Error ? error.message : t('Gagal menghapus jasa', 'Failed to delete service'));
     }
   };
 
@@ -779,15 +783,15 @@ export default function FreelancerSettings() {
       <SmoothToast message={toast.message} type={toast.type} onClose={() => setToast({ message: '', type: 'info' })} />
       <ConfirmDialog
         open={showDeleteDialog}
-        title="Delete Account"
-        description="Akun freelancer dan data terkait akan dihapus permanen. Tindakan ini tidak bisa dibatalkan."
-        confirmLabel="Delete Account"
+        title={t('Hapus Akun', 'Delete Account')}
+        description={t('Akun freelancer dan data terkait akan dihapus permanen. Tindakan ini tidak bisa dibatalkan.', 'Your freelancer account and related data will be permanently deleted. This action cannot be undone.')}
+        confirmLabel={t('Hapus Akun', 'Delete Account')}
         danger
         onCancel={() => setShowDeleteDialog(false)}
         onConfirm={handleDeleteAccount}
       />
       <h1 className="text-5xl mb-8" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>
-        Account Settings
+        {t('Pengaturan Akun', 'Account Settings')}
       </h1>
 
       <div className="space-y-6 max-w-4xl">
@@ -799,20 +803,16 @@ export default function FreelancerSettings() {
 
         <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-8">
           <h2 className="text-2xl font-bold mb-6" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>
-            Profile
+            {t('Profil', 'Profile')}
           </h2>
 
           <div className="mb-6">
-            <label className="block text-sm text-[#888888] mb-2">Profile Photo</label>
+            <label className="block text-sm text-[#888888] mb-2">{t('Foto Profil', 'Profile Photo')}</label>
             <div className="flex items-center gap-4">
-              <div className="w-20 h-20 rounded-full bg-[#141414] overflow-hidden flex items-center justify-center text-[#F5C800] text-2xl font-bold">
-                {avatarPreview
-                  ? <img src={avatarPreview} alt="Profile" className="w-full h-full object-cover" />
-                  : (formData.fullName || 'U').charAt(0)}
-              </div>
+              <UserAvatar name={formData.fullName} src={avatarPreview} className="h-20 w-20 text-2xl" />
               <label className="px-4 py-2 bg-[#141414] border border-[#2A2A2A] rounded-lg hover:border-[#F5C800] transition-colors cursor-pointer inline-flex items-center gap-2">
                 <Camera className="w-4 h-4" />
-                Upload Photo
+                {t('Upload Foto', 'Upload Photo')}
                 <input
                   type="file"
                   accept="image/png,image/jpeg"
@@ -825,7 +825,7 @@ export default function FreelancerSettings() {
 
           <div className="grid md:grid-cols-2 gap-4 mb-6">
             <div>
-              <label className="block text-sm text-[#888888] mb-2">Full Name</label>
+              <label className="block text-sm text-[#888888] mb-2">{t('Nama Lengkap', 'Full Name')}</label>
               <input
                 type="text"
                 value={formData.fullName}
@@ -843,14 +843,14 @@ export default function FreelancerSettings() {
               />
             </div>
             <div>
-              <label className="block text-sm text-[#888888] mb-2">Phone Number</label>
+              <label className="block text-sm text-[#888888] mb-2">{t('Nomor Telepon', 'Phone Number')}</label>
               <PhoneInput
                 value={formData.phone}
                 onChange={(value) => setFormData({ ...formData, phone: value })}
               />
             </div>
             <div>
-              <label className="block text-sm text-[#888888] mb-2">City</label>
+              <label className="block text-sm text-[#888888] mb-2">{t('Kota', 'City')}</label>
               <input
                 type="text"
                 value={formData.city}
@@ -866,17 +866,19 @@ export default function FreelancerSettings() {
             disabled={saving}
             className="px-6 py-3 bg-[#F5C800] text-black font-bold rounded-lg hover:shadow-[0_0_20px_rgba(245,200,0,0.4)] transition-all disabled:opacity-60"
           >
-            {saving ? 'Saving...' : 'Save Changes'}
+            {saving ? t('Menyimpan...', 'Saving...') : t('Simpan Perubahan', 'Save Changes')}
           </button>
         </div>
+
+        <LanguagePreferenceCard />
 
         <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-8">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
             <div>
               <h2 className="text-2xl font-bold" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>
-                Alamat Freelancer
+                {t('Alamat Freelancer', 'Freelancer Address')}
               </h2>
-              <p className="text-sm text-[#888888]">Dipakai sebagai titik awal estimasi transportasi saat client memesan.</p>
+              <p className="text-sm text-[#888888]">{t('Dipakai sebagai titik awal estimasi transportasi saat client memesan.', 'Used as the starting point for transport estimation when clients place an order.')}</p>
             </div>
             <button
               type="button"
@@ -885,7 +887,7 @@ export default function FreelancerSettings() {
               className="inline-flex items-center justify-center gap-2 px-4 py-3 border border-[#888888] text-white rounded-lg hover:border-[#F5C800] hover:text-[#F5C800] transition-colors disabled:opacity-60"
             >
               <LocateFixed className="w-4 h-4" />
-              {locating ? 'Mengambil Lokasi...' : 'Gunakan Lokasi Saya'}
+              {locating ? t('Mengambil Lokasi...', 'Getting Location...') : t('Gunakan Lokasi Saya', 'Use My Location')}
             </button>
           </div>
 
@@ -897,8 +899,8 @@ export default function FreelancerSettings() {
 
           <div className="grid md:grid-cols-2 gap-4 mb-6">
             <SearchableRegionSelect
-              label="Provinsi"
-              placeholder={regionLoading.provinces ? 'Memuat provinsi...' : 'Ketik nama provinsi'}
+              label={t('Provinsi', 'Province')}
+              placeholder={regionLoading.provinces ? t('Memuat provinsi...', 'Loading provinces...') : t('Ketik nama provinsi', 'Type province name')}
               value={formData.province}
               options={provinces}
               disabled={regionLoading.provinces}
@@ -906,8 +908,8 @@ export default function FreelancerSettings() {
               onSelect={selectProvince}
             />
             <SearchableRegionSelect
-              label="Kabupaten/Kota"
-              placeholder={!selectedProvinceId ? 'Pilih provinsi dulu' : regionLoading.cities ? 'Memuat kota/kabupaten...' : 'Ketik kota/kabupaten'}
+              label={t('Kabupaten/Kota', 'City/Regency')}
+              placeholder={!selectedProvinceId ? t('Pilih provinsi dulu', 'Select a province first') : regionLoading.cities ? t('Memuat kota/kabupaten...', 'Loading cities/regencies...') : t('Ketik kota/kabupaten', 'Type city/regency')}
               value={formData.city}
               options={cities}
               disabled={!selectedProvinceId || regionLoading.cities}
@@ -915,8 +917,8 @@ export default function FreelancerSettings() {
               onSelect={selectCity}
             />
             <SearchableRegionSelect
-              label="Kecamatan"
-              placeholder={!selectedCityId ? 'Pilih kota/kabupaten dulu' : regionLoading.districts ? 'Memuat kecamatan...' : 'Ketik kecamatan'}
+              label={t('Kecamatan', 'District')}
+              placeholder={!selectedCityId ? t('Pilih kota/kabupaten dulu', 'Select a city/regency first') : regionLoading.districts ? t('Memuat kecamatan...', 'Loading districts...') : t('Ketik kecamatan', 'Type district')}
               value={formData.district}
               options={districts}
               disabled={!selectedCityId || regionLoading.districts}
@@ -924,8 +926,8 @@ export default function FreelancerSettings() {
               onSelect={selectDistrict}
             />
             <SearchableRegionSelect
-              label="Desa/Kelurahan"
-              placeholder={!selectedDistrictId ? 'Pilih kecamatan dulu' : regionLoading.villages ? 'Memuat desa/kelurahan...' : 'Ketik desa/kelurahan'}
+              label={t('Desa/Kelurahan', 'Village/Subdistrict')}
+              placeholder={!selectedDistrictId ? t('Pilih kecamatan dulu', 'Select a district first') : regionLoading.villages ? t('Memuat desa/kelurahan...', 'Loading villages/subdistricts...') : t('Ketik desa/kelurahan', 'Type village/subdistrict')}
               value={formData.village}
               options={villages}
               disabled={!selectedDistrictId || regionLoading.villages}
@@ -933,7 +935,7 @@ export default function FreelancerSettings() {
               onSelect={selectVillage}
             />
             <div>
-              <label className="block text-sm text-[#888888] mb-2">Kode Pos</label>
+              <label className="block text-sm text-[#888888] mb-2">{t('Kode Pos', 'Postal Code')}</label>
               <input
                 type="number"
                 value={formData.postalCode}
@@ -942,21 +944,21 @@ export default function FreelancerSettings() {
               />
             </div>
             <div>
-              <label className="block text-sm text-[#888888] mb-2">Koordinat</label>
+              <label className="block text-sm text-[#888888] mb-2">{t('Koordinat', 'Coordinates')}</label>
               <input
                 value={formData.latitude && formData.longitude ? `${formData.latitude}, ${formData.longitude}` : ''}
                 readOnly
-                placeholder="Terisi otomatis dari lokasi"
+                placeholder={t('Terisi otomatis dari lokasi', 'Filled automatically from location')}
                 className="w-full bg-[#141414] border border-[#2A2A2A] rounded-lg px-4 py-3 text-[#888888] placeholder-[#888888] focus:outline-none"
               />
             </div>
             <div className="md:col-span-2">
-              <label className="block text-sm text-[#888888] mb-2">Detail Alamat</label>
+              <label className="block text-sm text-[#888888] mb-2">{t('Detail Alamat', 'Address Details')}</label>
               <textarea
                 value={formData.addressDetail}
                 onChange={(event) => setFormData({ ...formData, addressDetail: event.target.value, locationSource: 'manual' })}
                 rows={3}
-                placeholder="Nama jalan, nomor, gedung, patokan"
+                placeholder={t('Nama jalan, nomor, gedung, patokan', 'Street name, number, building, landmark')}
                 className="w-full bg-[#141414] border border-[#2A2A2A] rounded-lg px-4 py-3 text-white placeholder-[#888888] focus:border-[#F5C800] focus:outline-none"
               />
             </div>
@@ -981,18 +983,18 @@ export default function FreelancerSettings() {
             disabled={saving}
             className="px-6 py-3 bg-[#F5C800] text-black font-bold rounded-lg hover:shadow-[0_0_20px_rgba(245,200,0,0.4)] transition-all disabled:opacity-60"
           >
-            {saving ? 'Saving...' : 'Save Address'}
+            {saving ? t('Menyimpan...', 'Saving...') : t('Simpan Alamat', 'Save Address')}
           </button>
         </div>
 
         <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-8">
           <h2 className="text-2xl font-bold mb-6" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>
-            Professional Info
+            {t('Info Profesional', 'Professional Info')}
           </h2>
 
           <div className="space-y-4 mb-6">
             <div>
-              <label className="block text-sm text-[#888888] mb-2">Specialization</label>
+              <label className="block text-sm text-[#888888] mb-2">{t('Spesialisasi', 'Specialization')}</label>
               <input
                 type="text"
                 value={formData.specialty}
@@ -1010,7 +1012,7 @@ export default function FreelancerSettings() {
               />
             </div>
             <div>
-              <label className="block text-sm text-[#888888] mb-2">Starting Price (Rp)</label>
+              <label className="block text-sm text-[#888888] mb-2">{t('Harga Mulai (Rp)', 'Starting Price (Rp)')}</label>
               <input
                 type="number"
                 value={formData.startingPrice}
@@ -1020,8 +1022,8 @@ export default function FreelancerSettings() {
             </div>
             <label className="flex items-center justify-between gap-4 p-4 bg-[#141414] border border-[#2A2A2A] rounded-lg cursor-pointer">
               <div>
-                <div className="font-bold text-white">Available for new jobs</div>
-                <div className="text-sm text-[#888888]">Jika dimatikan, profile tidak muncul saat filter Available Only aktif.</div>
+                <div className="font-bold text-white">{t('Tersedia untuk job baru', 'Available for new jobs')}</div>
+                <div className="text-sm text-[#888888]">{t('Jika dimatikan, profil tidak muncul saat filter hanya yang tersedia aktif.', 'If disabled, your profile will not appear when clients filter for available freelancers only.')}</div>
               </div>
               <input
                 type="checkbox"
@@ -1038,18 +1040,18 @@ export default function FreelancerSettings() {
             disabled={saving}
             className="px-6 py-3 bg-[#F5C800] text-black font-bold rounded-lg hover:shadow-[0_0_20px_rgba(245,200,0,0.4)] transition-all disabled:opacity-60"
           >
-            {saving ? 'Saving...' : 'Save Changes'}
+            {saving ? t('Menyimpan...', 'Saving...') : t('Simpan Perubahan', 'Save Changes')}
           </button>
         </div>
 
         <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-8">
           <h2 className="text-2xl font-bold mb-6" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>
-            Bank Account
+            {t('Rekening Bank', 'Bank Account')}
           </h2>
 
           <div className="grid md:grid-cols-2 gap-4 mb-6">
             <div>
-              <label className="block text-sm text-[#888888] mb-2">Bank Name</label>
+              <label className="block text-sm text-[#888888] mb-2">{t('Nama Bank', 'Bank Name')}</label>
               <input
                 type="text"
                 value={formData.bankName}
@@ -1058,7 +1060,7 @@ export default function FreelancerSettings() {
               />
             </div>
             <div>
-              <label className="block text-sm text-[#888888] mb-2">Account Number</label>
+              <label className="block text-sm text-[#888888] mb-2">{t('Nomor Rekening', 'Account Number')}</label>
               <input
                 type="text"
                 value={formData.accountNumber}
@@ -1067,7 +1069,7 @@ export default function FreelancerSettings() {
               />
             </div>
             <div className="md:col-span-2">
-              <label className="block text-sm text-[#888888] mb-2">Account Holder Name</label>
+              <label className="block text-sm text-[#888888] mb-2">{t('Nama Pemilik Rekening', 'Account Holder Name')}</label>
               <input
                 type="text"
                 value={formData.accountHolder}
@@ -1078,7 +1080,7 @@ export default function FreelancerSettings() {
           </div>
 
           <button className="px-6 py-3 bg-[#F5C800] text-black font-bold rounded-lg hover:shadow-[0_0_20px_rgba(245,200,0,0.4)] transition-all">
-            Save Changes
+            {t('Simpan Perubahan', 'Save Changes')}
           </button>
         </div>
 
@@ -1088,17 +1090,17 @@ export default function FreelancerSettings() {
 
         <div className="bg-[#1A1A1A] border border-[#EF4444]/20 rounded-xl p-8">
           <h2 className="text-2xl font-bold mb-4 text-[#EF4444]" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>
-            Danger Zone
+            {t('Area Berisiko', 'Danger Zone')}
           </h2>
           <p className="text-[#888888] mb-6">
-            Once you delete your account, there is no going back. Please be certain.
+            {t('Jika akun dihapus, data akun tidak bisa dipulihkan. Pastikan keputusan ini sudah benar.', 'If this account is deleted, account data cannot be restored. Make sure this decision is final.')}
           </p>
           <button
             type="button"
             onClick={() => setShowDeleteDialog(true)}
             className="px-6 py-3 border-2 border-[#EF4444] text-[#EF4444] font-bold rounded-lg hover:bg-[#EF4444] hover:text-white transition-all"
           >
-            Delete Account
+            {t('Hapus Akun', 'Delete Account')}
           </button>
         </div>
       </div>

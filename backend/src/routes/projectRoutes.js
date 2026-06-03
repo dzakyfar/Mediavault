@@ -11,6 +11,7 @@ const {
   reviewProjectSubmission,
   reviewFreelancer,
   applyToProject,
+  cancelProjectApplication,
   respondToApplication,
   confirmProjectByFreelancer,
   rejectPaidProjectByFreelancer,
@@ -30,6 +31,7 @@ router.post('/:projectId/submissions', protect, requireRole('FREELANCER', 'BOTH'
 router.patch('/:projectId/submissions/:submissionId', protect, requireRole('CLIENT', 'BOTH'), reviewProjectSubmission);
 router.post('/:projectId/review', protect, requireRole('CLIENT', 'BOTH'), reviewFreelancer);
 router.post('/:projectId/apply', protect, requireRole('FREELANCER', 'BOTH'), applyToProject);
+router.patch('/applications/:applicationId/cancel', protect, requireRole('FREELANCER', 'BOTH'), cancelProjectApplication);
 router.patch('/:projectId/freelancer-confirm', protect, requireRole('FREELANCER', 'BOTH'), confirmProjectByFreelancer);
 router.patch('/:projectId/freelancer-reject', protect, requireRole('FREELANCER', 'BOTH'), rejectPaidProjectByFreelancer);
 router.patch('/applications/:applicationId', protect, requireRole('CLIENT', 'BOTH'), respondToApplication);

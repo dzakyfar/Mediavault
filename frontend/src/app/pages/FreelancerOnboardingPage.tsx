@@ -22,10 +22,12 @@ import {
 } from '../lib/uploadLimits';
 import { uploadFileToS3 } from '../lib/s3Upload';
 import { serviceCatalog } from '../lib/serviceCatalog';
+import { useLanguage } from '../context/LanguageContext';
 
 const categoryOptions = serviceCatalog.map((item) => item.category);
 
 export default function FreelancerOnboardingPage() {
+  const { t } = useLanguage();
   const navigate = useNavigate();
   const { user, registerFreelancer } = useAuth();
   const [form, setForm] = useState({
@@ -585,7 +587,7 @@ export default function FreelancerOnboardingPage() {
                   <h2 className="text-2xl" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>
                     Alamat Freelancer *
                   </h2>
-                  <p className="text-sm text-[#888888]">Dipakai untuk kalkulasi transportasi dan ditampilkan di profile.</p>
+                  <p className="text-sm text-[#888888]">{t('Dipakai untuk kalkulasi transportasi dan ditampilkan di profil.', 'Used for transport calculation and displayed on your profile.')}</p>
                 </div>
                 <button
                   type="button"

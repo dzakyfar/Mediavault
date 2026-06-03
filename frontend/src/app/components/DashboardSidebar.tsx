@@ -1,40 +1,45 @@
 import { Link, useLocation, useNavigate } from 'react-router';
 import { Zap, Home, Briefcase, Search, MessageCircle, Bell, CreditCard, Settings, LogOut, FileText, Folder, DollarSign } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
+import UserAvatar from './UserAvatar';
 
 interface DashboardSidebarProps {
   userType: 'client' | 'freelancer';
   userName: string;
+  unreadMessages?: number;
+  unreadNotifications?: number;
 }
 
-export default function DashboardSidebar({ userType, userName }: DashboardSidebarProps) {
+export default function DashboardSidebar({ userType, userName, unreadMessages = 0, unreadNotifications = 0 }: DashboardSidebarProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const { t } = useLanguage();
 
   const clientMenuItems = [
-    { icon: Home, label: 'Overview', path: '/dashboard/client' },
-    { icon: Briefcase, label: 'My Projects', path: '/dashboard/client/projects' },
-    { icon: Search, label: 'Find Freelancer', path: '/dashboard/client/find-freelancer' },
-    { icon: MessageCircle, label: 'Messages', path: '/dashboard/client/messages' },
-    { icon: Bell, label: 'Notifications', path: '/dashboard/client/notifications' },
-    { icon: CreditCard, label: 'Payments', path: '/dashboard/client/payments' },
-    { icon: Settings, label: 'Settings', path: '/dashboard/client/settings' },
+    { icon: Home, label: t('Ringkasan', 'Overview'), path: '/dashboard/client' },
+    { icon: Briefcase, label: t('Proyek Saya', 'My Projects'), path: '/dashboard/client/projects' },
+    { icon: Search, label: t('Cari Freelancer', 'Find Freelancers'), path: '/dashboard/client/find-freelancer' },
+    { icon: MessageCircle, label: t('Pesan', 'Messages'), path: '/dashboard/client/messages', badge: unreadMessages },
+    { icon: Bell, label: t('Notifikasi', 'Notifications'), path: '/dashboard/client/notifications', badge: unreadNotifications },
+    { icon: CreditCard, label: t('Pembayaran', 'Payments'), path: '/dashboard/client/payments' },
+    { icon: Settings, label: t('Pengaturan', 'Settings'), path: '/dashboard/client/settings' },
   ];
 
   const freelancerMenuItems = [
-    { icon: Home, label: 'Overview', path: '/dashboard/freelancer' },
-    { icon: FileText, label: 'Job Requests', path: '/dashboard/freelancer/requests' },
-    { icon: Briefcase, label: 'My Projects', path: '/dashboard/freelancer/projects' },
-    { icon: Folder, label: 'Portfolio', path: '/dashboard/freelancer/portfolio' },
-    { icon: DollarSign, label: 'Earnings', path: '/dashboard/freelancer/earnings' },
-    { icon: MessageCircle, label: 'Messages', path: '/dashboard/freelancer/messages' },
-    { icon: Bell, label: 'Notifications', path: '/dashboard/freelancer/notifications' },
-    { icon: Settings, label: 'Settings', path: '/dashboard/freelancer/settings' },
+    { icon: Home, label: t('Ringkasan', 'Overview'), path: '/dashboard/freelancer' },
+    { icon: FileText, label: t('Permintaan Pekerjaan', 'Job Requests'), path: '/dashboard/freelancer/requests' },
+    { icon: Briefcase, label: t('Proyek Saya', 'My Projects'), path: '/dashboard/freelancer/projects' },
+    { icon: Folder, label: t('Portofolio', 'Portfolio'), path: '/dashboard/freelancer/portfolio' },
+    { icon: DollarSign, label: t('Pendapatan', 'Earnings'), path: '/dashboard/freelancer/earnings' },
+    { icon: MessageCircle, label: t('Pesan', 'Messages'), path: '/dashboard/freelancer/messages', badge: unreadMessages },
+    { icon: Bell, label: t('Notifikasi', 'Notifications'), path: '/dashboard/freelancer/notifications', badge: unreadNotifications },
+    { icon: Settings, label: t('Pengaturan', 'Settings'), path: '/dashboard/freelancer/settings' },
   ];
 
   const menuItems = userType === 'client' ? clientMenuItems : freelancerMenuItems;
-  const switchLabel = userType === 'client' ? 'Switch to Freelancer' : 'Switch to Client';
+  const switchLabel = userType === 'client' ? t('Beralih ke Freelancer', 'Switch to Freelancer') : t('Beralih ke Klien', 'Switch to Client');
   const isRegisteredFreelancer = Boolean(
     user?.role && ['BOTH', 'FREELANCER'].includes(user.role) && user.isAvailable && user.bio && user.specialty
   );
@@ -58,11 +63,7 @@ export default function DashboardSidebar({ userType, userName }: DashboardSideba
         </Link>
 
         <div className="flex items-center gap-3 mb-8">
-          <div className="w-12 h-12 rounded-full bg-[#1A1A1A] overflow-hidden flex items-center justify-center text-[#F5C800] font-bold">
-            {user?.avatarUrl
-              ? <img src={user.avatarUrl} alt={userName} className="w-full h-full object-cover" />
-              : userName.charAt(0)}
-          </div>
+          <UserAvatar name={userName} src={user?.avatarUrl} className="h-12 w-12 text-lg" />
           <div>
             <div className="font-bold text-white">{userName}</div>
             <div className="text-xs px-2 py-1 bg-[#F5C800] text-black rounded-full inline-block">
@@ -82,11 +83,20 @@ export default function DashboardSidebar({ userType, userName }: DashboardSideba
               className={`flex items-center gap-3 px-4 py-3 rounded-lg mb-1 transition-all ${
                 isActive
                   ? 'bg-[#F5C800] text-black font-bold'
-                  : 'text-[#888888] hover:border-l-4 hover:border-[#F5C800] hover:text-white'
+                  : item.badge
+                    ? 'text-white border-l-4 border-[#F5C800] bg-[#F5C800]/5'
+                    : 'text-[#888888] hover:border-l-4 hover:border-[#F5C800] hover:text-white'
               }`}
             >
               <item.icon className="w-5 h-5" />
-              <span>{item.label}</span>
+              <span className="flex-1">{item.label}</span>
+              {Boolean(item.badge) && (
+                <span className={`min-w-6 h-6 px-2 rounded-full text-xs font-bold inline-flex items-center justify-center ${
+                  isActive ? 'bg-black text-[#F5C800]' : 'bg-[#F5C800] text-black'
+                }`}>
+                  {item.badge > 99 ? '99+' : item.badge}
+                </span>
+              )}
             </Link>
           );
         })}
@@ -108,7 +118,7 @@ export default function DashboardSidebar({ userType, userName }: DashboardSideba
           className="flex items-center gap-2 text-[#EF4444] hover:text-[#FF6B6B] text-sm transition-colors"
         >
           <LogOut className="w-4 h-4" />
-          Log Out
+          {t('Keluar', 'Log Out')}
         </Link>
       </div>
     </aside>

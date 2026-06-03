@@ -18,8 +18,27 @@ const { isTelegramConfigured } = require('./services/telegramService');
 
 const app = express();
 
+const allowedOrigins = (process.env.CORS_ORIGINS || [
+  'https://mediavault.studio',
+  'https://www.mediavault.studio',
+  'http://localhost:5173',
+  'http://localhost:5174',
+].join(','))
+  .split(',')
+  .map((origin) => origin.trim().replace(/\/$/, ''))
+  .filter(Boolean);
+
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin(origin, callback) {
+    if (!origin || allowedOrigins.includes(origin.replace(/\/$/, ''))) {
+      callback(null, true);
+      return;
+    }
+
+    callback(new Error('Origin tidak diizinkan oleh CORS'));
+  },
+}));
 app.use(express.json({ limit: '160mb' }));
 app.use(express.urlencoded({ extended: true, limit: '160mb' }));
 app.use('/uploads-local', express.static(localUploadRoot));

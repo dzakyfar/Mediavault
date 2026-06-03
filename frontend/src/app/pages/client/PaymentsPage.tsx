@@ -4,6 +4,7 @@ import { Smartphone, Wallet } from 'lucide-react';
 import DashboardLayout from '../../components/DashboardLayout';
 import EmptyState from '../../components/EmptyState';
 import { apiRequest } from '../../lib/api';
+import { useLanguage } from '../../context/LanguageContext';
 
 interface PaymentRow {
   id: string;
@@ -35,6 +36,7 @@ interface WalletSummary {
 }
 
 export default function ClientPayments() {
+  const { t, language } = useLanguage();
   const [payments, setPayments] = useState<PaymentRow[]>([]);
   const [walletSummary, setWalletSummary] = useState<WalletSummary | null>(null);
   const [loading, setLoading] = useState(true);
@@ -56,7 +58,7 @@ export default function ClientPayments() {
     Promise.all([
       apiRequest<{ payments: PaymentRow[] }>('/payments/mine')
       .then((response) => setPayments(response.payments || []))
-      .catch((err) => setError(err instanceof Error ? err.message : 'Gagal memuat pembayaran')),
+      .catch((err) => setError(err instanceof Error ? err.message : t('Gagal memuat pembayaran', 'Failed to load payments'))),
       loadWallet().catch(() => undefined),
     ])
       .finally(() => setLoading(false));
@@ -77,9 +79,9 @@ export default function ClientPayments() {
       });
       setWalletSummary(response.wallet);
       setWithdrawForm((current) => ({ ...current, amount: '', accountNumber: '', accountName: '' }));
-      setWalletMessage('Withdraw saldo client masuk status Sedang Diproses.');
+      setWalletMessage(t('Penarikan saldo client masuk status Sedang Diproses.', 'Client balance withdrawal is now Processing.'));
     } catch (err) {
-      setWalletMessage(err instanceof Error ? err.message : 'Gagal membuat withdraw');
+      setWalletMessage(err instanceof Error ? err.message : t('Gagal membuat penarikan', 'Failed to create withdrawal'));
     } finally {
       setWithdrawing(false);
     }
@@ -88,26 +90,26 @@ export default function ClientPayments() {
   return (
     <DashboardLayout userType="client">
       <h1 className="text-5xl mb-8" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>
-        Payments
+        {t('Pembayaran', 'Payments')}
       </h1>
       <div className="grid lg:grid-cols-[1fr_360px] gap-6 mb-8">
         <section className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-6">
           <div className="flex items-center gap-3 mb-4">
             <Wallet className="w-7 h-7 text-[#F5C800]" />
             <div>
-              <div className="text-sm text-[#888888]">Saldo Client</div>
+              <div className="text-sm text-[#888888]">{t('Saldo Klien', 'Client Balance')}</div>
               <div className="text-4xl font-bold text-[#F5C800]">{walletSummary?.balanceFormatted || 'Rp 0'}</div>
             </div>
           </div>
           <p className="text-sm text-[#888888]">
-            Saldo ini terisi dari refund order yang ditolak freelancer, dan bisa dipakai untuk membayar order berikutnya atau diajukan untuk penarikan.
+            {t('Saldo ini terisi dari refund order yang ditolak freelancer, dan bisa dipakai untuk membayar order berikutnya atau diajukan untuk penarikan.', 'This balance is filled from refunded orders declined by freelancers, and can be used for future orders or submitted for withdrawal.')}
           </p>
           <div className="mt-5 space-y-3">
             {(walletSummary?.transactions || []).slice(0, 5).map((transaction) => (
               <div key={transaction.id} className="flex items-start justify-between gap-4 rounded-lg border border-[#2A2A2A] bg-[#141414] p-3">
                 <div>
                   <div className="text-sm font-bold text-white">{transaction.description}</div>
-                  <div className="text-xs text-[#888888]">{new Date(transaction.createdAt).toLocaleString('id-ID')}</div>
+                  <div className="text-xs text-[#888888]">{new Date(transaction.createdAt).toLocaleString(language === 'id' ? 'id-ID' : 'en-US')}</div>
                 </div>
                 <div className={transaction.type === 'CREDIT' ? 'text-[#22C55E] font-bold text-sm' : 'text-[#EF4444] font-bold text-sm'}>
                   {transaction.type === 'CREDIT' ? '+' : '-'} {transaction.amountFormatted}
@@ -121,7 +123,7 @@ export default function ClientPayments() {
           <div className="flex items-center gap-2">
             <Smartphone className="w-5 h-5 text-[#F5C800]" />
             <h2 className="text-3xl" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>
-              Withdraw Client
+              {t('Tarik Saldo', 'Withdraw Balance')}
             </h2>
           </div>
           {walletMessage && (
@@ -130,14 +132,14 @@ export default function ClientPayments() {
             </div>
           )}
           <label className="block text-sm text-[#888888]">
-            Nominal
+            {t('Nominal Penarikan', 'Withdrawal Amount')}
             <input
               type="number"
               min="1"
               value={withdrawForm.amount}
               onChange={(event) => setWithdrawForm((current) => ({ ...current, amount: event.target.value }))}
               className="mt-2 w-full bg-[#141414] border border-[#2A2A2A] rounded-lg px-4 py-3 text-white focus:border-[#F5C800] focus:outline-none"
-              placeholder="Contoh: 50000"
+              placeholder={t('Contoh: 50000', 'Example: 50000')}
             />
           </label>
           <label className="block text-sm text-[#888888]">
@@ -153,7 +155,7 @@ export default function ClientPayments() {
             </select>
           </label>
           <label className="block text-sm text-[#888888]">
-            Nomor E-Wallet
+            {t('Nomor E-Wallet', 'E-Wallet Number')}
             <input
               value={withdrawForm.accountNumber}
               onChange={(event) => setWithdrawForm((current) => ({ ...current, accountNumber: event.target.value }))}
@@ -162,25 +164,25 @@ export default function ClientPayments() {
             />
           </label>
           <label className="block text-sm text-[#888888]">
-            Nama Pemilik
+            {t('Nama Pemilik', 'Account Holder Name')}
             <input
               value={withdrawForm.accountName}
               onChange={(event) => setWithdrawForm((current) => ({ ...current, accountName: event.target.value }))}
               className="mt-2 w-full bg-[#141414] border border-[#2A2A2A] rounded-lg px-4 py-3 text-white focus:border-[#F5C800] focus:outline-none"
-              placeholder="Nama sesuai e-wallet"
+              placeholder={t('Nama sesuai e-wallet', 'Name registered on the e-wallet')}
             />
           </label>
           <button disabled={withdrawing} className="w-full py-3 bg-[#F5C800] text-black rounded-lg font-bold disabled:opacity-60">
-            {withdrawing ? 'Memproses...' : 'Tarik Saldo'}
+            {withdrawing ? t('Memproses...', 'Processing...') : t('Tarik Saldo', 'Withdraw Balance')}
           </button>
         </form>
       </div>
-      {loading && <EmptyState title="Memuat pembayaran" description="Menyiapkan status pembayaran terbaru Anda." />}
-      {error && <EmptyState title="Gagal memuat pembayaran" description={error} />}
+      {loading && <EmptyState title={t('Memuat pembayaran', 'Loading payments')} description={t('Menyiapkan status pembayaran terbaru Anda.', 'Preparing your latest payment status.')} />}
+      {error && <EmptyState title={t('Gagal memuat pembayaran', 'Failed to load payments')} description={error} />}
       {!loading && !error && payments.length === 0 && (
         <EmptyState
-          title="Belum ada invoice"
-          description="Invoice QRIS akan tampil di sini setelah client memilih freelancer."
+          title={t('Belum ada invoice', 'No invoices yet')}
+          description={t('Invoice QRIS akan tampil di sini setelah client memilih freelancer.', 'QRIS invoices will appear here after a client chooses a freelancer.')}
         />
       )}
       {!loading && !error && payments.length > 0 && (

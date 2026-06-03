@@ -94,7 +94,7 @@ const assertPaymentAccess = (payment, user) => {
 };
 
 const processSuccessfulPayment = async (paymentId, amountPaid, paidAt = new Date(), gatewayResponse = null) => {
-  const result = await prisma.$transaction(async (tx) => {
+  const { payment: result, shouldNotify } = await prisma.$transaction(async (tx) => {
     const payment = await tx.payment.findUnique({
       where: { id: paymentId },
       include: paymentInclude,
@@ -105,30 +105,42 @@ const processSuccessfulPayment = async (paymentId, amountPaid, paidAt = new Date
     }
 
     if (payment.status === 'PAID') {
-      return payment;
+      return { payment, shouldNotify: false };
+    }
+
+    const paidAmount = amountPaid || payment.totalAmount;
+    const paymentClaim = await tx.payment.updateMany({
+      where: {
+        id: payment.id,
+        status: { not: 'PAID' },
+      },
+      data: {
+        status: 'PAID',
+        amountPaid: paidAmount,
+        paidAt,
+        gatewayResponse: gatewayResponse || payment.gatewayResponse,
+      },
+    });
+
+    if (!paymentClaim.count) {
+      const currentPayment = await tx.payment.findUnique({
+        where: { id: paymentId },
+        include: paymentInclude,
+      });
+      return { payment: currentPayment || payment, shouldNotify: false };
     }
 
     const nextProjectStatus = ['WAITING_PAYMENT', 'OPEN', 'IN_PROGRESS', 'CONFIRMED'].includes(payment.project.status)
       ? 'PAID'
       : payment.project.status;
 
-    const [, updatedPayment] = await Promise.all([
+    await Promise.all([
       tx.project.update({
         where: { id: payment.projectId },
         data: {
           status: nextProjectStatus,
           progress: Math.max(payment.project.progress, 30),
         },
-      }),
-      tx.payment.update({
-        where: { id: payment.id },
-        data: {
-          status: 'PAID',
-          amountPaid: amountPaid || payment.totalAmount,
-          paidAt,
-          gatewayResponse: gatewayResponse || payment.gatewayResponse,
-        },
-        include: paymentInclude,
       }),
       tx.invoice.updateMany({
         where: { projectId: payment.projectId, status: 'PENDING' },
@@ -141,7 +153,7 @@ const processSuccessfulPayment = async (paymentId, amountPaid, paidAt = new Date
           sourceType: 'CLIENT_FEE',
           referenceType: 'PROJECT',
           referenceId: payment.projectId,
-          description: `Fee admin 1% dari client untuk project ${payment.projectId}. Total dibayar: ${formatCurrency(amountPaid || payment.totalAmount)}.`,
+          description: `Fee admin 1% dari client untuk project ${payment.projectId}. Total dibayar: ${formatCurrency(paidAmount)}.`,
         },
       }),
       tx.projectHistory.create({
@@ -149,7 +161,7 @@ const processSuccessfulPayment = async (paymentId, amountPaid, paidAt = new Date
           projectId: payment.projectId,
           actorId: payment.project.clientId,
           title: 'Pembayaran diterima',
-          body: `Pembayaran ${formatCurrency(amountPaid || payment.totalAmount)} berhasil diterima via KlikQRIS. Dana dicatat sebagai escrow internal.`,
+          body: `Pembayaran ${formatCurrency(paidAmount)} berhasil diterima via KlikQRIS. Dana dicatat sebagai escrow internal.`,
           eventType: 'PAYMENT_PAID',
         },
       }),
@@ -162,6 +174,7 @@ const processSuccessfulPayment = async (paymentId, amountPaid, paidAt = new Date
       title: 'Pembayaran berhasil',
       body: 'Pembayaran berhasil! Order dikirim ke freelancer untuk diterima.',
       actionPath: `/dashboard/client/projects/${payment.projectId}`,
+      sendTelegram: false,
     });
 
     if (payment.project.freelancerId) {
@@ -172,6 +185,7 @@ const processSuccessfulPayment = async (paymentId, amountPaid, paidAt = new Date
         title: 'Order baru sudah dibayar',
         body: 'Client sudah membayar. Terima order di halaman My Projects untuk mulai bekerja, atau tolak agar dana dikembalikan ke saldo client.',
         actionPath: `/dashboard/freelancer/projects/${payment.projectId}`,
+        sendTelegram: false,
       });
     } else {
       await tx.projectHistory.create({
@@ -185,23 +199,30 @@ const processSuccessfulPayment = async (paymentId, amountPaid, paidAt = new Date
       });
     }
 
-    return updatedPayment;
+    const updatedPayment = await tx.payment.findUnique({
+      where: { id: payment.id },
+      include: paymentInclude,
+    });
+
+    return { payment: updatedPayment, shouldNotify: true };
   });
 
-  await Promise.all([
-    notifyTelegramOnly({
-      userId: result.project.clientId,
-      title: 'Pembayaran berhasil',
-      body: `Pembayaran untuk project ${result.project.title} berhasil. Order dikirim ke freelancer untuk diterima.`,
-      actionPath: `/dashboard/client/payments/${result.id}`,
-    }),
-    result.project.freelancerId ? notifyTelegramOnly({
-      userId: result.project.freelancerId,
-      title: 'Order baru sudah dibayar',
-      body: `Client sudah membayar project ${result.project.title}. Terima order di halaman My Projects untuk mulai bekerja.`,
-      actionPath: `/dashboard/freelancer/projects/${result.projectId}`,
-    }) : Promise.resolve(false),
-  ]);
+  if (shouldNotify) {
+    await Promise.all([
+      notifyTelegramOnly({
+        userId: result.project.clientId,
+        title: 'Pembayaran berhasil',
+        body: `Pembayaran untuk project ${result.project.title} berhasil. Order dikirim ke freelancer untuk diterima.`,
+        actionPath: `/dashboard/client/payments/${result.id}`,
+      }),
+      result.project.freelancerId ? notifyTelegramOnly({
+        userId: result.project.freelancerId,
+        title: 'Order baru sudah dibayar',
+        body: `Client sudah membayar project ${result.project.title}. Terima order di halaman My Projects untuk mulai bekerja.`,
+        actionPath: `/dashboard/freelancer/projects/${result.projectId}`,
+      }) : Promise.resolve(false),
+    ]);
+  }
 
   return result;
 };
@@ -626,37 +647,44 @@ exports.handleKlikqrisWebhook = async (req, res, next) => {
 };
 
 exports.completeProjectSettlement = async (projectId, actorId = null, completionStatus = 'COMPLETED') => {
-  const project = await prisma.project.findUnique({
-    where: { id: projectId },
-    include: {
-      payments: {
-        where: { status: 'PAID' },
-        orderBy: { paidAt: 'desc' },
-        take: 1,
-      },
-    },
-  });
-
-  if (!project || !project.freelancerId || ['COMPLETED', 'AUTO_COMPLETED'].includes(project.status)) {
-    return null;
-  }
-
-  const payment = project.payments[0];
-  if (!payment) {
-    throw new Error('Settlement membutuhkan payment yang sudah PAID');
-  }
-
-  const { adminFeeWithdraw, freelancerNet } = calculateFreelancerNet(payment.baseAmount);
-
   const updatedProject = await prisma.$transaction(async (tx) => {
-    const nextProject = await tx.project.update({
+    const project = await tx.project.findUnique({
       where: { id: projectId },
+      include: {
+        payments: {
+          where: { status: 'PAID' },
+          orderBy: { paidAt: 'desc' },
+          take: 1,
+        },
+      },
+    });
+
+    if (!project || !project.freelancerId || ['COMPLETED', 'AUTO_COMPLETED'].includes(project.status)) {
+      return null;
+    }
+
+    const payment = project.payments[0];
+    if (!payment) {
+      throw new Error('Settlement membutuhkan payment yang sudah PAID');
+    }
+
+    const projectClaim = await tx.project.updateMany({
+      where: {
+        id: projectId,
+        status: { notIn: ['COMPLETED', 'AUTO_COMPLETED'] },
+      },
       data: {
         status: completionStatus,
         progress: 100,
         completedAt: new Date(),
       },
     });
+
+    if (!projectClaim.count) {
+      return null;
+    }
+
+    const { adminFeeWithdraw, freelancerNet } = calculateFreelancerNet(payment.baseAmount);
 
     await creditWallet(
       tx,
@@ -697,7 +725,10 @@ exports.completeProjectSettlement = async (projectId, actorId = null, completion
       actionPath: '/dashboard/freelancer/earnings',
     });
 
-    return nextProject;
+    return tx.project.findUnique({
+      where: { id: projectId },
+      include: paymentInclude.project.include,
+    });
   });
 
   return updatedProject;
