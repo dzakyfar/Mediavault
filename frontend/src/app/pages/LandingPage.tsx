@@ -31,14 +31,14 @@ export default function LandingPage() {
     { name: 'Real Estate', image: '/catalog/real-estate.jpg' },
   ];
   const heroStats = [
-    { icon: Star, label: '4.9 Rating' },
-    { icon: Users, label: '500+ Freelancers' },
+    { icon: Star, label: t('Rating 4,9', '4.9 Rating') },
+    { icon: Users, label: t('500+ Freelancer', '500+ Freelancers') },
     { icon: CheckCircle2, label: t('2.000+ Proyek Selesai', '2,000+ Projects Done') },
   ];
   const testimonials = [
     {
       name: 'Rania Putri',
-      role: 'Client Wedding',
+      role: t('Klien Wedding', 'Wedding Client'),
       quote: t(
         'MediaVault bikin proses cari fotografer nikahan terasa tenang. Brief jelas, progress kelihatan, dan hasilnya benar-benar sinematik.',
         'MediaVault made finding a wedding photographer feel calm. The brief was clear, progress was visible, and the result felt truly cinematic.'
@@ -46,7 +46,7 @@ export default function LandingPage() {
     },
     {
       name: 'Bima Studio',
-      role: 'Freelancer Video',
+      role: t('Freelancer Video', 'Video Freelancer'),
       quote: t(
         'Request job masuk lebih rapi, chat tidak tercecer, dan client bisa review draft tanpa drama revisi panjang.',
         'Job requests are cleaner, chats stay organized, and clients can review drafts without long revision drama.'
@@ -54,7 +54,7 @@ export default function LandingPage() {
     },
     {
       name: 'Aurelia Brand',
-      role: 'Client Product Shoot',
+      role: t('Klien Product Shoot', 'Product Shoot Client'),
       quote: t(
         'Referensi produk bisa dikirim dari awal, jadi fotografer langsung paham mood yang kami cari. Flow-nya bersih dan cepat.',
         'Product references can be sent from the start, so photographers understand the mood right away. The flow is clean and fast.'
@@ -62,7 +62,7 @@ export default function LandingPage() {
     },
     {
       name: 'Dion Visuals',
-      role: 'Freelancer Photo',
+      role: t('Freelancer Foto', 'Photo Freelancer'),
       quote: t(
         'Tracker project membantu banget. Client tahu tahap pengerjaan, saya juga punya catatan approval yang jelas.',
         'The project tracker helps a lot. Clients know every stage, and I have clear approval records.'
@@ -179,8 +179,8 @@ export default function LandingPage() {
           <div className="grid md:grid-cols-4 gap-6">
             {topFreelancers.length === 0 && (
               <div className="md:col-span-4 bg-[#141414] border border-[#2A2A2A] rounded-xl p-8 text-center">
-                <h3 className="text-xl font-bold mb-2">Freelancer pilihan segera hadir</h3>
-                <p className="text-[#888888]">Profil kreator yang siap menerima project akan tampil di sini.</p>
+                <h3 className="text-xl font-bold mb-2">{t('Freelancer pilihan segera hadir', 'Featured freelancers coming soon')}</h3>
+                <p className="text-[#888888]">{t('Profil kreator yang siap menerima proyek akan tampil di sini.', 'Creator profiles ready for projects will appear here.')}</p>
               </div>
             )}
 

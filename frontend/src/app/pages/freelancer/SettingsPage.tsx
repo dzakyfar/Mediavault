@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { Camera, LocateFixed, Plus, Trash2, X } from 'lucide-react';
+import { Camera, LocateFixed } from 'lucide-react';
 import DashboardLayout from '../../components/DashboardLayout';
 import ChangePasswordCard from '../../components/dashboard/ChangePasswordCard';
 import ConfirmDialog from '../../components/dashboard/ConfirmDialog';
@@ -13,9 +13,8 @@ import TelegramNotificationCard from '../../components/dashboard/TelegramNotific
 import UserAvatar from '../../components/UserAvatar';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
-import { PORTFOLIO_IMAGE_MAX_BYTES, validateImageFile } from '../../lib/uploadLimits';
+import { validateImageFile } from '../../lib/uploadLimits';
 import { uploadFileToS3 } from '../../lib/s3Upload';
-import { apiRequest } from '../../lib/api';
 import {
   fetchRegionOptions,
   fallbackPostalCodeForCity,
@@ -25,73 +24,6 @@ import {
   getCurrentPosition,
   RegionOption,
 } from '../../lib/indonesiaRegions';
-
-interface Offering {
-  id: string;
-  title: string;
-  serviceType: string;
-  ratePerHour: number;
-  ratePerHourFormatted: string;
-  ratePerPhoto: number | null;
-  ratePerPhotoFormatted: string | null;
-  extraPersonFee: number;
-  extraPersonFeeFormatted: string;
-  estimatedHours: number;
-  capacityPersons: number | null;
-  relatedSpecs: string[];
-  isActive: boolean;
-}
-
-interface PortfolioItem {
-  id: string;
-  title: string;
-  category: string | null;
-  serviceType: string | null;
-  description: string | null;
-  fileUrl: string | null;
-  fileKey?: string | null;
-  fileName: string | null;
-  fileType: string | null;
-  fileSize: number | null;
-}
-
-const serviceOptions = ['Fotografi', 'Videografi', 'Editing', 'Photo + Video', 'Drone', 'Commercial'];
-const tagOptions = ['Fotografi', 'Videografi', 'Editing', 'Wedding', 'Commercial', 'Event', 'Product Shoot', 'Pre-wedding'];
-const offeringTemplates = [
-  {
-    label: 'Fotografi Event',
-    serviceType: 'Fotografi',
-    title: 'Fotografi Event',
-    ratePerHour: '150000',
-    ratePerPhoto: '25000',
-    extraPersonFee: '75000',
-    estimatedHours: '3',
-    capacityPersons: '2',
-    relatedSpecs: ['Fotografi', 'Event'],
-  },
-  {
-    label: 'Videografi',
-    serviceType: 'Videografi',
-    title: 'Videografi Dokumentasi',
-    ratePerHour: '200000',
-    ratePerPhoto: '',
-    extraPersonFee: '100000',
-    estimatedHours: '4',
-    capacityPersons: '3',
-    relatedSpecs: ['Videografi', 'Commercial'],
-  },
-  {
-    label: 'Editing',
-    serviceType: 'Editing',
-    title: 'Editing Foto / Video',
-    ratePerHour: '100000',
-    ratePerPhoto: '15000',
-    extraPersonFee: '0',
-    estimatedHours: '2',
-    capacityPersons: '1',
-    relatedSpecs: ['Editing'],
-  },
-];
 
 export default function FreelancerSettings() {
   const { user, updateProfile, deleteAccount } = useAuth();
@@ -124,21 +56,6 @@ export default function FreelancerSettings() {
     accountHolder: '',
   });
   const [avatarPreview, setAvatarPreview] = useState('');
-  const [offerings, setOfferings] = useState<Offering[]>([]);
-  const [portfolioItems, setPortfolioItems] = useState<PortfolioItem[]>([]);
-  const [portfolioSaving, setPortfolioSaving] = useState(false);
-  const [portfolioForm, setPortfolioForm] = useState({
-    title: '',
-    category: '',
-    serviceType: '',
-    description: '',
-    fileUrl: '',
-    previewUrl: '',
-    fileName: '',
-    fileType: '',
-    fileSize: 0,
-  });
-  const [offeringSaving, setOfferingSaving] = useState(false);
   const [locating, setLocating] = useState(false);
   const [locationWarning, setLocationWarning] = useState('');
   const [regionLoading, setRegionLoading] = useState({
@@ -154,19 +71,6 @@ export default function FreelancerSettings() {
   const [selectedProvinceId, setSelectedProvinceId] = useState('');
   const [selectedCityId, setSelectedCityId] = useState('');
   const [selectedDistrictId, setSelectedDistrictId] = useState('');
-  const [customTag, setCustomTag] = useState('');
-  const [offeringForm, setOfferingForm] = useState({
-    serviceType: 'Fotografi',
-    customServiceType: '',
-    title: '',
-    ratePerHour: '',
-    ratePerPhoto: '',
-    extraPersonFee: '',
-    estimatedHours: '2',
-    capacityPersons: '1',
-    relatedSpecs: [] as string[],
-    description: '',
-  });
   useEffect(() => {
     if (!user) return;
     setFormData((current) => ({
@@ -189,10 +93,6 @@ export default function FreelancerSettings() {
       startingPrice: user.startingPrice ? String(user.startingPrice) : '',
       isAvailable: user.isAvailable ?? true,
       accountHolder: user.fullName,
-    }));
-    setOfferingForm((current) => ({
-      ...current,
-      ratePerHour: current.ratePerHour || (user.startingPrice ? String(user.startingPrice) : ''),
     }));
     setAvatarPreview(user.avatarUrl || '');
   }, [user]);
@@ -292,15 +192,6 @@ export default function FreelancerSettings() {
       active = false;
     };
   }, [selectedDistrictId]);
-
-  useEffect(() => {
-    apiRequest<{ offerings: Offering[] }>('/offerings/mine')
-      .then((response) => setOfferings(response.offerings || []))
-      .catch(() => undefined);
-    apiRequest<{ items: PortfolioItem[] }>('/portfolio/mine')
-      .then((response) => setPortfolioItems(response.items || []))
-      .catch(() => undefined);
-  }, []);
 
   useEffect(() => {
     if (!formData.province || selectedProvinceId || provinces.length === 0) return;
@@ -414,120 +305,11 @@ export default function FreelancerSettings() {
     }
   };
 
-  const uploadPortfolioFile = async (file?: File) => {
-    if (!file) return;
-
-    const error = validateImageFile(file, PORTFOLIO_IMAGE_MAX_BYTES);
-    if (error) {
-      setToast({ message: error, type: 'error' });
-      return;
-    }
-
-    try {
-      const uploaded = await uploadFileToS3(file, 'portfolio');
-      setPortfolioForm((current) => ({
-        ...current,
-        fileUrl: uploaded.key,
-        previewUrl: uploaded.url,
-        fileName: uploaded.fileName,
-        fileType: uploaded.fileType,
-        fileSize: uploaded.fileSize,
-      }));
-      setToast({ message: t('File portfolio siap disimpan', 'Portfolio file is ready to save'), type: 'success' });
-    } catch (uploadError) {
-      setToast({
-        message: uploadError instanceof Error ? uploadError.message : t('Gagal upload portfolio', 'Failed to upload portfolio'),
-        type: 'error',
-      });
-    }
-  };
-
-  const savePortfolioItem = async () => {
-    if (!portfolioForm.title.trim()) {
-      setStatusMessage(t('Judul portfolio wajib diisi.', 'Portfolio title is required.'));
-      return;
-    }
-
-    if (!portfolioForm.fileUrl) {
-      setStatusMessage(t('Upload file portfolio terlebih dahulu.', 'Upload a portfolio file first.'));
-      return;
-    }
-
-    try {
-      setPortfolioSaving(true);
-      setStatusMessage('');
-      const response = await apiRequest<{ item: PortfolioItem }>('/portfolio', {
-        method: 'POST',
-        body: JSON.stringify({
-          title: portfolioForm.title,
-          category: portfolioForm.category || portfolioForm.serviceType || formData.specialty || 'Portfolio',
-          serviceType: portfolioForm.serviceType || portfolioForm.category || formData.specialty || null,
-          description: portfolioForm.description,
-          fileUrl: portfolioForm.fileUrl,
-          fileName: portfolioForm.fileName,
-          fileType: portfolioForm.fileType,
-          fileSize: portfolioForm.fileSize,
-        }),
-      });
-      setPortfolioItems((current) => [response.item, ...current]);
-      setPortfolioForm({
-        title: '',
-        category: '',
-        serviceType: '',
-        description: '',
-        fileUrl: '',
-        previewUrl: '',
-        fileName: '',
-        fileType: '',
-        fileSize: 0,
-      });
-      setToast({ message: t('Portofolio berhasil ditambahkan dan tampil di profil', 'Portfolio added successfully and now appears on your profile'), type: 'success' });
-    } catch (error) {
-      setStatusMessage(error instanceof Error ? error.message : t('Gagal menyimpan portfolio', 'Failed to save portfolio'));
-    } finally {
-      setPortfolioSaving(false);
-    }
-  };
-
-  const deletePortfolioItem = async (id: string) => {
-    try {
-      await apiRequest(`/portfolio/${id}`, { method: 'DELETE' });
-      setPortfolioItems((current) => current.filter((item) => item.id !== id));
-      setToast({ message: t('Portofolio dihapus dari profil', 'Portfolio removed from profile'), type: 'success' });
-    } catch (error) {
-      setStatusMessage(error instanceof Error ? error.message : t('Gagal menghapus portfolio', 'Failed to delete portfolio'));
-    }
-  };
-
   useEffect(() => {
     if (!toast.message) return;
     const timeout = window.setTimeout(() => setToast({ message: '', type: 'info' }), 3500);
     return () => window.clearTimeout(timeout);
   }, [toast.message]);
-
-  const toggleOfferingTag = (tag: string) => {
-    const normalizedTag = tag.trim();
-    if (!normalizedTag) return;
-
-    setOfferingForm((current) => ({
-      ...current,
-      relatedSpecs: current.relatedSpecs.includes(normalizedTag)
-        ? current.relatedSpecs.filter((item) => item !== normalizedTag)
-        : [...current.relatedSpecs, normalizedTag],
-    }));
-  };
-
-  const addCustomTag = () => {
-    const normalizedTag = customTag.trim().replace(/^#/, '');
-    if (!normalizedTag) return;
-    setOfferingForm((current) => ({
-      ...current,
-      relatedSpecs: current.relatedSpecs.includes(normalizedTag)
-        ? current.relatedSpecs
-        : [...current.relatedSpecs, normalizedTag],
-    }));
-    setCustomTag('');
-  };
 
   const selectProvince = (option: RegionOption | null, name = option?.name || '') => {
     setSelectedProvinceId(option?.id || '');
@@ -703,78 +485,6 @@ export default function FreelancerSettings() {
         : t('Gagal mengambil lokasi. Coba lagi atau isi alamat manual.', 'Failed to get location. Try again or fill the address manually.'));
     } finally {
       setLocating(false);
-    }
-  };
-
-  const saveOffering = async () => {
-    try {
-      setOfferingSaving(true);
-      setStatusMessage('');
-      const serviceType = offeringForm.serviceType === 'Lainnya'
-        ? offeringForm.customServiceType.trim()
-        : offeringForm.serviceType;
-      const parsedRatePerHour = Number(offeringForm.ratePerHour);
-      const parsedEstimatedHours = Number(offeringForm.estimatedHours || 1);
-
-      if (!serviceType) {
-        setStatusMessage(t('Jenis jasa wajib diisi.', 'Service type is required.'));
-        return;
-      }
-
-      if (!Number.isFinite(parsedRatePerHour) || parsedRatePerHour < 1) {
-        setStatusMessage(t('Isi Harga Per Jam minimal Rp 1.', 'Hourly rate must be at least Rp 1.'));
-        return;
-      }
-
-      if (!Number.isFinite(parsedEstimatedHours) || parsedEstimatedHours < 1) {
-        setStatusMessage(t('Pilih estimasi durasi minimal 1 jam.', 'Estimated duration must be at least 1 hour.'));
-        return;
-      }
-
-      const response = await apiRequest<{ offering: Offering }>('/offerings', {
-        method: 'POST',
-        body: JSON.stringify({
-          serviceType,
-          title: offeringForm.title || serviceType,
-          price: parsedRatePerHour,
-          ratePerHour: parsedRatePerHour,
-          ratePerPhoto: offeringForm.ratePerPhoto ? Number(offeringForm.ratePerPhoto) : null,
-          extraPersonFee: Number(offeringForm.extraPersonFee || 0),
-          estimatedHours: parsedEstimatedHours,
-          capacityPersons: Number(offeringForm.capacityPersons || 1),
-          relatedSpecs: offeringForm.relatedSpecs,
-          benefits: offeringForm.description,
-          description: offeringForm.description,
-        }),
-      });
-      setOfferings((current) => [response.offering, ...current]);
-      setOfferingForm({
-        serviceType: 'Fotografi',
-        customServiceType: '',
-        title: '',
-        ratePerHour: '',
-        ratePerPhoto: '',
-        extraPersonFee: '',
-        estimatedHours: '2',
-        capacityPersons: '1',
-        relatedSpecs: [],
-        description: '',
-      });
-      setToast({ message: t('Jasa berhasil ditambahkan', 'Service added successfully'), type: 'success' });
-    } catch (error) {
-      setStatusMessage(error instanceof Error ? error.message : t('Gagal menyimpan jasa', 'Failed to save service'));
-    } finally {
-      setOfferingSaving(false);
-    }
-  };
-
-  const deleteOffering = async (offeringId: string) => {
-    try {
-      await apiRequest(`/offerings/${offeringId}`, { method: 'DELETE' });
-      setOfferings((current) => current.filter((offering) => offering.id !== offeringId));
-      setToast({ message: t('Jasa dinonaktifkan', 'Service disabled'), type: 'success' });
-    } catch (error) {
-      setStatusMessage(error instanceof Error ? error.message : t('Gagal menghapus jasa', 'Failed to delete service'));
     }
   };
 

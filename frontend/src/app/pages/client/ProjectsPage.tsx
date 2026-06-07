@@ -154,7 +154,7 @@ export default function ClientProjects() {
 
         {!loading && filteredProjects.length === 0 && (
           <EmptyState
-            title={t('Tidak ada project', 'No projects found')}
+            title={t('Tidak ada proyek', 'No projects found')}
             description={t('Proyek yang Anda buat akan tampil di sini.', 'Projects you create will appear here.')}
             action={(
               <Link to="/post-job" className="inline-flex items-center gap-2 px-4 py-2 bg-[#F5C800] text-black font-bold rounded-lg">
@@ -214,9 +214,12 @@ export default function ClientProjects() {
                   {t('Lihat Detail', 'View Details')}
                 </Link>
                 {project.rawStatus === 'WAITING_PAYMENT' && (
-                  <span className="px-4 py-2 bg-[#2A2A2A] text-[#888888] font-bold rounded-lg text-sm cursor-not-allowed">
-                    {t('Pembayaran Menyusul', 'Payment Coming Soon')}
-                  </span>
+                  <Link
+                    to={`/dashboard/client/projects/${project.id}`}
+                    className="px-4 py-2 bg-[#F5C800] text-black font-bold rounded-lg text-sm hover:shadow-[0_0_10px_rgba(245,200,0,0.4)] transition-all"
+                  >
+                    {t('Lanjutkan Pembayaran', 'Continue Payment')}
+                  </Link>
                 )}
                 <button
                   type="button"

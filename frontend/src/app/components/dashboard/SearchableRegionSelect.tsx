@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { normalizeRegionName, RegionOption } from '../../lib/indonesiaRegions';
+import { useLanguage } from '../../context/LanguageContext';
 
 interface SearchableRegionSelectProps {
   label: string;
@@ -20,6 +21,7 @@ export default function SearchableRegionSelect({
   onChange,
   onSelect,
 }: SearchableRegionSelectProps) {
+  const { t } = useLanguage();
   const [open, setOpen] = useState(false);
   const filteredOptions = useMemo(() => {
     const keyword = normalizeRegionName(value);
@@ -48,7 +50,7 @@ export default function SearchableRegionSelect({
         <div className="absolute z-30 mt-2 w-full max-h-72 overflow-y-auto rounded-lg border border-[#2A2A2A] bg-[#101010] shadow-xl">
           {filteredOptions.length === 0 && (
             <div className="px-4 py-3 text-sm text-[#888888]">
-              Tidak ada hasil. Coba ejaan lain atau ketik manual lalu verifikasi alamat.
+              {t('Tidak ada hasil. Coba ejaan lain atau ketik manual lalu verifikasi alamat.', 'No results found. Try another spelling or type manually, then verify the address.')}
             </div>
           )}
           {filteredOptions.map((option) => (
@@ -73,7 +75,7 @@ export default function SearchableRegionSelect({
           tabIndex={-1}
           onClick={() => setOpen(false)}
           className="fixed inset-0 z-20 cursor-default bg-transparent"
-          aria-label={`Tutup pilihan ${label}`}
+          aria-label={t(`Tutup pilihan ${label}`, `Close ${label} options`)}
         />
       )}
     </div>

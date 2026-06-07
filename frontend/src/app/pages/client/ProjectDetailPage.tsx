@@ -28,6 +28,7 @@ interface ProjectDetail {
   eventDate: string;
   due: string;
   status: string;
+  rawStatus?: string;
   statusColor: string;
   amount: string;
   freelancer: string;
@@ -344,7 +345,7 @@ export default function ClientProjectDetail() {
               </div>
             )}
 
-            {['Waiting Payment'].includes(project.status) && (
+            {['WAITING_PAYMENT', 'Waiting Payment'].includes(project.rawStatus || project.status) && (
               <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-8">
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                   <div>
@@ -401,13 +402,13 @@ export default function ClientProjectDetail() {
               <ProjectReviewPanel
                 projectId={project.id}
                 userType="client"
-                projectStatus={project.status}
+                projectStatus={project.rawStatus || project.status}
                 submissions={project.submissions}
                 onUpdated={(updatedProject) => setProject(updatedProject as ProjectDetail)}
               />
             )}
 
-            {project.freelancer && project.freelancer !== t('Belum ada freelancer', 'No freelancer yet') && ['Completed', 'Auto Completed'].includes(project.status) && (
+            {project.freelancer && project.freelancer !== t('Belum ada freelancer', 'No freelancer yet') && ['COMPLETED', 'AUTO_COMPLETED', 'Completed', 'Auto Completed'].includes(project.rawStatus || project.status) && (
               <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-8">
                 <h2 className="text-3xl mb-4" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>
                   {t('Ulasan Freelancer', 'Freelancer Review')}
@@ -510,7 +511,7 @@ export default function ClientProjectDetail() {
                 <p className="text-[#888888] text-sm">{payment.klikqrisOrderId}</p>
                 {payment.isSandbox && (
                   <p className="text-orange-400 text-xs mt-1">
-                    Mode testing — tidak ada uang nyata yang diproses.
+                    {t('Mode testing - tidak ada uang nyata yang diproses.', 'Testing mode - no real money is processed.')}
                   </p>
                 )}
               </div>
@@ -536,7 +537,7 @@ export default function ClientProjectDetail() {
                 {payment.isSandbox && (
                   <div className="absolute bottom-2 left-0 right-0 flex justify-center pointer-events-none">
                     <span className="px-3 py-1 rounded-full bg-orange-500/90 text-white text-xs font-bold tracking-widest shadow-lg">
-                      ⚠ SANDBOX — JANGAN SCAN
+                      {t('SANDBOX - JANGAN SCAN', 'SANDBOX - DO NOT SCAN')}
                     </span>
                   </div>
                 )}
@@ -595,7 +596,7 @@ export default function ClientProjectDetail() {
                   <div className="bg-orange-500/10 border border-orange-500/50 rounded-lg p-3">
                     <div className="flex items-center gap-2 mb-2">
                       <span className="text-orange-400 text-xs font-bold tracking-widest">SANDBOX</span>
-                      <span className="text-[#888888] text-xs">— Transaction Signature Key</span>
+                      <span className="text-[#888888] text-xs">- {t('Kunci Signature Transaksi', 'Transaction Signature Key')}</span>
                     </div>
                     <p className="text-xs text-[#888888] mb-2">
                       {t('Salin signature ini ke halaman Sandbox Transactions di dasbor KlikQRIS untuk simulasi pembayaran sukses.', 'Copy this signature to the Sandbox Transactions page in the KlikQRIS dashboard to simulate a successful payment.')}

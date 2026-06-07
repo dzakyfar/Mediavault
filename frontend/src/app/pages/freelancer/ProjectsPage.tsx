@@ -201,8 +201,8 @@ export default function FreelancerProjects() {
                   </Link>
                 )}
                 {project.rawStatus === 'COMPLETED' && (
-                  <span className="px-4 py-2 bg-[#2A2A2A] text-[#888888] font-bold rounded-lg text-sm cursor-not-allowed">
-                    {t('Pembayaran Menyusul', 'Payment Coming Soon')}
+                  <span className="px-4 py-2 bg-[#22C55E]/15 text-[#22C55E] border border-[#22C55E]/40 font-bold rounded-lg text-sm">
+                    {t('Selesai & Dana Dicairkan', 'Completed & Funds Released')}
                   </span>
                 )}
               </div>

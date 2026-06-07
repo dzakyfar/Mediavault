@@ -14,7 +14,7 @@ const stories = [
     icon: Camera,
     title: 'Dari portofolio sederhana menjadi vendor wedding yang rutin mendapat permintaan.',
     titleEn: 'From a simple portfolio to a wedding vendor with steady requests.',
-    quote: 'MediaVault membantu klien melihat style saya sejak awal. Brief lebih jelas, revisi lebih terarah, dan proyek terasa lebih profesional.',
+    quote: 'MediaVault membantu klien melihat gaya saya sejak awal. Brief lebih jelas, revisi lebih terarah, dan proyek terasa lebih profesional.',
     quoteEn: 'MediaVault helps clients understand my style from the start. Briefs are clearer, revisions are focused, and projects feel more professional.',
     tags: ['Wedding', 'Product Shoot', 'Surabaya'],
   },
@@ -40,7 +40,7 @@ const stories = [
     icon: Sparkles,
     title: 'Tracker proyek membantu klien properti merasa lebih percaya.',
     titleEn: 'Project tracking helped real estate clients feel more confident.',
-    quote: 'Untuk project properti, detail lokasi dan file referensi itu penting. MediaVault membuat semua asset tersusun dari awal sampai final.',
+    quote: 'Untuk proyek properti, detail lokasi dan file referensi itu penting. MediaVault membuat semua aset tersusun dari awal sampai final.',
     quoteEn: 'For real estate projects, location details and reference files matter. MediaVault keeps every asset organized from start to finish.',
     tags: ['Real Estate', 'Concert', 'Tracking'],
   },
@@ -147,7 +147,7 @@ export default function SuccessStoriesPage() {
                   <span className="font-bold">{t('Siap jadi cerita berikutnya?', 'Ready to be the next story?')}</span>
                 </div>
                 <h2 className="text-4xl md:text-5xl" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>
-                  {t('Bangun profil, tampilkan portofolio, dan biarkan klien menemukan style Anda.', 'Build your profile, showcase your portfolio, and let clients discover your style.')}
+                  {t('Bangun profil, tampilkan portofolio, dan biarkan klien menemukan gaya Anda.', 'Build your profile, showcase your portfolio, and let clients discover your style.')}
                 </h2>
               </div>
               <Link

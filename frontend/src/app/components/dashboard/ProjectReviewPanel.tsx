@@ -48,7 +48,16 @@ export default function ProjectReviewPanel({
   const [error, setError] = useState('');
 
   const pendingSubmission = submissions.find((submission) => submission.status === 'PENDING');
-  const canSubmitDraft = userType === 'freelancer' && ['Paid', 'Confirmed', 'In Progress', 'Under Review'].includes(projectStatus);
+  const normalizedProjectStatus = projectStatus.toUpperCase().replace(/[\s-]+/g, '_');
+  const statusAliases: Record<string, string> = {
+    DIBAYAR: 'PAID',
+    DIKONFIRMASI: 'CONFIRMED',
+    DIKERJAKAN: 'IN_PROGRESS',
+    DIREVIEW: 'UNDER_REVIEW',
+    DALAM_REVIEW: 'UNDER_REVIEW',
+  };
+  const canonicalProjectStatus = statusAliases[normalizedProjectStatus] || normalizedProjectStatus;
+  const canSubmitDraft = userType === 'freelancer' && ['PAID', 'CONFIRMED', 'IN_PROGRESS', 'UNDER_REVIEW'].includes(canonicalProjectStatus);
 
   const attachFile = async (file?: File) => {
     if (!file) return;

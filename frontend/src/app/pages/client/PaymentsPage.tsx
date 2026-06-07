@@ -79,7 +79,7 @@ export default function ClientPayments() {
       });
       setWalletSummary(response.wallet);
       setWithdrawForm((current) => ({ ...current, amount: '', accountNumber: '', accountName: '' }));
-      setWalletMessage(t('Penarikan saldo client masuk status Sedang Diproses.', 'Client balance withdrawal is now Processing.'));
+      setWalletMessage(t('Penarikan saldo klien masuk status Sedang Diproses.', 'Client balance withdrawal is now Processing.'));
     } catch (err) {
       setWalletMessage(err instanceof Error ? err.message : t('Gagal membuat penarikan', 'Failed to create withdrawal'));
     } finally {
@@ -182,7 +182,7 @@ export default function ClientPayments() {
       {!loading && !error && payments.length === 0 && (
         <EmptyState
           title={t('Belum ada invoice', 'No invoices yet')}
-          description={t('Invoice QRIS akan tampil di sini setelah client memilih freelancer.', 'QRIS invoices will appear here after a client chooses a freelancer.')}
+          description={t('Invoice QRIS akan tampil di sini setelah klien memilih freelancer.', 'QRIS invoices will appear here after a client chooses a freelancer.')}
         />
       )}
       {!loading && !error && payments.length > 0 && (

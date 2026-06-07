@@ -162,12 +162,29 @@ exports.sendMessage = async (req, res, next) => {
 
     const receiver = await prisma.user.findUnique({
       where: { id: receiverId },
-      select: { id: true, fullName: true },
+      select: { id: true, fullName: true, role: true, isAvailable: true },
     });
 
     if (!receiver) {
       res.status(404);
       throw new Error('Penerima pesan tidak ditemukan');
+    }
+
+    const receiverIsFreelancer = ['FREELANCER', 'BOTH'].includes(receiver.role);
+    if (receiverIsFreelancer && !receiver.isAvailable) {
+      const activeProject = await prisma.project.findFirst({
+        where: {
+          clientId: req.user.id,
+          freelancerId: receiver.id,
+          status: { notIn: ['COMPLETED', 'AUTO_COMPLETED', 'CANCELLED'] },
+        },
+        select: { id: true },
+      });
+
+      if (!activeProject) {
+        res.status(403);
+        throw new Error('Freelancer sedang sibuk dan belum menerima pesan baru');
+      }
     }
 
     const imageError = validateInlineImage({ imageUrl, imageMime, imageSize });
@@ -177,6 +194,10 @@ exports.sendMessage = async (req, res, next) => {
     }
 
     const cleanBody = body.trim() || (imageUrl ? 'Mengirim gambar' : '');
+    const receiverMessagePath =
+      receiver.role === 'FREELANCER' || (receiver.role === 'BOTH' && ['CLIENT', 'BOTH'].includes(req.user.role))
+        ? '/dashboard/freelancer/messages'
+        : '/dashboard/client/messages';
 
     const message = await prisma.message.create({
       data: {
@@ -201,7 +222,7 @@ exports.sendMessage = async (req, res, next) => {
       body: `${req.user.fullName}: ${cleanBody.slice(0, 120)}`,
       telegramTitle: 'Pesan baru',
       telegramBody: 'You have 1 new message.',
-      actionPath: '/dashboard/client/messages',
+      actionPath: receiverMessagePath,
     }).catch(() => undefined);
 
     res.status(201).json({ message: await serializeMessageWithMedia(message, req.user.id) });

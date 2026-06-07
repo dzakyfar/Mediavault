@@ -25,6 +25,7 @@ interface ProjectDetail {
   eventDate: string;
   due: string;
   status: string;
+  rawStatus?: string;
   statusColor: string;
   amount: string;
   client: string;
@@ -176,7 +177,7 @@ export default function FreelancerProjectDetail() {
             <ProjectReviewPanel
               projectId={project.id}
               userType="freelancer"
-              projectStatus={project.status}
+              projectStatus={project.rawStatus || project.status}
               submissions={project.submissions}
               onUpdated={(updatedProject) => setProject(updatedProject as ProjectDetail)}
             />

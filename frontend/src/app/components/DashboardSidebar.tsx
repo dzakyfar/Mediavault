@@ -41,7 +41,7 @@ export default function DashboardSidebar({ userType, userName, unreadMessages = 
   const menuItems = userType === 'client' ? clientMenuItems : freelancerMenuItems;
   const switchLabel = userType === 'client' ? t('Beralih ke Freelancer', 'Switch to Freelancer') : t('Beralih ke Klien', 'Switch to Client');
   const isRegisteredFreelancer = Boolean(
-    user?.role && ['BOTH', 'FREELANCER'].includes(user.role) && user.isAvailable && user.bio && user.specialty
+    user?.role && ['BOTH', 'FREELANCER'].includes(user.role) && user.bio && user.specialty
   );
   const showSwitchRole = userType === 'client' || user?.role === 'BOTH' || user?.role === 'FREELANCER';
 
@@ -67,7 +67,7 @@ export default function DashboardSidebar({ userType, userName, unreadMessages = 
           <div>
             <div className="font-bold text-white">{userName}</div>
             <div className="text-xs px-2 py-1 bg-[#F5C800] text-black rounded-full inline-block">
-              {userType === 'client' ? 'Client' : 'Freelancer'}
+              {userType === 'client' ? t('Klien', 'Client') : t('Freelancer', 'Freelancer')}
             </div>
           </div>
         </div>

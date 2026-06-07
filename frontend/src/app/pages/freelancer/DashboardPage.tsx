@@ -28,6 +28,9 @@ interface FreelancerDashboardResponse {
     openRequests: number;
     unreadMessages: number;
     walletBalance: string;
+    averageRating: string | null;
+    reviewCount: number;
+    completedProjects: number;
   };
   projects: Project[];
   requests: Project[];
@@ -123,7 +126,7 @@ export default function FreelancerDashboard() {
               {t('Proyek Aktif', 'Active Projects')}
             </h2>
             <div className="space-y-4">
-              {!dashboard && <EmptyState title={t('Memuat project', 'Loading projects')} description={t('Menyiapkan ringkasan pekerjaan terbaru untuk Anda.', 'Preparing your latest work summary.')} />}
+              {!dashboard && <EmptyState title={t('Memuat proyek', 'Loading projects')} description={t('Menyiapkan ringkasan pekerjaan terbaru untuk Anda.', 'Preparing your latest work summary.')} />}
               {dashboard && projects.length === 0 && (
                 <EmptyState title={t('Belum ada proyek aktif', 'No active projects yet')} description={t('Proyek yang menerima Anda sebagai freelancer akan muncul di sini.', 'Projects that accept you as freelancer will appear here.')} />
               )}
@@ -233,11 +236,18 @@ export default function FreelancerDashboard() {
               <div className="text-sm text-[#888888]">{t('Estimasi Pendapatan', 'Estimated Earnings')}</div>
             </div>
             <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-6">
-              <div className="text-2xl font-bold text-[#22C55E] mb-1">-</div>
+              <div className="text-2xl font-bold text-[#22C55E] mb-1">
+                {statsData?.averageRating ? `${statsData.averageRating}/5` : '-'}
+              </div>
               <div className="text-sm text-[#888888]">{t('Rata-rata Rating', 'Average Rating')}</div>
+              {statsData?.reviewCount ? (
+                <div className="text-xs text-[#888888] mt-1">
+                  {statsData.reviewCount} {t('ulasan', statsData.reviewCount === 1 ? 'review' : 'reviews')}
+                </div>
+              ) : null}
             </div>
             <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-6">
-              <div className="text-2xl font-bold text-white mb-1">0</div>
+              <div className="text-2xl font-bold text-white mb-1">{statsData?.completedProjects ?? 0}</div>
               <div className="text-sm text-[#888888]">{t('Proyek Selesai', 'Completed Projects')}</div>
             </div>
             <Link

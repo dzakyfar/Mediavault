@@ -85,7 +85,7 @@ export default function FreelancerOnboardingPage() {
         if (match) setSelectedProvinceId(match.id);
       })
       .catch(() => {
-        if (active) setLocationWarning('Data provinsi gagal dimuat. Coba refresh halaman.');
+        if (active) setLocationWarning(t('Data provinsi gagal dimuat. Coba refresh halaman.', 'Province data failed to load. Try refreshing the page.'));
       })
       .finally(() => {
         if (active) setRegionLoading((current) => ({ ...current, provinces: false }));
@@ -111,7 +111,7 @@ export default function FreelancerOnboardingPage() {
         if (match) setSelectedCityId(match.id);
       })
       .catch(() => {
-        if (active) setLocationWarning('Data kota/kabupaten gagal dimuat.');
+        if (active) setLocationWarning(t('Data kota/kabupaten gagal dimuat.', 'City/regency data failed to load.'));
       })
       .finally(() => {
         if (active) setRegionLoading((current) => ({ ...current, cities: false }));
@@ -220,15 +220,15 @@ export default function FreelancerOnboardingPage() {
   };
 
   const validate = () => {
-    if (!form.fullName.trim()) return 'Nama lengkap wajib diisi.';
-    if (!form.bio.trim()) return 'Bio/deskripsi wajib diisi.';
-    if (form.categories.length === 0) return 'Pilih minimal satu kategori keahlian.';
-    if (form.experienceYears === '' || Number(form.experienceYears) < 0) return 'Pengalaman tahun wajib diisi.';
-    if (!form.startingPrice || Number(form.startingPrice) < 1) return 'Harga mulai wajib diisi.';
+    if (!form.fullName.trim()) return t('Nama lengkap wajib diisi.', 'Full name is required.');
+    if (!form.bio.trim()) return t('Bio/deskripsi wajib diisi.', 'Bio/description is required.');
+    if (form.categories.length === 0) return t('Pilih minimal satu kategori keahlian.', 'Choose at least one skill category.');
+    if (form.experienceYears === '' || Number(form.experienceYears) < 0) return t('Pengalaman tahun wajib diisi.', 'Years of experience is required.');
+    if (!form.startingPrice || Number(form.startingPrice) < 1) return t('Harga mulai wajib diisi.', 'Starting price is required.');
     if (!form.province || !form.city || !form.district || !form.village || !form.addressDetail) {
-      return 'Alamat lengkap freelancer wajib diisi.';
+      return t('Alamat lengkap freelancer wajib diisi.', 'Complete freelancer address is required.');
     }
-    if (!form.agreed) return 'Persetujuan syarat & ketentuan freelancer wajib dicentang.';
+    if (!form.agreed) return t('Persetujuan syarat & ketentuan freelancer wajib dicentang.', 'Freelancer terms and conditions agreement must be checked.');
     return '';
   };
 
@@ -402,8 +402,8 @@ export default function FreelancerOnboardingPage() {
     } catch (geoError) {
       const code = Number((geoError as GeolocationPositionError)?.code || 0);
       setError(code === 1
-        ? 'Izin lokasi ditolak. Aktifkan permission lokasi browser atau isi manual.'
-        : 'Gagal mengambil lokasi. Coba lagi atau isi alamat manual.');
+        ? t('Izin lokasi ditolak. Aktifkan izin lokasi browser atau isi manual.', 'Location permission was denied. Enable browser location permission or fill it manually.')
+        : t('Gagal mengambil lokasi. Coba lagi atau isi alamat manual.', 'Failed to get location. Try again or fill the address manually.'));
     } finally {
       setLocating(false);
     }
@@ -419,12 +419,12 @@ export default function FreelancerOnboardingPage() {
     const incomingVideos = files.filter((file) => file.type.startsWith('video/')).length;
 
     if (currentImages + incomingImages > PORTFOLIO_MAX_IMAGES_PER_ITEM) {
-      setError(`Maksimal ${PORTFOLIO_MAX_IMAGES_PER_ITEM} gambar untuk portfolio awal.`);
+      setError(t(`Maksimal ${PORTFOLIO_MAX_IMAGES_PER_ITEM} gambar untuk portofolio awal.`, `Maximum ${PORTFOLIO_MAX_IMAGES_PER_ITEM} images for the initial portfolio.`));
       return;
     }
 
     if (currentVideos + incomingVideos > PORTFOLIO_MAX_VIDEOS_PER_ITEM) {
-      setError('Maksimal 1 video untuk portfolio awal.');
+      setError(t('Maksimal 1 video untuk portofolio awal.', 'Maximum 1 video for the initial portfolio.'));
       return;
     }
 
@@ -449,7 +449,7 @@ export default function FreelancerOnboardingPage() {
       ]);
       setError('');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Gagal upload portfolio');
+      setError(err instanceof Error ? err.message : t('Gagal upload portofolio', 'Failed to upload portfolio'));
     } finally {
       setUploading(false);
     }
@@ -488,14 +488,14 @@ export default function FreelancerOnboardingPage() {
       });
       navigate('/dashboard/freelancer', { replace: true });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Gagal mendaftar freelancer');
+      setError(err instanceof Error ? err.message : t('Gagal mendaftar freelancer', 'Failed to register as freelancer'));
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <DashboardLayout userType="client" greeting="Freelancer Registration">
+    <DashboardLayout userType="client" greeting={t('Pendaftaran Freelancer', 'Freelancer Registration')}>
       <div className="max-w-4xl mx-auto">
         <button
           type="button"
@@ -503,14 +503,14 @@ export default function FreelancerOnboardingPage() {
           className="inline-flex items-center gap-2 text-[#888888] hover:text-[#F5C800] transition-colors mb-8"
         >
           <ArrowLeft className="w-4 h-4" />
-          Batal dan kembali ke Client
+          {t('Batal dan kembali ke Klien', 'Cancel and return to Client')}
         </button>
 
         <section className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-8">
           <h1 className="text-5xl mb-2" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>
-            Lengkapi Data Freelancer Anda
+            {t('Lengkapi Data Freelancer Anda', 'Complete Your Freelancer Data')}
           </h1>
-          <p className="text-[#888888] mb-8">Agar klien dapat menemukan dan memesan jasa Anda</p>
+          <p className="text-[#888888] mb-8">{t('Agar klien dapat menemukan dan memesan jasa Anda', 'So clients can find and order your services')}</p>
 
           {error && (
             <div className="mb-6 p-4 bg-[#EF4444]/10 border border-[#EF4444] rounded-lg text-[#EF4444]">
@@ -519,7 +519,7 @@ export default function FreelancerOnboardingPage() {
           )}
 
           <form onSubmit={submit} className="space-y-5">
-            <Field label="Nama Lengkap *">
+            <Field label={t('Nama Lengkap *', 'Full Name *')}>
               <input
                 value={form.fullName}
                 onChange={(event) => setForm({ ...form, fullName: event.target.value })}
@@ -527,17 +527,17 @@ export default function FreelancerOnboardingPage() {
               />
             </Field>
 
-            <Field label="Bio / Deskripsi *">
+            <Field label={t('Bio / Deskripsi *', 'Bio / Description *')}>
               <textarea
                 value={form.bio}
                 onChange={(event) => setForm({ ...form, bio: event.target.value })}
                 rows={5}
-                placeholder="Ceritakan keahlian, gaya kerja, dan layanan yang Anda tawarkan."
+                placeholder={t('Ceritakan keahlian, gaya kerja, dan layanan yang Anda tawarkan.', 'Tell clients about your skills, work style, and services.')}
                 className="w-full bg-[#141414] border border-[#2A2A2A] rounded-lg px-4 py-3 text-white placeholder-[#888888] focus:border-[#F5C800] focus:outline-none"
               />
             </Field>
 
-            <Field label="Kategori Keahlian *">
+            <Field label={t('Kategori Keahlian *', 'Skill Categories *')}>
               <div className="flex flex-wrap gap-2">
                 {categoryOptions.map((category) => {
                   const active = form.categories.includes(category);
@@ -557,11 +557,11 @@ export default function FreelancerOnboardingPage() {
                   );
                 })}
               </div>
-              <p className="text-xs text-[#888888] mt-2">Pilih semua kategori yang relevan dengan jasa Anda.</p>
+              <p className="text-xs text-[#888888] mt-2">{t('Pilih semua kategori yang relevan dengan jasa Anda.', 'Select all categories relevant to your services.')}</p>
             </Field>
 
             <div className="grid md:grid-cols-3 gap-4">
-              <Field label="Pengalaman (tahun) *">
+              <Field label={t('Pengalaman (tahun) *', 'Experience (years) *')}>
                 <input
                   type="number"
                   min="0"
@@ -570,7 +570,7 @@ export default function FreelancerOnboardingPage() {
                   className="w-full bg-[#141414] border border-[#2A2A2A] rounded-lg px-4 py-3 text-white focus:border-[#F5C800] focus:outline-none"
                 />
               </Field>
-              <Field label="Harga Mulai (Rp) *">
+              <Field label={t('Harga Mulai (Rp) *', 'Starting Price (Rp) *')}>
                 <input
                   type="number"
                   min="1"
@@ -585,7 +585,7 @@ export default function FreelancerOnboardingPage() {
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-5">
                 <div>
                   <h2 className="text-2xl" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>
-                    Alamat Freelancer *
+                    {t('Alamat Freelancer *', 'Freelancer Address *')}
                   </h2>
                   <p className="text-sm text-[#888888]">{t('Dipakai untuk kalkulasi transportasi dan ditampilkan di profil.', 'Used for transport calculation and displayed on your profile.')}</p>
                 </div>
@@ -596,7 +596,7 @@ export default function FreelancerOnboardingPage() {
                   className="inline-flex items-center justify-center gap-2 px-4 py-3 border border-[#888888] text-white rounded-lg hover:border-[#F5C800] hover:text-[#F5C800] disabled:opacity-60"
                 >
                   <LocateFixed className="w-4 h-4" />
-                  {locating ? 'Mengambil Lokasi...' : 'Gunakan Lokasi Saya'}
+                  {locating ? t('Mengambil Lokasi...', 'Getting Location...') : t('Gunakan Lokasi Saya', 'Use My Location')}
                 </button>
               </div>
 
@@ -608,8 +608,8 @@ export default function FreelancerOnboardingPage() {
 
               <div className="grid md:grid-cols-2 gap-4">
                 <SearchableRegionSelect
-                  label="Provinsi"
-                  placeholder={regionLoading.provinces ? 'Memuat provinsi...' : 'Ketik nama provinsi'}
+                  label={t('Provinsi', 'Province')}
+                  placeholder={regionLoading.provinces ? t('Memuat provinsi...', 'Loading provinces...') : t('Ketik nama provinsi', 'Type province name')}
                   value={form.province}
                   options={provinces}
                   disabled={regionLoading.provinces}
@@ -617,8 +617,8 @@ export default function FreelancerOnboardingPage() {
                   onSelect={selectProvince}
                 />
                 <SearchableRegionSelect
-                  label="Kota / Kabupaten"
-                  placeholder={!selectedProvinceId ? 'Pilih provinsi dulu' : regionLoading.cities ? 'Memuat kota/kabupaten...' : 'Ketik kota/kabupaten'}
+                  label={t('Kota / Kabupaten', 'City / Regency')}
+                  placeholder={!selectedProvinceId ? t('Pilih provinsi dulu', 'Select a province first') : regionLoading.cities ? t('Memuat kota/kabupaten...', 'Loading cities/regencies...') : t('Ketik kota/kabupaten', 'Type city/regency')}
                   value={form.city}
                   options={cities}
                   disabled={!selectedProvinceId || regionLoading.cities}
@@ -626,8 +626,8 @@ export default function FreelancerOnboardingPage() {
                   onSelect={selectCity}
                 />
                 <SearchableRegionSelect
-                  label="Kecamatan"
-                  placeholder={!selectedCityId ? 'Pilih kota/kabupaten dulu' : regionLoading.districts ? 'Memuat kecamatan...' : 'Ketik kecamatan'}
+                  label={t('Kecamatan', 'District')}
+                  placeholder={!selectedCityId ? t('Pilih kota/kabupaten dulu', 'Select a city/regency first') : regionLoading.districts ? t('Memuat kecamatan...', 'Loading districts...') : t('Ketik kecamatan', 'Type district')}
                   value={form.district}
                   options={districts}
                   disabled={!selectedCityId || regionLoading.districts}
@@ -635,15 +635,15 @@ export default function FreelancerOnboardingPage() {
                   onSelect={selectDistrict}
                 />
                 <SearchableRegionSelect
-                  label="Desa / Kelurahan"
-                  placeholder={!selectedDistrictId ? 'Pilih kecamatan dulu' : regionLoading.villages ? 'Memuat desa/kelurahan...' : 'Ketik desa/kelurahan'}
+                  label={t('Desa / Kelurahan', 'Village / Subdistrict')}
+                  placeholder={!selectedDistrictId ? t('Pilih kecamatan dulu', 'Select a district first') : regionLoading.villages ? t('Memuat desa/kelurahan...', 'Loading villages/subdistricts...') : t('Ketik desa/kelurahan', 'Type village/subdistrict')}
                   value={form.village}
                   options={villages}
                   disabled={!selectedDistrictId || regionLoading.villages}
                   onChange={(value) => selectVillage(findExactRegionByName(villages, value), value)}
                   onSelect={selectVillage}
                 />
-                <Field label="Kode Pos">
+                <Field label={t('Kode Pos', 'Postal Code')}>
                   <input
                     type="number"
                     value={form.postalCode}
@@ -651,21 +651,21 @@ export default function FreelancerOnboardingPage() {
                     className="w-full bg-[#101010] border border-[#2A2A2A] rounded-lg px-4 py-3 text-white focus:border-[#F5C800] focus:outline-none"
                   />
                 </Field>
-                <Field label="Koordinat">
+                <Field label={t('Koordinat', 'Coordinates')}>
                   <input
                     value={form.latitude && form.longitude ? `${form.latitude}, ${form.longitude}` : ''}
                     readOnly
-                    placeholder="Terisi otomatis dari lokasi"
+                    placeholder={t('Terisi otomatis dari lokasi', 'Filled automatically from location')}
                     className="w-full bg-[#101010] border border-[#2A2A2A] rounded-lg px-4 py-3 text-[#888888] placeholder-[#888888] focus:outline-none"
                   />
                 </Field>
                 <div className="md:col-span-2">
-                  <Field label="Detail Alamat *">
+                  <Field label={t('Detail Alamat *', 'Address Detail *')}>
                     <textarea
                       value={form.addressDetail}
                       onChange={(event) => setForm({ ...form, addressDetail: event.target.value, locationSource: 'manual' })}
                       rows={3}
-                      placeholder="Nama jalan, nomor, gedung, patokan"
+                      placeholder={t('Nama jalan, nomor, gedung, patokan', 'Street name, number, building, landmark')}
                       className="w-full bg-[#101010] border border-[#2A2A2A] rounded-lg px-4 py-3 text-white placeholder-[#888888] focus:border-[#F5C800] focus:outline-none"
                     />
                   </Field>
@@ -686,11 +686,11 @@ export default function FreelancerOnboardingPage() {
               </div>
             </section>
 
-            <Field label="Portofolio">
+            <Field label={t('Portofolio', 'Portfolio')}>
               <div className="flex flex-wrap items-center gap-4">
                 <label className="inline-flex items-center gap-2 px-4 py-3 border border-[#888888] text-white rounded-lg hover:border-[#F5C800] hover:text-[#F5C800] cursor-pointer transition-colors">
                   <ImagePlus className="w-4 h-4" />
-                  {uploading ? 'Uploading...' : 'Tambah Gambar / Video'}
+                  {uploading ? t('Mengupload...', 'Uploading...') : t('Tambah Gambar / Video', 'Add Image / Video')}
                   <input
                     type="file"
                     accept="image/png,image/jpeg,video/mp4,video/quicktime,video/webm"
@@ -702,7 +702,7 @@ export default function FreelancerOnboardingPage() {
                     }}
                   />
                 </label>
-                <span className="text-sm text-[#888888]">Opsional, maksimal 5 gambar (1MB/gambar) dan 1 video (100MB).</span>
+                <span className="text-sm text-[#888888]">{t('Opsional, maksimal 5 gambar (1MB/gambar) dan 1 video (100MB).', 'Optional, maximum 5 images (1MB/image) and 1 video (100MB).')}</span>
               </div>
               {portfolioFiles.length > 0 && (
                 <div className="mt-4 grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -717,7 +717,7 @@ export default function FreelancerOnboardingPage() {
                         type="button"
                         onClick={() => removePortfolioFile(index)}
                         className="absolute right-2 top-2 rounded-full bg-black/70 p-1 text-white hover:bg-[#EF4444]"
-                        aria-label="Hapus media portfolio"
+                        aria-label={t('Hapus media portofolio', 'Remove portfolio media')}
                       >
                         <X className="w-4 h-4" />
                       </button>
@@ -739,7 +739,7 @@ export default function FreelancerOnboardingPage() {
                 className="mt-1 w-4 h-4 rounded border-[#2A2A2A] bg-[#141414] text-[#F5C800] focus:ring-[#F5C800]"
               />
               <span className="text-sm text-[#888888]">
-                Saya setuju dengan{' '}
+                {t('Saya setuju dengan', 'I agree to the')}{' '}
                 <button
                   type="button"
                   onClick={(event) => {
@@ -748,7 +748,7 @@ export default function FreelancerOnboardingPage() {
                   }}
                   className="text-[#F5C800] hover:underline"
                 >
-                  syarat & ketentuan freelancer
+                  {t('syarat & ketentuan freelancer', 'freelancer terms and conditions')}
                 </button>
               </span>
             </label>
@@ -759,14 +759,14 @@ export default function FreelancerOnboardingPage() {
                 onClick={() => navigate('/dashboard/client')}
                 className="px-5 py-3 border border-[#888888] text-white rounded-lg font-bold hover:border-[#F5C800] hover:text-[#F5C800]"
               >
-                Batal
+                {t('Batal', 'Cancel')}
               </button>
               <button
                 type="submit"
                 disabled={saving}
                 className="px-5 py-3 bg-[#F5C800] text-black rounded-lg font-bold disabled:opacity-60"
               >
-                {saving ? 'Menyimpan...' : 'Daftar Sekarang'}
+                {saving ? t('Menyimpan...', 'Saving...') : t('Daftar Sekarang', 'Register Now')}
               </button>
             </div>
           </form>
@@ -777,7 +777,7 @@ export default function FreelancerOnboardingPage() {
         <div className="fixed inset-y-0 left-0 right-0 z-[120] flex items-center justify-center px-4 md:left-60">
           <button
             type="button"
-            aria-label="Tutup syarat dan ketentuan"
+            aria-label={t('Tutup syarat dan ketentuan', 'Close terms and conditions')}
             onClick={() => setTermsOpen(false)}
             className="absolute inset-0 bg-slate-950/45 backdrop-blur-sm dark:bg-black/75"
           />
@@ -785,10 +785,10 @@ export default function FreelancerOnboardingPage() {
             <div className="flex items-start justify-between gap-4 mb-5">
               <div>
                 <h2 className="text-4xl" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>
-                  Syarat & Ketentuan Freelancer
+                  {t('Syarat & Ketentuan Freelancer', 'Freelancer Terms & Conditions')}
                 </h2>
                   <p className="text-sm text-[#667085] dark:text-[#888888] mt-1">
-                  Ringkasan aturan kerja di MediaVault untuk menjaga transaksi tetap jelas, aman, dan profesional.
+                  {t('Ringkasan aturan kerja di MediaVault untuk menjaga transaksi tetap jelas, aman, dan profesional.', 'A summary of MediaVault work rules to keep transactions clear, safe, and professional.')}
                 </p>
               </div>
               <button
@@ -802,36 +802,36 @@ export default function FreelancerOnboardingPage() {
 
             <div className="space-y-4 text-sm text-[#667085] leading-relaxed dark:text-[#D1D1D1]">
               <TermsBlock
-                title="1. Profil dan Keahlian"
-                body="Freelancer wajib mengisi data profil secara benar, termasuk bio, kategori keahlian, domisili, dan harga mulai. Informasi ini dipakai client untuk menilai kecocokan jasa sebelum memesan."
+                title={t('1. Profil dan Keahlian', '1. Profile and Skills')}
+                body={t('Freelancer wajib mengisi data profil secara benar, termasuk bio, kategori keahlian, domisili, dan harga mulai. Informasi ini dipakai klien untuk menilai kecocokan jasa sebelum memesan.', 'Freelancers must fill in profile data correctly, including bio, skill categories, location, and starting price. This information helps clients assess service fit before ordering.')}
               />
               <TermsBlock
-                title="2. Penerimaan Pesanan"
-                body="Setelah client membayar, freelancer harus memilih Terima atau Tolak pesanan. Jika diterima, freelancer berkomitmen mengerjakan sesuai detail pesanan, tanggal, lokasi, dan kesepakatan yang tercatat di MediaVault."
+                title={t('2. Penerimaan Pesanan', '2. Order Acceptance')}
+                body={t('Setelah klien membayar, freelancer harus memilih Terima atau Tolak pesanan. Jika diterima, freelancer berkomitmen mengerjakan sesuai detail pesanan, tanggal, lokasi, dan kesepakatan yang tercatat di MediaVault.', 'After the client pays, freelancers must accept or reject the order. If accepted, freelancers commit to working according to the order details, dates, location, and agreement recorded in MediaVault.')}
               />
               <TermsBlock
-                title="3. Penolakan dan Refund"
-                body="Jika freelancer menolak pesanan yang sudah dibayar, dana akan dikembalikan ke saldo internal client di MediaVault. Untuk versi production, pengembalian ke rekening atau e-wallet asli membutuhkan proses withdraw/payout terpisah sesuai kebijakan platform."
+                title={t('3. Penolakan dan Refund', '3. Rejection and Refund')}
+                body={t('Jika freelancer menolak pesanan yang sudah dibayar, dana akan dikembalikan ke saldo internal klien di MediaVault. Untuk versi produksi, pengembalian ke rekening atau e-wallet asli membutuhkan proses penarikan/pencairan terpisah sesuai kebijakan platform.', 'If a freelancer rejects a paid order, funds are returned to the client internal MediaVault balance. In production, refunds to bank accounts or real e-wallets require a separate withdrawal or payout process according to platform policy.')}
               />
               <TermsBlock
-                title="4. Escrow dan Pencairan Dana"
-                body="Pembayaran client ditahan sebagai escrow MediaVault sampai pekerjaan selesai. Dana freelancer baru masuk ke saldo setelah client mengonfirmasi pekerjaan selesai atau setelah mekanisme auto-release berjalan sesuai aturan platform."
+                title={t('4. Escrow dan Pencairan Dana', '4. Escrow and Fund Release')}
+                body={t('Pembayaran klien ditahan sebagai escrow MediaVault sampai pekerjaan selesai. Dana freelancer masuk ke saldo setelah klien mengonfirmasi pekerjaan selesai atau setelah mekanisme auto-release berjalan sesuai aturan platform.', 'Client payments are held in MediaVault escrow until the work is completed. Freelancer funds are added to the balance after the client confirms completion or after the platform auto-release mechanism runs.')}
               />
               <TermsBlock
-                title="5. Komunikasi dan Update Progress"
-                body="Freelancer wajib menjaga komunikasi melalui fitur chat dan memberi update progress yang wajar, seperti tahap persiapan, proses pengerjaan, revisi, atau pengiriman hasil."
+                title={t('5. Komunikasi dan Update Progress', '5. Communication and Progress Updates')}
+                body={t('Freelancer wajib menjaga komunikasi melalui fitur chat dan memberi update progres yang wajar, seperti tahap persiapan, proses pengerjaan, revisi, atau pengiriman hasil.', 'Freelancers must maintain communication through chat and provide reasonable progress updates, such as preparation, work process, revisions, or result delivery.')}
               />
               <TermsBlock
-                title="6. Kualitas Pekerjaan"
-                body="Freelancer bertanggung jawab memberikan hasil sesuai deskripsi layanan, brief client, dan standar profesional bidang kreatif seperti fotografi, videografi, editing, event, product shoot, dan layanan terkait."
+                title={t('6. Kualitas Pekerjaan', '6. Work Quality')}
+                body={t('Freelancer bertanggung jawab memberikan hasil sesuai deskripsi layanan, brief klien, dan standar profesional bidang kreatif seperti fotografi, videografi, editing, event, product shoot, dan layanan terkait.', 'Freelancers are responsible for delivering work according to the service description, client brief, and professional creative standards such as photography, videography, editing, events, product shoots, and related services.')}
               />
               <TermsBlock
-                title="7. Withdraw Saldo"
-                body="Saldo freelancer dapat diajukan untuk withdraw melalui metode e-wallet yang tersedia. Status pencairan akan mengikuti proses dan ketentuan operasional MediaVault."
+                title={t('7. Penarikan Saldo', '7. Balance Withdrawal')}
+                body={t('Saldo freelancer dapat diajukan untuk penarikan melalui metode e-wallet yang tersedia. Status pencairan mengikuti proses dan ketentuan operasional MediaVault.', 'Freelancer balances can be submitted for withdrawal through available e-wallet methods. Payout status follows MediaVault operational processes and terms.')}
               />
               <TermsBlock
-                title="8. Penyalahgunaan"
-                body="MediaVault dapat membatasi akses freelancer jika ditemukan data palsu, spam, penipuan, komunikasi tidak pantas, atau upaya memproses transaksi di luar alur platform tanpa persetujuan client."
+                title={t('8. Penyalahgunaan', '8. Misuse')}
+                body={t('MediaVault dapat membatasi akses freelancer jika ditemukan data palsu, spam, penipuan, komunikasi tidak pantas, atau upaya memproses transaksi di luar alur platform tanpa persetujuan klien.', 'MediaVault may restrict freelancer access if false data, spam, fraud, inappropriate communication, or attempts to process transactions outside the platform flow without client approval are found.')}
               />
             </div>
 
@@ -841,7 +841,7 @@ export default function FreelancerOnboardingPage() {
                 onClick={() => setTermsOpen(false)}
                 className="px-5 py-3 border border-[#D8DEE8] text-[#111827] rounded-lg font-bold hover:border-[#D9A900] hover:text-[#A87800] dark:border-[#888888] dark:text-white dark:hover:border-[#F5C800] dark:hover:text-[#F5C800]"
               >
-                Tutup
+                {t('Tutup', 'Close')}
               </button>
               <button
                 type="button"
@@ -851,7 +851,7 @@ export default function FreelancerOnboardingPage() {
                 }}
                 className="px-5 py-3 bg-[#D9A900] text-[#111827] rounded-lg font-bold dark:bg-[#F5C800] dark:text-black"
               >
-                Saya Setuju
+                {t('Saya Setuju', 'I Agree')}
               </button>
             </div>
           </div>

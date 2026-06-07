@@ -94,7 +94,7 @@ export default function Footer() {
               type="button"
               onClick={() => setShowContact(false)}
               className="absolute right-5 top-5 rounded-full border border-slate-200 bg-slate-50 p-2 text-[#667085] transition-colors hover:border-[#D9A900] hover:text-[#A87800] dark:border-white/10 dark:bg-white/5 dark:text-[#888888] dark:hover:border-[#F5C800] dark:hover:text-[#F5C800]"
-              aria-label="Close contact popup"
+              aria-label={t('Tutup popup kontak', 'Close contact popup')}
             >
               <X className="h-5 w-5" />
             </button>
@@ -108,7 +108,7 @@ export default function Footer() {
                 {t('Hubungi MediaVault', 'Talk To MediaVault')}
               </h3>
               <p className="mb-6 text-[#667085] dark:text-[#A3A3A3]">
-                {t('Punya pertanyaan, kerja sama, atau butuh bantuan project? Hubungi kami lewat email berikut.', 'Have questions, partnership ideas, or need project help? Reach us through these emails.')}
+                {t('Punya pertanyaan, kerja sama, atau butuh bantuan proyek? Hubungi kami lewat email berikut.', 'Have questions, partnership ideas, or need project help? Reach us through these emails.')}
               </p>
 
               <div className="space-y-3">

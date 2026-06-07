@@ -155,11 +155,11 @@ const normalizeFreelancerProfile = (freelancer: Partial<FreelancerProfile>): Fre
     name: freelancer.name || freelancer.fullName || 'Freelancer',
     fullName: freelancer.fullName || freelancer.name || 'Freelancer',
     avatarUrl: freelancer.avatarUrl || null,
-    specialty: freelancer.specialty || 'Jasa kreatif',
+    specialty: freelancer.specialty || '',
     services: (freelancer.services?.length ? freelancer.services : [...new Set(offeringServices)]) || [],
     serviceTags: [...new Set(freelancer.serviceTags?.length ? freelancer.serviceTags : derivedTags)],
     maxTeamCapacity: freelancer.maxTeamCapacity || 1,
-    bio: freelancer.bio || 'Profile freelancer belum dilengkapi.',
+    bio: freelancer.bio || 'Profil freelancer belum dilengkapi.',
     rating: freelancer.rating ?? null,
     reviewCount: freelancer.reviewCount || 0,
     price: freelancer.price || 'Rp 0',
@@ -287,7 +287,7 @@ export default function FreelancerProfilePage() {
       .then((items) => {
         if (active) setProvinces(items);
       })
-      .catch(() => setOrderError('Data wilayah Indonesia gagal dimuat. Coba refresh halaman.'))
+      .catch(() => setOrderError(t('Data wilayah Indonesia gagal dimuat. Coba refresh halaman.', 'Indonesia region data failed to load. Please refresh the page.')))
       .finally(() => {
         if (active) setRegionLoading((current) => ({ ...current, provinces: false }));
       });
@@ -308,7 +308,7 @@ export default function FreelancerProfilePage() {
       .then((items) => {
         if (active) setCities(items);
       })
-      .catch(() => setOrderError('Data kota/kabupaten gagal dimuat.'))
+      .catch(() => setOrderError(t('Data kota/kabupaten gagal dimuat.', 'City/regency data failed to load.')))
       .finally(() => {
         if (active) setRegionLoading((current) => ({ ...current, cities: false }));
       });
@@ -335,7 +335,7 @@ export default function FreelancerProfilePage() {
       .then((items) => {
         if (active) setDistricts(items);
       })
-      .catch(() => setOrderError('Data kecamatan gagal dimuat.'))
+      .catch(() => setOrderError(t('Data kecamatan gagal dimuat.', 'District data failed to load.')))
       .finally(() => {
         if (active) setRegionLoading((current) => ({ ...current, districts: false }));
       });
@@ -362,7 +362,7 @@ export default function FreelancerProfilePage() {
       .then((items) => {
         if (active) setVillages(items);
       })
-      .catch(() => setOrderError('Data desa/kelurahan gagal dimuat.'))
+      .catch(() => setOrderError(t('Data desa/kelurahan gagal dimuat.', 'Village/subdistrict data failed to load.')))
       .finally(() => {
         if (active) setRegionLoading((current) => ({ ...current, villages: false }));
       });
@@ -444,7 +444,7 @@ export default function FreelancerProfilePage() {
 
   const useProfileAddress = () => {
     if (!user?.province || !user?.city || !user?.district || !user?.village || !user?.addressDetail) {
-      setOrderError('Alamat profile belum lengkap. Lengkapi di Settings atau isi manual di form ini.');
+      setOrderError(t('Alamat profil belum lengkap. Lengkapi di Pengaturan atau isi manual di form ini.', 'Profile address is incomplete. Complete it in Settings or fill it manually in this form.'));
       return;
     }
 
@@ -521,19 +521,20 @@ export default function FreelancerProfilePage() {
   }, [currentOffering, freelancer?.city, freelancer?.latitude, freelancer?.longitude, maxPersons, orderData]);
 
   const orderBlockingReason = useMemo(() => {
-    if (isOwnProfile) return 'Profile sendiri tidak bisa dipesan.';
-    if (costSummary.persons > maxPersons) return `Jumlah orang melebihi kapasitas maksimal ${maxPersons} orang.`;
-    if (!orderData.serviceType) return 'Pilih jenis jasa.';
-    if (!orderData.needType) return 'Isi jenis kebutuhan.';
-    if (!orderData.description) return 'Isi deskripsi kebutuhan.';
-    if (!orderData.rentalHours) return 'Pilih berapa jam jasa akan disewa.';
-    if (!orderData.eventDate || !orderData.deadline) return 'Isi tanggal pemesanan dan deadline.';
+    if (isOwnProfile) return t('Profil sendiri tidak bisa dipesan.', 'You cannot order your own profile.');
+    if (!freelancer?.available) return t('Freelancer sedang sibuk dan belum menerima pesanan baru.', 'This freelancer is currently busy and not accepting new orders.');
+    if (costSummary.persons > maxPersons) return t(`Jumlah orang melebihi kapasitas maksimal ${maxPersons} orang.`, `Number of people exceeds the maximum capacity of ${maxPersons}.`);
+    if (!orderData.serviceType) return t('Pilih jenis jasa.', 'Choose a service type.');
+    if (!orderData.needType) return t('Isi jenis kebutuhan.', 'Fill in the need type.');
+    if (!orderData.description) return t('Isi deskripsi kebutuhan.', 'Fill in the need description.');
+    if (!orderData.rentalHours) return t('Pilih durasi sewa jasa.', 'Choose the service rental duration.');
+    if (!orderData.eventDate || !orderData.deadline) return t('Isi tanggal pemesanan dan deadline.', 'Fill in the booking date and deadline.');
     if (!orderData.province || !orderData.city || !orderData.district || !orderData.village || !orderData.postalCode || !orderData.addressDetail) {
-      return 'Lengkapi alamat client.';
+      return t('Lengkapi alamat klien.', 'Complete the client address.');
     }
-    if (costSummary.subtotal <= 0) return 'Biaya belum bisa dihitung. Cek rate jasa freelancer.';
+    if (costSummary.subtotal <= 0) return t('Biaya belum bisa dihitung. Cek harga jasa freelancer.', 'Cost cannot be calculated yet. Check the freelancer service price.');
     return '';
-  }, [costSummary.persons, costSummary.subtotal, isOwnProfile, maxPersons, orderData]);
+  }, [costSummary.persons, costSummary.subtotal, freelancer?.available, isOwnProfile, maxPersons, orderData, t]);
 
   useEffect(() => {
     if (!id) return;
@@ -551,7 +552,7 @@ export default function FreelancerProfilePage() {
           rentalHours: initialOffering?.estimatedHours ? String(initialOffering.estimatedHours) : current.rentalHours,
         }));
       })
-      .catch((err) => setError(err instanceof Error ? err.message : 'Gagal memuat profile freelancer'))
+      .catch((err) => setError(err instanceof Error ? err.message : t('Gagal memuat profil freelancer', 'Failed to load freelancer profile')))
       .finally(() => setLoading(false));
   }, [id]);
 
@@ -562,7 +563,7 @@ export default function FreelancerProfilePage() {
         const response = await apiRequest<{ payment: PaymentDetail }>(`/payments/${payment.klikqrisOrderId}/status`);
         setPayment(response.payment);
       } catch (err) {
-        setOrderError(err instanceof Error ? err.message : 'Gagal memperbarui status pembayaran');
+        setOrderError(err instanceof Error ? err.message : t('Gagal memperbarui status pembayaran', 'Failed to update payment status'));
       }
     }, 5000);
 
@@ -579,7 +580,7 @@ export default function FreelancerProfilePage() {
 
   const useCurrentLocation = async () => {
     if (!navigator.geolocation) {
-      setOrderError('Browser tidak mendukung fitur lokasi.');
+      setOrderError(t('Browser tidak mendukung fitur lokasi.', 'Your browser does not support location features.'));
       return;
     }
 
@@ -655,7 +656,7 @@ export default function FreelancerProfilePage() {
         }));
       }
     } catch {
-      setOrderError('Izin lokasi ditolak atau lokasi tidak tersedia. Silakan isi manual.');
+      setOrderError(t('Izin lokasi ditolak atau lokasi tidak tersedia. Silakan isi manual.', 'Location permission was denied or unavailable. Please fill it manually.'));
     } finally {
       setLocating(false);
     }
@@ -668,12 +669,17 @@ export default function FreelancerProfilePage() {
     }
 
     if (isOwnProfile) {
-      setOrderError('Tidak bisa memesan jasa dari profile sendiri');
+      setOrderError(t('Tidak bisa memesan jasa dari profil sendiri', 'You cannot order services from your own profile'));
+      return;
+    }
+
+    if (!freelancer?.available) {
+      setOrderError(t('Freelancer sedang sibuk dan belum menerima pesanan baru.', 'This freelancer is currently busy and not accepting new orders.'));
       return;
     }
 
     if (!costSummary.ready) {
-      setOrderError('Lengkapi semua field sebelum memesan.');
+      setOrderError(t('Lengkapi semua field sebelum memesan.', 'Complete all fields before ordering.'));
       return;
     }
 
@@ -714,12 +720,17 @@ export default function FreelancerProfilePage() {
     }
 
     if (isOwnProfile) {
-      setOrderError('Tidak bisa memesan jasa dari profile sendiri');
+      setOrderError(t('Tidak bisa memesan jasa dari profil sendiri', 'You cannot order services from your own profile'));
+      return;
+    }
+
+    if (!freelancer?.available) {
+      setOrderError(t('Freelancer sedang sibuk dan belum menerima pesanan baru.', 'This freelancer is currently busy and not accepting new orders.'));
       return;
     }
 
     if (!costSummary.ready) {
-      setOrderError('Lengkapi semua field sebelum memesan.');
+      setOrderError(t('Lengkapi semua field sebelum memesan.', 'Complete all fields before ordering.'));
       return;
     }
 
@@ -734,7 +745,7 @@ export default function FreelancerProfilePage() {
       setSubmitting(true);
       setOrderError('');
       const orderResponse = await createOrderProject();
-      if (!orderResponse?.projectId) throw new Error('Project gagal dibuat');
+      if (!orderResponse?.projectId) throw new Error(t('Proyek gagal dibuat', 'Failed to create project'));
       const paymentResponse = await apiRequest<{ payment: PaymentDetail }>(
         method === 'wallet'
           ? `/payments/projects/${orderResponse.projectId}/pay-with-wallet`
@@ -749,7 +760,7 @@ export default function FreelancerProfilePage() {
         setPaymentOpen(true);
       }
     } catch (err) {
-      setOrderError(err instanceof Error ? err.message : 'Gagal memesan jasa');
+      setOrderError(err instanceof Error ? err.message : t('Gagal memesan jasa', 'Failed to order service'));
     } finally {
       setSubmitting(false);
     }
@@ -771,7 +782,7 @@ export default function FreelancerProfilePage() {
 
         {error && !freelancer && (
           <div className="mt-8">
-            <EmptyState title="Profile tidak ditemukan" description={error} />
+            <EmptyState title={t('Profil tidak ditemukan', 'Profile not found')} description={error} />
           </div>
         )}
 
@@ -785,7 +796,7 @@ export default function FreelancerProfilePage() {
                     <div className="flex items-start justify-between gap-4">
                       <div>
                         <h1 className="text-5xl mb-2" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>{freelancer.fullName}</h1>
-                        <p className="text-[#888888]">{freelancer.specialty}</p>
+                        <p className="text-[#888888]">{freelancer.specialty || t('Jasa kreatif', 'Creative service')}</p>
                       </div>
                       <span className={`px-3 py-1 rounded-full text-sm font-bold ${freelancer.available ? 'bg-[#22C55E] text-white' : 'bg-[#888888] text-white'}`}>
                         {freelancer.available ? t('Tersedia', 'Available') : t('Sibuk', 'Busy')}
@@ -796,8 +807,12 @@ export default function FreelancerProfilePage() {
                       <span className="inline-flex items-center gap-2"><MapPin className="w-4 h-4" />{freelancer.city}</span>
                       <span className="inline-flex items-center gap-2">
                         <Star className="w-4 h-4 text-[#F5C800] fill-current" />
-                        {freelancer.rating ?? 'Baru'}
-                        {freelancer.reviewCount > 0 && <span>({freelancer.reviewCount} ulasan)</span>}
+                        {freelancer.rating ?? t('Baru', 'New')}
+                        {freelancer.reviewCount > 0 && (
+                          <span>
+                            ({freelancer.reviewCount} {t('ulasan', freelancer.reviewCount === 1 ? 'review' : 'reviews')})
+                          </span>
+                        )}
                       </span>
                       <span className="text-[#F5C800] font-bold">{t('Mulai dari', 'From')} {freelancer.price}</span>
                     </div>
@@ -830,7 +845,7 @@ export default function FreelancerProfilePage() {
               </div>
 
               <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-8">
-                <h2 className="text-3xl mb-4" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>Tag Jasa</h2>
+                <h2 className="text-3xl mb-4" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>{t('Tag Jasa', 'Service Tags')}</h2>
                 {freelancer.serviceTags.length === 0 ? (
                   <EmptyState title={t('Belum ada tag jasa', 'No service tags yet')} description={t('Freelancer perlu menambahkan katalog jasa di halaman akun.', 'This freelancer needs to add service catalog items from their account page.')} />
                 ) : (
@@ -847,18 +862,18 @@ export default function FreelancerProfilePage() {
               <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-8">
                 <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-5">
                   <div>
-                    <h2 className="text-3xl" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>Pricelist Jasa</h2>
-                    <p className="text-sm text-[#888888]">Klik salah satu paket untuk mengisi form pemesanan otomatis.</p>
+                    <h2 className="text-3xl" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>{t('Pricelist Jasa', 'Service Pricelist')}</h2>
+                    <p className="text-sm text-[#888888]">{t('Klik salah satu paket untuk mengisi form pemesanan otomatis.', 'Click a package to fill the order form automatically.')}</p>
                   </div>
                   {freelancer.offerings.length > 0 && (
                     <span className="w-fit px-3 py-1 rounded-full bg-[#F5C800]/10 border border-[#F5C800]/40 text-[#F5C800] text-xs font-bold">
-                      {freelancer.offerings.length} paket aktif
+                      {freelancer.offerings.length} {t('paket aktif', freelancer.offerings.length === 1 ? 'active package' : 'active packages')}
                     </span>
                   )}
                 </div>
 
                 {freelancer.offerings.length === 0 ? (
-                  <EmptyState title="Pricelist belum tersedia" description="Freelancer ini belum menambahkan paket jasa dan rate." />
+                  <EmptyState title={t('Pricelist belum tersedia', 'Pricelist not available yet')} description={t('Freelancer ini belum menambahkan paket jasa dan rate.', 'This freelancer has not added service packages and rates yet.')} />
                 ) : (
                   <div className="grid md:grid-cols-2 gap-4">
                     {freelancer.offerings.map((offering) => {
@@ -876,7 +891,7 @@ export default function FreelancerProfilePage() {
                         >
                           <div className="flex items-start justify-between gap-3 mb-3">
                             <div>
-                              <p className="text-xs uppercase tracking-[0.2em] text-[#F5C800] font-bold">{offering.serviceType || 'Jasa Kreatif'}</p>
+                              <p className="text-xs uppercase tracking-[0.2em] text-[#F5C800] font-bold">{offering.serviceType || t('Jasa Kreatif', 'Creative Service')}</p>
                               <h3 className="text-xl font-bold text-white mt-1">{offering.title}</h3>
                             </div>
                             {isSelected && <CheckCircle2 className="w-5 h-5 text-[#F5C800] shrink-0" />}
@@ -884,31 +899,31 @@ export default function FreelancerProfilePage() {
 
                           <div className="space-y-2 text-sm">
                             <div className="flex items-center justify-between gap-4">
-                              <span className="text-[#888888]">Estimasi paket</span>
+                              <span className="text-[#888888]">{t('Estimasi paket', 'Package estimate')}</span>
                               <span className="font-bold text-white">{offering.priceFormatted}</span>
                             </div>
                             <div className="flex items-center justify-between gap-4">
-                              <span className="text-[#888888]">Rate utama</span>
-                              <span className="text-[#F5C800] font-bold">{offering.ratePerHourFormatted}/jam</span>
+                              <span className="text-[#888888]">{t('Rate utama', 'Main rate')}</span>
+                              <span className="text-[#F5C800] font-bold">{offering.ratePerHourFormatted}/{t('jam', 'hour')}</span>
                             </div>
                             {offering.ratePerPhotoFormatted && (
                               <div className="flex items-center justify-between gap-4">
-                                <span className="text-[#888888]">Rate foto</span>
-                                <span className="font-bold text-white">{offering.ratePerPhotoFormatted}/foto</span>
+                                <span className="text-[#888888]">{t('Rate foto', 'Photo rate')}</span>
+                                <span className="font-bold text-white">{offering.ratePerPhotoFormatted}/{t('foto', 'photo')}</span>
                               </div>
                             )}
                             <div className="flex items-center justify-between gap-4">
-                              <span className="text-[#888888]">Orang tambahan</span>
-                              <span className="font-bold text-white">{offering.extraPersonFeeFormatted}/orang</span>
+                              <span className="text-[#888888]">{t('Orang tambahan', 'Additional person')}</span>
+                              <span className="font-bold text-white">{offering.extraPersonFeeFormatted}/{t('orang', 'person')}</span>
                             </div>
                             <div className="grid grid-cols-2 gap-2 pt-2">
                               <span className="inline-flex items-center gap-2 rounded-lg bg-[#0F0F0F] border border-[#2A2A2A] px-3 py-2 text-[#CCCCCC]">
                                 <Clock className="w-4 h-4 text-[#F5C800]" />
-                                {offering.estimatedHours || 1} jam
+                                {offering.estimatedHours || 1} {t('jam', 'hour')}
                               </span>
                               <span className="inline-flex items-center gap-2 rounded-lg bg-[#0F0F0F] border border-[#2A2A2A] px-3 py-2 text-[#CCCCCC]">
                                 <Users className="w-4 h-4 text-[#F5C800]" />
-                                Maks. {offering.capacityPersons || freelancer.maxTeamCapacity || 1}
+                                {t('Maks.', 'Max.')} {offering.capacityPersons || freelancer.maxTeamCapacity || 1}
                               </span>
                             </div>
                           </div>
@@ -992,7 +1007,7 @@ export default function FreelancerProfilePage() {
                         <h3 className="font-bold group-hover:text-[#F5C800] transition-colors">{item.title}</h3>
                         {item.category && <p className="text-sm text-[#888888]">{item.category}</p>}
                         {item.serviceType && <p className="text-sm text-[#F5C800]">{item.serviceType}</p>}
-                        <p className="mt-3 text-xs text-[#888888]">Klik untuk melihat detail portfolio</p>
+                        <p className="mt-3 text-xs text-[#888888]">{t('Klik untuk melihat detail portofolio', 'Click to view portfolio details')}</p>
                       </button>
                       );
                     })}
@@ -1003,7 +1018,7 @@ export default function FreelancerProfilePage() {
               <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-8">
                 <h2 className="text-3xl mb-4" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>{t('Ulasan', 'Reviews')}</h2>
                 {freelancer.reviews.length === 0 ? (
-                  <EmptyState title={t('Belum ada review', 'No reviews yet')} description={t('Rating dan ulasan client akan muncul setelah project selesai direview.', 'Client ratings and reviews will appear after completed projects are reviewed.')} />
+                  <EmptyState title={t('Belum ada ulasan', 'No reviews yet')} description={t('Rating dan ulasan klien akan muncul setelah proyek selesai direview.', 'Client ratings and reviews will appear after completed projects are reviewed.')} />
                 ) : (
                   <div className="space-y-4">
                     {freelancer.reviews.map((review) => (
@@ -1029,14 +1044,14 @@ export default function FreelancerProfilePage() {
 
             <aside className="space-y-6">
               <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-6 sticky top-24">
-                <h2 className="text-3xl mb-4" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>Pesan Jasa</h2>
+                <h2 className="text-3xl mb-4" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>{t('Pesan Jasa', 'Order Service')}</h2>
                 {isOwnProfile && (
                   <div className="mb-4 p-3 bg-[#F5C800]/10 border border-[#F5C800] rounded-lg text-[#F5C800] text-sm">
-                    Ini profile Anda sendiri. Client lain tetap bisa melihat dan memesan jasa Anda.
+                    {t('Ini profil Anda sendiri. Klien lain tetap bisa melihat dan memesan jasa Anda.', 'This is your own profile. Other clients can still view and order your services.')}
                   </div>
                 )}
                 {freelancer.offerings.length === 0 ? (
-                  <EmptyState title="Jasa belum tersedia" description="Freelancer perlu menambahkan katalog jasa sebelum menerima pesanan." />
+                  <EmptyState title={t('Jasa belum tersedia', 'Service not available yet')} description={t('Freelancer perlu menambahkan katalog jasa sebelum menerima pesanan.', 'This freelancer needs to add a service catalog before accepting orders.')} />
                 ) : (
                   <div className="space-y-4">
                     {orderError && (
@@ -1056,7 +1071,7 @@ export default function FreelancerProfilePage() {
                       >
                         {freelancer.offerings.map((offering) => (
                           <option key={offering.id} value={offering.id}>
-                            {offering.title} - {offering.ratePerHourFormatted}/jam
+                            {offering.title} - {offering.ratePerHourFormatted}/{t('jam', 'hour')}
                           </option>
                         ))}
                       </select>
@@ -1065,17 +1080,17 @@ export default function FreelancerProfilePage() {
                         <div className="bg-[#F5C800]/10 border border-[#F5C800]/40 rounded-lg p-4">
                           <div className="flex items-start justify-between gap-3">
                             <div>
-                              <p className="text-xs uppercase tracking-[0.2em] text-[#F5C800] font-bold">Paket dipilih</p>
+                              <p className="text-xs uppercase tracking-[0.2em] text-[#F5C800] font-bold">{t('Paket dipilih', 'Selected package')}</p>
                               <h3 className="text-white font-bold mt-1">{currentOffering.title}</h3>
                             </div>
                             <CheckCircle2 className="w-5 h-5 text-[#F5C800]" />
                           </div>
                           <div className="grid grid-cols-2 gap-2 mt-3 text-xs text-[#CCCCCC]">
-                            <span>{currentOffering.priceFormatted} estimasi</span>
-                            <span>{currentOffering.ratePerHourFormatted}/jam</span>
-                            <span>{currentOffering.estimatedHours || 1} jam estimasi</span>
-                            <span>Maks. {maxPersons} orang</span>
-                            <span className="col-span-2">{currentOffering.extraPersonFeeFormatted}/orang tambahan</span>
+                            <span>{currentOffering.priceFormatted} {t('estimasi', 'estimate')}</span>
+                            <span>{currentOffering.ratePerHourFormatted}/{t('jam', 'hour')}</span>
+                            <span>{currentOffering.estimatedHours || 1} {t('jam estimasi', 'estimated hours')}</span>
+                            <span>{t('Maks.', 'Max.')} {maxPersons} {t('orang', 'people')}</span>
+                            <span className="col-span-2">{currentOffering.extraPersonFeeFormatted}/{t('orang tambahan', 'additional person')}</span>
                           </div>
                         </div>
                       )}
@@ -1084,20 +1099,20 @@ export default function FreelancerProfilePage() {
                     <input
                       value={orderData.needType}
                       onChange={(e) => setOrderData({ ...orderData, needType: e.target.value })}
-                      placeholder="Jenis kebutuhan, contoh: Pre-wedding"
+                      placeholder={t('Jenis kebutuhan, contoh: Pre-wedding', 'Need type, for example: Pre-wedding')}
                       className="w-full bg-[#141414] border border-[#2A2A2A] rounded-lg px-4 py-3 text-white placeholder-[#888888] focus:border-[#F5C800] focus:outline-none"
                     />
                     <textarea
                       value={orderData.description}
                       onChange={(e) => setOrderData({ ...orderData, description: e.target.value })}
-                      placeholder="Jelaskan kebutuhan Anda secara detail..."
+                      placeholder={t('Jelaskan kebutuhan Anda secara detail...', 'Explain your needs in detail...')}
                       rows={5}
                       className="w-full bg-[#141414] border border-[#2A2A2A] rounded-lg px-4 py-3 text-white placeholder-[#888888] focus:border-[#F5C800] focus:outline-none"
                     />
                     <div>
                       <div className="flex items-center justify-between gap-3 mb-2">
-                        <label className="block text-sm text-[#888888]">Jumlah Orang yang Disewa</label>
-                        <span className="text-xs text-[#F5C800]">Tersedia maksimal {maxPersons} orang</span>
+                        <label className="block text-sm text-[#888888]">{t('Jumlah Orang yang Disewa', 'Number of People to Hire')}</label>
+                        <span className="text-xs text-[#F5C800]">{t(`Tersedia maksimal ${maxPersons} orang`, `Maximum ${maxPersons} ${maxPersons === 1 ? 'person' : 'people'} available`)}</span>
                       </div>
                       <input
                         type="number"
@@ -1113,28 +1128,28 @@ export default function FreelancerProfilePage() {
                       />
                       {costSummary.persons > maxPersons ? (
                         <p className="text-xs text-[#EF4444] mt-2">
-                          Jumlah yang kamu masukkan {costSummary.persons} orang, sedangkan freelancer hanya menyediakan {maxPersons} orang untuk jasa ini.
+                          {t(`Jumlah yang kamu masukkan ${costSummary.persons} orang, sedangkan freelancer hanya menyediakan ${maxPersons} orang untuk jasa ini.`, `You entered ${costSummary.persons} ${costSummary.persons === 1 ? 'person' : 'people'}, but this freelancer only provides ${maxPersons} ${maxPersons === 1 ? 'person' : 'people'} for this service.`)}
                         </p>
                       ) : (
                         <p className="text-xs text-[#888888] mt-2">
-                          Isi berapa orang/tim freelancer yang ingin kamu sewa.
+                          {t('Isi berapa orang/tim freelancer yang ingin kamu sewa.', 'Enter how many people or freelancer team members you want to hire.')}
                         </p>
                       )}
                     </div>
 
                     <div>
-                      <label className="block text-sm text-[#888888] mb-2">Durasi Sewa Jasa</label>
+                      <label className="block text-sm text-[#888888] mb-2">{t('Durasi Sewa Jasa', 'Service Rental Duration')}</label>
                       <select
                         value={orderData.rentalHours}
                         onChange={(e) => setOrderData({ ...orderData, rentalHours: e.target.value })}
                         className="w-full bg-[#141414] border border-[#2A2A2A] rounded-lg px-4 py-3 text-white focus:border-[#F5C800] focus:outline-none"
                       >
                         {[1, 2, 3, 4, 5, 6, 8, 10, 12].map((hour) => (
-                          <option key={hour} value={hour}>{hour} jam</option>
+                          <option key={hour} value={hour}>{hour} {t('jam', 'hour')}</option>
                         ))}
                       </select>
                       <p className="text-xs text-[#888888] mt-2">
-                        Biaya jasa dihitung dari harga per jam freelancer dikali durasi ini.
+                        {t('Biaya jasa dihitung dari harga per jam freelancer dikali durasi ini.', 'The service fee is calculated from the freelancer hourly rate multiplied by this duration.')}
                       </p>
                     </div>
 
@@ -1160,7 +1175,7 @@ export default function FreelancerProfilePage() {
                       className="w-full inline-flex items-center justify-center gap-2 border border-[#888888] text-white rounded-lg py-3 hover:border-[#F5C800] hover:text-[#F5C800] transition-colors disabled:opacity-60"
                     >
                       <LocateFixed className="w-4 h-4" />
-                      {locating ? 'Mengambil Lokasi...' : 'Gunakan Lokasi Saya'}
+                      {locating ? t('Mengambil Lokasi...', 'Getting Location...') : t('Gunakan Lokasi Saya', 'Use My Location')}
                     </button>
                     <button
                       type="button"
@@ -1168,11 +1183,11 @@ export default function FreelancerProfilePage() {
                       className="w-full inline-flex items-center justify-center gap-2 border border-[#F5C800]/50 text-[#F5C800] rounded-lg py-3 hover:bg-[#F5C800] hover:text-black transition-colors"
                     >
                       <MapPin className="w-4 h-4" />
-                      Gunakan Alamat dari Settings
+                      {t('Gunakan Alamat dari Pengaturan', 'Use Address from Settings')}
                     </button>
 
                     <SearchableRegionSelect
-                      label="Provinsi"
+                      label={t('Provinsi', 'Province')}
                       placeholder={regionLoading.provinces ? t('Memuat provinsi...', 'Loading provinces...') : t('Ketik nama provinsi', 'Type province name')}
                       value={orderData.province}
                       options={provinces}
@@ -1181,7 +1196,7 @@ export default function FreelancerProfilePage() {
                       onSelect={selectProvince}
                     />
                     <SearchableRegionSelect
-                      label="Kabupaten/Kota"
+                      label={t('Kabupaten/Kota', 'City/Regency')}
                       placeholder={!selectedProvinceId ? t('Pilih provinsi dulu', 'Select a province first') : regionLoading.cities ? t('Memuat kota/kabupaten...', 'Loading cities/regencies...') : t('Ketik kota/kabupaten', 'Type city/regency')}
                       value={orderData.city}
                       options={cities}
@@ -1190,7 +1205,7 @@ export default function FreelancerProfilePage() {
                       onSelect={selectCity}
                     />
                     <SearchableRegionSelect
-                      label="Kecamatan"
+                      label={t('Kecamatan', 'District')}
                       placeholder={!selectedCityId ? t('Pilih kota/kabupaten dulu', 'Select a city/regency first') : regionLoading.districts ? t('Memuat kecamatan...', 'Loading districts...') : t('Ketik kecamatan', 'Type district')}
                       value={orderData.district}
                       options={districts}
@@ -1199,7 +1214,7 @@ export default function FreelancerProfilePage() {
                       onSelect={selectDistrict}
                     />
                     <SearchableRegionSelect
-                      label="Desa/Kelurahan"
+                      label={t('Desa/Kelurahan', 'Village/Subdistrict')}
                       placeholder={!selectedDistrictId ? t('Pilih kecamatan dulu', 'Select a district first') : regionLoading.villages ? t('Memuat desa/kelurahan...', 'Loading villages/subdistricts...') : t('Ketik desa/kelurahan', 'Type village/subdistrict')}
                       value={orderData.village}
                       options={villages}
@@ -1211,13 +1226,13 @@ export default function FreelancerProfilePage() {
                       type="number"
                       value={orderData.postalCode}
                       onChange={(e) => setOrderData({ ...orderData, postalCode: e.target.value })}
-                      placeholder="Kode Pos"
+                      placeholder={t('Kode Pos', 'Postal Code')}
                       className="w-full bg-[#141414] border border-[#2A2A2A] rounded-lg px-4 py-3 text-white placeholder-[#888888] focus:border-[#F5C800] focus:outline-none"
                     />
                     <textarea
                       value={orderData.addressDetail}
                       onChange={(e) => setOrderData({ ...orderData, addressDetail: e.target.value })}
-                      placeholder="Jl. Mawar No.5, depan apotek"
+                      placeholder={t('Contoh: Jl. Mawar No.5, depan apotek', 'Example: Studio street, building number, nearby landmark')}
                       rows={3}
                       className="w-full bg-[#141414] border border-[#2A2A2A] rounded-lg px-4 py-3 text-white placeholder-[#888888] focus:border-[#F5C800] focus:outline-none"
                     />
@@ -1235,15 +1250,15 @@ export default function FreelancerProfilePage() {
 
                     <div className="bg-[#141414] border border-[#2A2A2A] rounded-lg p-4 space-y-2 text-sm">
                       <div className="flex justify-between gap-4">
-                        <span className="text-[#888888]">Biaya Jasa ({costSummary.rentalHours} jam)</span>
+                        <span className="text-[#888888]">{t('Biaya Jasa', 'Service Fee')} ({costSummary.rentalHours} {t('jam', 'hours')})</span>
                         <span className="font-bold">{formatCurrency(costSummary.serviceFee)}</span>
                       </div>
                       <div className="flex justify-between gap-4">
-                        <span className="text-[#888888]">Biaya Orang Tambahan</span>
+                        <span className="text-[#888888]">{t('Biaya Orang Tambahan', 'Additional Person Fee')}</span>
                         <span className="font-bold">{formatCurrency(costSummary.extraPersonFee)}</span>
                       </div>
                       <div className="flex justify-between gap-4">
-                        <span className="text-[#888888]">Transportasi</span>
+                        <span className="text-[#888888]">{t('Transportasi', 'Transport')}</span>
                         <span className="font-bold">{formatCurrency(costSummary.transportFee)}</span>
                       </div>
                       <div className="flex justify-between gap-4">
@@ -1256,27 +1271,38 @@ export default function FreelancerProfilePage() {
                         <span className="text-[#F5C800] font-bold">{formatCurrency(costSummary.total)}</span>
                       </div>
                       <p className="text-xs text-[#888888]">
-                        Transportasi estimasi {costSummary.distanceKm} km. 10 km pertama gratis, sisanya Rp 1/km.
+                        {t(`Transportasi estimasi ${costSummary.distanceKm} km. 10 km pertama gratis, sisanya Rp 1/km.`, `Estimated transport distance is ${costSummary.distanceKm} km. The first 10 km are free, then Rp 1/km.`)}
                       </p>
                     </div>
 
                     <button
                       onClick={openOrderReview}
-                      disabled={isOwnProfile || submitting || !costSummary.ready}
+                      disabled={isOwnProfile || !freelancer.available || submitting || !costSummary.ready}
                       className="w-full bg-[#F5C800] text-black font-bold py-3 rounded-lg hover:shadow-[0_0_20px_rgba(245,200,0,0.4)] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {submitting ? 'Memproses...' : 'PESAN'}
+                      {submitting ? t('Memproses...', 'Processing...') : t('PESAN', 'ORDER')}
                     </button>
                     {orderBlockingReason && (
                       <p className="text-xs text-[#EF4444] text-center">{orderBlockingReason}</p>
                     )}
-                    <Link
-                      to={user ? `/dashboard/client/messages?peerId=${freelancer.id}&peerName=${encodeURIComponent(freelancer.fullName)}` : '/login'}
-                      className="w-full flex items-center justify-center gap-2 border border-[#888888] text-white rounded-lg py-3 hover:border-[#F5C800] hover:text-[#F5C800] transition-colors"
-                    >
-                      <MessageCircle className="w-4 h-4" />
-                      Hubungi Freelancer
-                    </Link>
+                    {freelancer.available ? (
+                      <Link
+                        to={user ? `/dashboard/client/messages?peerId=${freelancer.id}&peerName=${encodeURIComponent(freelancer.fullName)}` : '/login'}
+                        className="w-full flex items-center justify-center gap-2 border border-[#888888] text-white rounded-lg py-3 hover:border-[#F5C800] hover:text-[#F5C800] transition-colors"
+                      >
+                        <MessageCircle className="w-4 h-4" />
+                        {t('Hubungi Freelancer', 'Contact Freelancer')}
+                      </Link>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled
+                        className="w-full flex items-center justify-center gap-2 border border-[#3A3A3A] text-[#888888] rounded-lg py-3 cursor-not-allowed opacity-70"
+                      >
+                        <MessageCircle className="w-4 h-4" />
+                        {t('Tidak Bisa Dihubungi', 'Unavailable for Messages')}
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
@@ -1305,7 +1331,7 @@ export default function FreelancerProfilePage() {
                 type="button"
                 onClick={() => setSelectedPortfolio(null)}
                 className="rounded-lg border border-[var(--border)] p-2 text-[var(--foreground)] hover:border-[#F5C800] hover:text-[#F5C800] transition-colors"
-                aria-label="Tutup detail portfolio"
+                aria-label={t('Tutup detail portofolio', 'Close portfolio detail')}
               >
                 <X className="h-5 w-5" />
               </button>
@@ -1343,7 +1369,7 @@ export default function FreelancerProfilePage() {
                             current === 0 ? selectedPortfolioMedia.length - 1 : current - 1
                           ))}
                           className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full bg-black/65 p-2 text-white hover:bg-[#F5C800] hover:text-black transition-colors"
-                          aria-label="Gambar sebelumnya"
+                          aria-label={t('Gambar sebelumnya', 'Previous image')}
                         >
                           <ChevronLeft className="h-5 w-5" />
                         </button>
@@ -1353,7 +1379,7 @@ export default function FreelancerProfilePage() {
                             current === selectedPortfolioMedia.length - 1 ? 0 : current + 1
                           ))}
                           className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full bg-black/65 p-2 text-white hover:bg-[#F5C800] hover:text-black transition-colors"
-                          aria-label="Gambar berikutnya"
+                          aria-label={t('Gambar berikutnya', 'Next image')}
                         >
                           <ChevronRight className="h-5 w-5" />
                         </button>
@@ -1414,7 +1440,7 @@ export default function FreelancerProfilePage() {
                       {selectedPortfolio.description}
                     </p>
                   ) : (
-                    <p className="text-[var(--muted-foreground)]">Freelancer belum menambahkan deskripsi untuk portfolio ini.</p>
+                    <p className="text-[var(--muted-foreground)]">{t('Freelancer belum menambahkan deskripsi untuk portofolio ini.', 'The freelancer has not added a description for this portfolio item.')}</p>
                   )}
 
                   <div className="mt-6 rounded-lg bg-[#F5C800]/10 border border-[#F5C800]/30 p-4">
@@ -1427,7 +1453,7 @@ export default function FreelancerProfilePage() {
                       {selectedPortfolioMedia.some((mediaItem) => mediaItem.fileType?.startsWith('video/')) ? t(' + 1 video', ' + 1 video') : ''}
                     </div>
                     <p className="text-sm text-[var(--muted-foreground)] mt-2">
-                      Lihat contoh karya ini untuk menilai gaya visual freelancer sebelum menghubungi atau memesan jasa.
+                      {t('Lihat contoh karya ini untuk menilai gaya visual freelancer sebelum menghubungi atau memesan jasa.', 'Review this work sample to understand the freelancer visual style before contacting or ordering a service.')}
                     </p>
                   </div>
                 </aside>
@@ -1443,15 +1469,15 @@ export default function FreelancerProfilePage() {
             <div className="flex items-start justify-between gap-4 mb-5">
               <div>
                 <h2 className="text-3xl mb-1" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>
-                  Cek Pesanan
+                  {t('Cek Pesanan', 'Review Order')}
                 </h2>
-                <p className="text-sm text-[#888888]">Pastikan detail sudah sesuai sebelum membuat QRIS pembayaran.</p>
+                <p className="text-sm text-[#888888]">{t('Pastikan detail sudah sesuai sebelum membuat QRIS pembayaran.', 'Make sure the details are correct before creating the QRIS payment.')}</p>
               </div>
               <button
                 type="button"
                 onClick={() => setReviewOpen(false)}
                 className="p-2 border border-[#888888] text-white rounded-lg hover:border-[#F5C800] hover:text-[#F5C800] transition-colors"
-                aria-label="Tutup cek pesanan"
+                aria-label={t('Tutup cek pesanan', 'Close order review')}
               >
                 <X className="w-4 h-4" />
               </button>
@@ -1469,20 +1495,20 @@ export default function FreelancerProfilePage() {
                   <span className="font-bold text-right">{freelancer.fullName}</span>
                 </div>
                 <div className="flex justify-between gap-4">
-                  <span className="text-[#888888]">Jenis Jasa</span>
+                  <span className="text-[#888888]">{t('Jenis Jasa', 'Service Type')}</span>
                   <span className="font-bold text-right">{orderData.serviceType}</span>
                 </div>
                 <div className="flex justify-between gap-4">
-                  <span className="text-[#888888]">Jenis Kebutuhan</span>
+                  <span className="text-[#888888]">{t('Jenis Kebutuhan', 'Need Type')}</span>
                   <span className="font-bold text-right">{orderData.needType}</span>
                 </div>
                 <div className="flex justify-between gap-4">
-                  <span className="text-[#888888]">Jumlah Orang</span>
-                  <span className="font-bold text-right">{costSummary.persons} orang</span>
+                  <span className="text-[#888888]">{t('Jumlah Orang', 'Number of People')}</span>
+                  <span className="font-bold text-right">{costSummary.persons} {t('orang', costSummary.persons === 1 ? 'person' : 'people')}</span>
                 </div>
                 <div className="flex justify-between gap-4">
-                  <span className="text-[#888888]">Durasi Sewa</span>
-                  <span className="font-bold text-right">{costSummary.rentalHours} jam</span>
+                  <span className="text-[#888888]">{t('Durasi Sewa', 'Rental Duration')}</span>
+                  <span className="font-bold text-right">{costSummary.rentalHours} {t('jam', 'hours')}</span>
                 </div>
                 <div className="flex justify-between gap-4">
                   <span className="text-[#888888]">{t('Tanggal', 'Date')}</span>
@@ -1508,11 +1534,11 @@ export default function FreelancerProfilePage() {
                   <span className="font-bold">{formatCurrency(costSummary.serviceFee)}</span>
                 </div>
                 <div className="flex justify-between gap-4">
-                  <span className="text-[#888888]">Biaya Orang Tambahan</span>
+                  <span className="text-[#888888]">{t('Biaya Orang Tambahan', 'Additional Person Fee')}</span>
                   <span className="font-bold">{formatCurrency(costSummary.extraPersonFee)}</span>
                 </div>
                 <div className="flex justify-between gap-4">
-                  <span className="text-[#888888]">Transportasi</span>
+                  <span className="text-[#888888]">{t('Transportasi', 'Transport')}</span>
                   <span className="font-bold">{formatCurrency(costSummary.transportFee)}</span>
                 </div>
                 <div className="flex justify-between gap-4">
@@ -1521,11 +1547,11 @@ export default function FreelancerProfilePage() {
                 </div>
                 <div className="h-px bg-[#2A2A2A]" />
                 <div className="flex justify-between gap-4 text-base">
-                  <span className="text-[#888888]">Total Estimasi Sebelum Kode Unik QRIS</span>
+                  <span className="text-[#888888]">{t('Total Estimasi Sebelum Kode Unik QRIS', 'Estimated Total Before QRIS Unique Code')}</span>
                   <span className="text-[#F5C800] font-bold">{formatCurrency(costSummary.total)}</span>
                 </div>
                 <p className="text-xs text-[#888888]">
-                  Nominal final QRIS bisa bertambah kode unik dari KlikQRIS setelah tagihan dibuat.
+                  {t('Nominal final QRIS bisa bertambah kode unik dari KlikQRIS setelah tagihan dibuat.', 'The final QRIS amount may include a KlikQRIS unique code after the invoice is created.')}
                 </p>
               </div>
             </div>
@@ -1536,7 +1562,7 @@ export default function FreelancerProfilePage() {
                 onClick={() => setReviewOpen(false)}
                 className="px-5 py-3 border border-[#888888] text-white rounded-lg font-bold hover:border-[#F5C800] hover:text-[#F5C800] transition-colors"
               >
-                Edit Lagi
+                {t('Edit Lagi', 'Edit Again')}
               </button>
               <button
                 type="button"
@@ -1544,7 +1570,7 @@ export default function FreelancerProfilePage() {
                 disabled={submitting || !walletSummary || walletSummary.balance < costSummary.total}
                 className="px-5 py-3 border border-[#22C55E] text-[#22C55E] rounded-lg font-bold disabled:opacity-50"
               >
-                Bayar Pakai Saldo ({walletSummary?.balanceFormatted || 'Rp 0'})
+                {t('Bayar Pakai Saldo', 'Pay with Balance')} ({walletSummary?.balanceFormatted || 'Rp 0'})
               </button>
               <button
                 type="button"
@@ -1552,7 +1578,7 @@ export default function FreelancerProfilePage() {
                 disabled={submitting}
                 className="px-5 py-3 bg-[#F5C800] text-black rounded-lg font-bold disabled:opacity-60"
               >
-                {submitting ? 'Membuat QRIS...' : 'Konfirmasi & Bayar QRIS'}
+                {submitting ? t('Membuat QRIS...', 'Creating QRIS...') : t('Konfirmasi & Bayar QRIS', 'Confirm & Pay QRIS')}
               </button>
             </div>
           </div>
@@ -1573,7 +1599,7 @@ export default function FreelancerProfilePage() {
                 type="button"
                 onClick={() => setPaymentOpen(false)}
                 className="p-2 border border-[#888888] text-white rounded-lg hover:border-[#F5C800] hover:text-[#F5C800] transition-colors"
-                aria-label="Tutup modal pembayaran"
+                aria-label={t('Tutup modal pembayaran', 'Close payment modal')}
               >
                 <X className="w-4 h-4" />
               </button>
@@ -1582,14 +1608,14 @@ export default function FreelancerProfilePage() {
             <div className="grid md:grid-cols-[240px_1fr] gap-6">
               <div className="bg-white rounded-lg p-4 min-h-[240px] flex items-center justify-center">
                 {payment.qrisUrl ? (
-                  <img src={payment.qrisUrl} alt="QRIS pembayaran" className="w-full h-auto" />
+                  <img src={payment.qrisUrl} alt={t('QRIS pembayaran', 'QRIS payment')} className="w-full h-auto" />
                 ) : (
-                  <span className="text-black text-sm text-center">QRIS tidak tersedia dari gateway</span>
+                  <span className="text-black text-sm text-center">{t('QRIS tidak tersedia dari gateway', 'QRIS is not available from the gateway')}</span>
                 )}
               </div>
               <div className="space-y-3 text-sm">
                 <div className="flex justify-between gap-4">
-                  <span className="text-[#888888]">Subtotal Pesanan</span>
+                  <span className="text-[#888888]">{t('Subtotal Pesanan', 'Order Subtotal')}</span>
                   <span className="font-bold">{payment.baseAmountFormatted}</span>
                 </div>
                 <div className="flex justify-between gap-4">
@@ -1598,35 +1624,35 @@ export default function FreelancerProfilePage() {
                 </div>
                 {payment.gatewayAdjustment > 0 && (
                   <div className="flex justify-between gap-4">
-                    <span className="text-[#888888]">Kode Unik / Penyesuaian KlikQRIS</span>
+                    <span className="text-[#888888]">{t('Kode Unik / Penyesuaian KlikQRIS', 'Unique Code / KlikQRIS Adjustment')}</span>
                     <span className="font-bold">{payment.gatewayAdjustmentFormatted}</span>
                   </div>
                 )}
                 <div className="flex justify-between gap-4">
-                  <span className="text-[#888888]">Total Estimasi MediaVault</span>
+                  <span className="text-[#888888]">{t('Total Estimasi MediaVault', 'MediaVault Estimated Total')}</span>
                   <span className="font-bold">{payment.amountRequestFormatted}</span>
                 </div>
                 <div className="h-px bg-[#2A2A2A]" />
                 <div className="flex justify-between gap-4 text-base">
-                  <span className="text-[#888888]">Nominal Dibayar via QRIS</span>
+                  <span className="text-[#888888]">{t('Nominal Dibayar via QRIS', 'Amount Paid via QRIS')}</span>
                   <span className="text-[#F5C800] font-bold">{payment.totalAmountFormatted}</span>
                 </div>
                 <p className="text-[#888888]">
-                  Scan QRIS ini dengan aplikasi bank/e-wallet. Nominal final mengikuti total dari KlikQRIS; selisih dari estimasi MediaVault ditampilkan sebagai kode unik/penyesuaian gateway.
+                  {t('Scan QRIS ini dengan aplikasi bank/e-wallet. Nominal final mengikuti total dari KlikQRIS; selisih dari estimasi MediaVault ditampilkan sebagai kode unik/penyesuaian gateway.', 'Scan this QRIS with a bank or e-wallet app. The final amount follows the KlikQRIS total; any difference from MediaVault estimate is shown as a unique code or gateway adjustment.')}
                 </p>
                 <div className={payment.status === 'PAID' ? 'text-[#22C55E] font-bold' : 'text-[#F5C800] font-bold'}>
                   {payment.status === 'PAID' ? t('Pembayaran Berhasil', 'Payment Successful') : t('Menunggu Pembayaran', 'Waiting for Payment')}
                 </div>
                 {payment.isSandbox && payment.signature && payment.status === 'PENDING' && (
                   <div className="bg-[#141414] border border-[#2A2A2A] rounded-lg p-3">
-                    <div className="text-[#888888] mb-2">Signature Sandbox</div>
+                    <div className="text-[#888888] mb-2">{t('Signature Sandbox', 'Sandbox Signature')}</div>
                     <code className="block text-xs text-white break-all bg-[#0A0A0A] rounded-md p-2">{payment.signature}</code>
                     <button
                       type="button"
                       onClick={() => navigator.clipboard?.writeText(payment.signature || '')}
                       className="mt-3 px-3 py-2 border border-[#888888] text-white rounded-lg text-xs hover:border-[#F5C800] hover:text-[#F5C800] transition-colors"
                     >
-                      Copy Signature
+                      {t('Salin Signature', 'Copy Signature')}
                     </button>
                     <p className="text-xs text-[#888888] mt-2">
                       {t('Paste signature ini di menu Simulasi Pembayaran KlikQRIS, lalu klik Muat Ulang Status.', 'Paste this signature in the KlikQRIS Payment Simulation menu, then click Refresh Status.')}
@@ -1647,7 +1673,7 @@ export default function FreelancerProfilePage() {
                   </button>
                   {payment.directUrl && (
                     <a href={payment.directUrl} target="_blank" rel="noreferrer" className="px-4 py-2 bg-[#F5C800] text-black rounded-lg text-sm font-bold">
-                      Buka Halaman Bayar
+                      {t('Buka Halaman Bayar', 'Open Payment Page')}
                     </a>
                   )}
                 </div>
