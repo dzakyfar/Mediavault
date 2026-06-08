@@ -241,6 +241,7 @@ exports.orderFreelancerService = async (req, res, next) => {
       postalCode,
       address,
       addressDetail,
+      costBreakdown,
     } = req.body;
 
     if (!serviceType || !needType || !description || !eventDate || !deadline || !province || !city || !district || !village || !addressDetail) {
@@ -306,9 +307,9 @@ exports.orderFreelancerService = async (req, res, next) => {
     }
 
     const amount = parseMoney(budget);
-    if (!amount || amount < 10000) {
+    if (!amount || amount < 1) {
       res.status(400);
-      throw new Error('Budget minimal Rp 10.000');
+      throw new Error('Budget minimal Rp 1');
     }
 
     const composedAddress = [addressDetail, village, district, city, province, postalCode].filter(Boolean).join(', ');
@@ -362,6 +363,15 @@ exports.orderFreelancerService = async (req, res, next) => {
           eventType: 'DIRECT_ORDER_CREATED',
         },
       }),
+      costBreakdown ? prisma.projectHistory.create({
+        data: {
+          projectId: project.id,
+          actorId: req.user.id,
+          title: 'Snapshot biaya pesanan',
+          body: JSON.stringify(costBreakdown),
+          eventType: 'ORDER_COST_BREAKDOWN',
+        },
+      }) : Promise.resolve(null),
     ]);
 
     res.status(201).json({ projectId: project.id });
