@@ -5,6 +5,7 @@ import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import EmptyState from '../components/EmptyState';
 import DraggableLocationMap from '../components/dashboard/DraggableLocationMap';
+import SearchableRegionSelect from '../components/dashboard/SearchableRegionSelect';
 import { useAuth } from '../context/AuthContext';
 import { apiRequest } from '../lib/api';
 import {
@@ -12,11 +13,14 @@ import {
   estimateRoadDistanceKm,
   fallbackPostalCodeForCity,
   fetchDrivingDistanceKm,
+  fetchRegionOptions,
+  findRegionByName,
   geocodeIndonesianAddress,
+  getCurrentPosition,
   normalizeRegionName,
+  RegionOption,
   searchIndonesianAddressSuggestions,
 } from '../lib/indonesiaRegions';
-import { findCity, findDistrict, findProvince, locationOptions } from '../lib/locationOptions';
 
 interface Offering {
   id: string;
@@ -108,36 +112,12 @@ const currency = new Intl.NumberFormat('id-ID', {
 
 const formatCurrency = (amount: number) => currency.format(amount || 0).replace(/\s/g, ' ');
 
-const findProvinceLoose = (name: string) => {
+const findRegionLoose = (options: RegionOption[], name: string) => {
   const normalized = normalizeRegionName(name);
   if (!normalized) return null;
-  return locationOptions.find((province) => normalizeRegionName(province.name) === normalized)
-    || locationOptions.find((province) => {
-      const provinceName = normalizeRegionName(province.name);
-      return provinceName.includes(normalized) || normalized.includes(provinceName);
-    })
-    || null;
-};
-
-const findCityLoose = (provinceName: string, cityName: string) => {
-  const province = findProvinceLoose(provinceName);
-  const normalized = normalizeRegionName(cityName);
-  if (!province || !normalized) return null;
-  return province?.cities.find((city) => normalizeRegionName(city.name) === normalized)
-    || province?.cities.find((city) => {
-      const optionName = normalizeRegionName(city.name);
-      return optionName.includes(normalized) || normalized.includes(optionName);
-    })
-    || null;
-};
-
-const findDistrictLoose = (provinceName: string, cityName: string, districtName: string) => {
-  const city = findCityLoose(provinceName, cityName);
-  const normalized = normalizeRegionName(districtName);
-  if (!city || !normalized) return null;
-  return city?.districts.find((district) => normalizeRegionName(district.name) === normalized)
-    || city?.districts.find((district) => {
-      const optionName = normalizeRegionName(district.name);
+  return options.find((option) => normalizeRegionName(option.name) === normalized)
+    || options.find((option) => {
+      const optionName = normalizeRegionName(option.name);
       return optionName.includes(normalized) || normalized.includes(optionName);
     })
     || null;
@@ -216,6 +196,19 @@ export default function FreelancerProfilePage() {
   const [routeDistanceKm, setRouteDistanceKm] = useState<number | null>(null);
   const [routeLoading, setRouteLoading] = useState(false);
   const [freelancerGeo, setFreelancerGeo] = useState<{ latitude: string; longitude: string } | null>(null);
+  const [regionLoading, setRegionLoading] = useState({
+    provinces: false,
+    cities: false,
+    districts: false,
+    villages: false,
+  });
+  const [provinces, setProvinces] = useState<RegionOption[]>([]);
+  const [cities, setCities] = useState<RegionOption[]>([]);
+  const [districts, setDistricts] = useState<RegionOption[]>([]);
+  const [villages, setVillages] = useState<RegionOption[]>([]);
+  const [selectedProvinceId, setSelectedProvinceId] = useState('');
+  const [selectedCityId, setSelectedCityId] = useState('');
+  const [selectedDistrictId, setSelectedDistrictId] = useState('');
   const [orderData, setOrderData] = useState({
     serviceType: '',
     needType: '',
@@ -236,9 +229,6 @@ export default function FreelancerProfilePage() {
   });
 
   const isOwnProfile = Boolean(user && freelancer && user.id === freelancer.id);
-  const selectedProvince = findProvince(orderData.province);
-  const selectedCity = findCity(orderData.province, orderData.city);
-  const selectedDistrict = findDistrict(orderData.province, orderData.city, orderData.district);
 
   const currentOffering = useMemo(() => {
     if (!freelancer) return null;
@@ -339,6 +329,96 @@ export default function FreelancerProfilePage() {
       .catch((err) => setError(err instanceof Error ? err.message : 'Gagal memuat profile freelancer'))
       .finally(() => setLoading(false));
   }, [id]);
+
+  useEffect(() => {
+    let active = true;
+    setRegionLoading((current) => ({ ...current, provinces: true }));
+    fetchRegionOptions('/provinces.json')
+      .then((items) => {
+        if (!active) return;
+        setProvinces(items);
+        const match = findRegionByName(items, orderData.province);
+        if (match) setSelectedProvinceId(match.id);
+      })
+      .catch(() => setOrderError('Data provinsi gagal dimuat. Coba refresh halaman.'))
+      .finally(() => {
+        if (active) setRegionLoading((current) => ({ ...current, provinces: false }));
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!selectedProvinceId) {
+      setCities([]);
+      setSelectedCityId('');
+      return undefined;
+    }
+
+    let active = true;
+    setRegionLoading((current) => ({ ...current, cities: true }));
+    fetchRegionOptions(`/regencies/${selectedProvinceId}.json`)
+      .then((items) => {
+        if (!active) return;
+        setCities(items);
+        const match = findRegionByName(items, orderData.city);
+        setSelectedCityId(match?.id || '');
+      })
+      .catch(() => setOrderError('Data kota/kabupaten gagal dimuat.'))
+      .finally(() => {
+        if (active) setRegionLoading((current) => ({ ...current, cities: false }));
+      });
+    return () => {
+      active = false;
+    };
+  }, [selectedProvinceId]);
+
+  useEffect(() => {
+    if (!selectedCityId) {
+      setDistricts([]);
+      setSelectedDistrictId('');
+      return undefined;
+    }
+
+    let active = true;
+    setRegionLoading((current) => ({ ...current, districts: true }));
+    fetchRegionOptions(`/districts/${selectedCityId}.json`)
+      .then((items) => {
+        if (!active) return;
+        setDistricts(items);
+        const match = findRegionByName(items, orderData.district);
+        setSelectedDistrictId(match?.id || '');
+      })
+      .catch(() => setOrderError('Data kecamatan gagal dimuat.'))
+      .finally(() => {
+        if (active) setRegionLoading((current) => ({ ...current, districts: false }));
+      });
+    return () => {
+      active = false;
+    };
+  }, [selectedCityId]);
+
+  useEffect(() => {
+    if (!selectedDistrictId) {
+      setVillages([]);
+      return undefined;
+    }
+
+    let active = true;
+    setRegionLoading((current) => ({ ...current, villages: true }));
+    fetchRegionOptions(`/villages/${selectedDistrictId}.json`)
+      .then((items) => {
+        if (active) setVillages(items);
+      })
+      .catch(() => setOrderError('Data desa/kelurahan gagal dimuat.'))
+      .finally(() => {
+        if (active) setRegionLoading((current) => ({ ...current, villages: false }));
+      });
+    return () => {
+      active = false;
+    };
+  }, [selectedDistrictId]);
 
   useEffect(() => {
     if (!freelancer) return undefined;
@@ -511,19 +591,74 @@ export default function FreelancerProfilePage() {
     return () => window.clearTimeout(timeout);
   }, [navigate, payment, paymentOpen]);
 
-  const applyAddressSuggestion = (suggestion: AddressSuggestion) => {
+  const matchAndSetRegions = async ({
+    provinceName,
+    cityName,
+    districtName,
+    villageName,
+  }: {
+    provinceName: string;
+    cityName: string;
+    districtName: string;
+    villageName: string;
+  }) => {
+    const provinceOptions = provinces.length ? provinces : await fetchRegionOptions('/provinces.json');
+    if (provinces.length === 0) setProvinces(provinceOptions);
+
+    const provinceMatch = findRegionLoose(provinceOptions, provinceName);
+    let nextCities: RegionOption[] = [];
+    let nextDistricts: RegionOption[] = [];
+    let nextVillages: RegionOption[] = [];
+    let cityMatch: RegionOption | null = null;
+    let districtMatch: RegionOption | null = null;
+    let villageMatch: RegionOption | null = null;
+
+    if (provinceMatch) {
+      nextCities = await fetchRegionOptions(`/regencies/${provinceMatch.id}.json`);
+      setCities(nextCities);
+      cityMatch = findRegionLoose(nextCities, cityName);
+    }
+
+    if (cityMatch) {
+      nextDistricts = await fetchRegionOptions(`/districts/${cityMatch.id}.json`);
+      setDistricts(nextDistricts);
+      districtMatch = findRegionLoose(nextDistricts, districtName);
+    }
+
+    if (districtMatch) {
+      nextVillages = await fetchRegionOptions(`/villages/${districtMatch.id}.json`);
+      setVillages(nextVillages);
+      villageMatch = findRegionLoose(nextVillages, villageName);
+    }
+
+    setSelectedProvinceId(provinceMatch?.id || '');
+    setSelectedCityId(cityMatch?.id || '');
+    setSelectedDistrictId(districtMatch?.id || '');
+
+    return {
+      province: provinceMatch?.name || provinceName,
+      city: cityMatch?.name || cityName,
+      district: districtMatch?.name || districtName,
+      village: villageMatch?.name || villageName,
+    };
+  };
+
+  const applyAddressSuggestion = async (suggestion: AddressSuggestion) => {
     const parsed = readNominatimAddress(suggestion.address);
-    const nextProvince = findProvinceLoose(parsed.province)?.name || parsed.province || orderData.province;
-    const nextCity = findCityLoose(nextProvince, parsed.city)?.name || parsed.city || orderData.city;
-    const nextDistrict = findDistrictLoose(nextProvince, nextCity, parsed.district)?.name || parsed.district || orderData.district;
+    const matched = await matchAndSetRegions({
+      provinceName: parsed.province || orderData.province,
+      cityName: parsed.city || orderData.city,
+      districtName: parsed.district || orderData.district,
+      villageName: parsed.village || orderData.village,
+    });
 
     setOrderData((current) => ({
       ...current,
-      province: nextProvince,
-      city: nextCity,
-      district: nextDistrict,
-      village: parsed.village || current.village,
-      postalCode: suggestion.postalCode || parsed.postalCode || current.postalCode || fallbackPostalCodeForCity(nextCity),
+      province: matched.province,
+      city: matched.city,
+      district: matched.district,
+      village: matched.village || current.village,
+      postalCode: suggestion.postalCode || parsed.postalCode || current.postalCode || fallbackPostalCodeForCity(matched.city),
       addressDetail: parsed.roadDetail || suggestion.displayName,
       latitude: suggestion.latitude,
       longitude: suggestion.longitude,
@@ -532,7 +667,7 @@ export default function FreelancerProfilePage() {
     setAddressSuggestions([]);
   };
 
-  const useCurrentLocation = () => {
+  const useCurrentLocation = async () => {
     if (!navigator.geolocation) {
       setOrderError('Browser tidak mendukung fitur lokasi.');
       return;
@@ -540,54 +675,44 @@ export default function FreelancerProfilePage() {
 
     setLocating(true);
     setOrderError('');
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        const latitude = String(position.coords.latitude);
-        const longitude = String(position.coords.longitude);
 
-        try {
-          const response = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json&accept-language=id`
-          );
-          const payload = await response.json();
-          const address = payload.address || {};
-          const provinceName = address.state || '';
-          const cityName = address.city || address.town || address.county || address.city_district || '';
-          const districtName = address.suburb || address.city_district || address.municipality || '';
-          const villageName = address.village || address.neighbourhood || address.hamlet || address.suburb || '';
+    try {
+      const position = await getCurrentPosition({ enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
+      const latitude = String(position.coords.latitude);
+      const longitude = String(position.coords.longitude);
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json&accept-language=id`,
+        { headers: { Accept: 'application/json' } }
+      );
+      const payload = await response.json();
+      const parsed = readNominatimAddress(payload.address || {});
+      const matched = await matchAndSetRegions({
+        provinceName: parsed.province,
+        cityName: parsed.city,
+        districtName: parsed.district,
+        villageName: parsed.village,
+      });
 
-          setOrderData((current) => ({
-            ...current,
-            latitude,
-            longitude,
-            province: findProvinceLoose(provinceName)?.name || provinceName,
-            city: findCityLoose(provinceName, cityName)?.name || cityName,
-            district: findDistrictLoose(provinceName, cityName, districtName)?.name || districtName,
-            village: villageName,
-            postalCode: address.postcode || current.postalCode || fallbackPostalCodeForCity(cityName),
-            addressDetail: [address.road, address.house_number, address.building].filter(Boolean).join(' ')
-              || payload.display_name
-              || current.addressDetail,
-            locationSource: 'share-location',
-          }));
-        } catch {
-          setOrderData((current) => ({
-            ...current,
-            latitude,
-            longitude,
-            addressDetail: current.addressDetail || `Koordinat: ${latitude}, ${longitude}`,
-            locationSource: 'share-location',
-          }));
-        } finally {
-          setLocating(false);
-        }
-      },
-      () => {
-        setOrderError('Izin lokasi ditolak. Silakan isi manual.');
-        setLocating(false);
-      },
-      { enableHighAccuracy: true, timeout: 10000 }
-    );
+      setOrderData((current) => ({
+        ...current,
+        latitude,
+        longitude,
+        province: matched.province,
+        city: matched.city,
+        district: matched.district,
+        village: matched.village,
+        postalCode: parsed.postalCode || current.postalCode || fallbackPostalCodeForCity(matched.city),
+        addressDetail: parsed.roadDetail || payload.display_name || current.addressDetail || `Koordinat: ${latitude}, ${longitude}`,
+        locationSource: 'share-location',
+      }));
+    } catch (geoError) {
+      const code = Number((geoError as GeolocationPositionError)?.code || 0);
+      setOrderError(code === 1
+        ? 'Izin lokasi ditolak. Silakan isi manual.'
+        : 'Gagal mengambil lokasi. Coba lagi atau isi alamat manual.');
+    } finally {
+      setLocating(false);
+    }
   };
 
   const openOrderReview = () => {
@@ -924,67 +1049,119 @@ export default function FreelancerProfilePage() {
                       {locating ? 'Mengambil Lokasi...' : 'Gunakan Lokasi Saya'}
                     </button>
 
-                    <select
+                    <SearchableRegionSelect
+                      label="Provinsi"
+                      placeholder={regionLoading.provinces ? 'Memuat provinsi...' : 'Ketik nama provinsi'}
                       value={orderData.province}
-                      onChange={(e) => setOrderData({
-                        ...orderData,
-                        province: e.target.value,
-                        city: '',
-                        district: '',
-                        village: '',
-                        postalCode: '',
-                        latitude: '',
-                        longitude: '',
-                        locationSource: 'manual',
-                      })}
-                      className="w-full bg-[#141414] border border-[#2A2A2A] rounded-lg px-4 py-3 text-white focus:border-[#F5C800] focus:outline-none"
-                    >
-                      <option value="">Provinsi</option>
-                      {locationOptions.map((province) => <option key={province.name} value={province.name}>{province.name}</option>)}
-                      {orderData.province && !selectedProvince && <option value={orderData.province}>{orderData.province}</option>}
-                    </select>
-                    <select
+                      options={provinces}
+                      disabled={regionLoading.provinces}
+                      onChange={(value) => {
+                        setOrderData({
+                          ...orderData,
+                          province: value,
+                          city: '',
+                          district: '',
+                          village: '',
+                          postalCode: '',
+                          latitude: '',
+                          longitude: '',
+                          locationSource: 'manual',
+                        });
+                        setSelectedProvinceId('');
+                        setSelectedCityId('');
+                        setSelectedDistrictId('');
+                      }}
+                      onSelect={(option) => {
+                        setOrderData({
+                          ...orderData,
+                          province: option.name,
+                          city: '',
+                          district: '',
+                          village: '',
+                          postalCode: '',
+                          latitude: '',
+                          longitude: '',
+                          locationSource: 'manual',
+                        });
+                        setSelectedProvinceId(option.id);
+                        setSelectedCityId('');
+                        setSelectedDistrictId('');
+                      }}
+                    />
+                    <SearchableRegionSelect
+                      label="Kabupaten/Kota"
+                      placeholder={!selectedProvinceId ? 'Pilih provinsi dulu' : regionLoading.cities ? 'Memuat kota/kabupaten...' : 'Ketik kota/kabupaten'}
                       value={orderData.city}
-                      onChange={(e) => setOrderData({
-                        ...orderData,
-                        city: e.target.value,
-                        district: '',
-                        village: '',
-                        postalCode: fallbackPostalCodeForCity(e.target.value),
-                        latitude: '',
-                        longitude: '',
-                        locationSource: 'manual',
-                      })}
-                      disabled={!orderData.province}
-                      className="w-full bg-[#141414] border border-[#2A2A2A] rounded-lg px-4 py-3 text-white focus:border-[#F5C800] focus:outline-none disabled:opacity-60"
-                    >
-                      <option value="">Kabupaten/Kota</option>
-                      {selectedProvince?.cities.map((city) => <option key={city.name} value={city.name}>{city.name}</option>)}
-                      {orderData.city && !selectedCity && <option value={orderData.city}>{orderData.city}</option>}
-                    </select>
-                    <select
+                      options={cities}
+                      disabled={!selectedProvinceId || regionLoading.cities}
+                      onChange={(value) => {
+                        setOrderData({
+                          ...orderData,
+                          city: value,
+                          district: '',
+                          village: '',
+                          postalCode: fallbackPostalCodeForCity(value),
+                          latitude: '',
+                          longitude: '',
+                          locationSource: 'manual',
+                        });
+                        setSelectedCityId('');
+                        setSelectedDistrictId('');
+                      }}
+                      onSelect={(option) => {
+                        setOrderData({
+                          ...orderData,
+                          city: option.name,
+                          district: '',
+                          village: '',
+                          postalCode: fallbackPostalCodeForCity(option.name),
+                          latitude: '',
+                          longitude: '',
+                          locationSource: 'manual',
+                        });
+                        setSelectedCityId(option.id);
+                        setSelectedDistrictId('');
+                      }}
+                    />
+                    <SearchableRegionSelect
+                      label="Kecamatan"
+                      placeholder={!selectedCityId ? 'Pilih kota/kabupaten dulu' : regionLoading.districts ? 'Memuat kecamatan...' : 'Ketik kecamatan'}
                       value={orderData.district}
-                      onChange={(e) => setOrderData({
-                        ...orderData,
-                        district: e.target.value,
-                        village: '',
-                        postalCode: orderData.postalCode || fallbackPostalCodeForCity(orderData.city),
-                        latitude: '',
-                        longitude: '',
-                        locationSource: 'manual',
-                      })}
-                      disabled={!orderData.city}
-                      className="w-full bg-[#141414] border border-[#2A2A2A] rounded-lg px-4 py-3 text-white focus:border-[#F5C800] focus:outline-none disabled:opacity-60"
-                    >
-                      <option value="">Kecamatan</option>
-                      {selectedCity?.districts.map((district) => <option key={district.name} value={district.name}>{district.name}</option>)}
-                      {orderData.district && !selectedDistrict && <option value={orderData.district}>{orderData.district}</option>}
-                    </select>
-                    <input
+                      options={districts}
+                      disabled={!selectedCityId || regionLoading.districts}
+                      onChange={(value) => {
+                        setOrderData({
+                          ...orderData,
+                          district: value,
+                          village: '',
+                          postalCode: orderData.postalCode || fallbackPostalCodeForCity(orderData.city),
+                          latitude: '',
+                          longitude: '',
+                          locationSource: 'manual',
+                        });
+                        setSelectedDistrictId('');
+                      }}
+                      onSelect={(option) => {
+                        setOrderData({
+                          ...orderData,
+                          district: option.name,
+                          village: '',
+                          postalCode: orderData.postalCode || fallbackPostalCodeForCity(orderData.city),
+                          latitude: '',
+                          longitude: '',
+                          locationSource: 'manual',
+                        });
+                        setSelectedDistrictId(option.id);
+                      }}
+                    />
+                    <SearchableRegionSelect
+                      label="Desa/Kelurahan"
+                      placeholder={!selectedDistrictId ? 'Pilih kecamatan dulu' : regionLoading.villages ? 'Memuat desa/kelurahan...' : 'Ketik desa/kelurahan'}
                       value={orderData.village}
-                      onChange={(e) => setOrderData({ ...orderData, village: e.target.value, locationSource: 'manual' })}
-                      placeholder="Desa/Kelurahan"
-                      className="w-full bg-[#141414] border border-[#2A2A2A] rounded-lg px-4 py-3 text-white placeholder-[#888888] focus:border-[#F5C800] focus:outline-none"
+                      options={villages}
+                      disabled={!selectedDistrictId || regionLoading.villages}
+                      onChange={(value) => setOrderData({ ...orderData, village: value, locationSource: 'manual' })}
+                      onSelect={(option) => setOrderData({ ...orderData, village: option.name, locationSource: 'manual' })}
                     />
                     <input
                       type="number"
