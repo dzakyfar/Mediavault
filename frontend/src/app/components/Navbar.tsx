@@ -1,34 +1,70 @@
-import { useState } from 'react';
 import { Link } from 'react-router';
 import { Zap } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { dashboardPathForRole } from '../lib/api';
+import { useTheme } from '../context/ThemeContext';
+import { useLanguage } from '../context/LanguageContext';
 
 export default function Navbar() {
-  const [isDark, setIsDark] = useState(true);
+  const { user, logout } = useAuth();
+  const { theme, toggleTheme } = useTheme();
+  const { t } = useLanguage();
+  const isLight = theme === 'light';
 
   return (
-    <nav className="sticky top-0 z-50 backdrop-blur-md bg-[#0A0A0A]/90 border-b border-[#2A2A2A]">
+    <nav className={`sticky top-0 z-50 backdrop-blur-md border-b transition-colors ${
+      isLight ? 'bg-[#EEF2F6]/95 border-[#D8DEE8]' : 'bg-[#0A0A0A]/90 border-[#2A2A2A]'
+    }`}>
       <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-        <Link to="/" className="flex items-center gap-2">
+        <Link to="/" className={isLight ? 'flex items-center gap-2 text-black' : 'flex items-center gap-2 text-white'}>
           <Zap className="w-6 h-6 text-[#F5C800]" />
           <span className="text-xl font-bold" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>MediaVault</span>
         </Link>
-        <div className="hidden md:flex items-center gap-8">
-          <a href="#how-it-works" className="text-white hover:text-[#F5C800] transition-colors">How It Works</a>
-          <a href="#for-freelancers" className="text-white hover:text-[#F5C800] transition-colors">For Freelancers</a>
-        </div>
+        <div className="hidden md:flex items-center gap-8" />
         <div className="flex items-center gap-4">
           <button
-            onClick={() => setIsDark(!isDark)}
-            className="p-2 rounded-lg hover:bg-[#141414] transition-colors"
+            type="button"
+            onClick={toggleTheme}
+            className={`px-3 py-2 rounded-lg text-[#F5C800] transition-colors text-sm font-bold ${
+              isLight ? 'hover:bg-[#E4EAF2]' : 'hover:bg-[#141414]'
+            }`}
+            aria-label="Toggle theme"
           >
-            {isDark ? '☀️' : '🌙'}
+            {theme === 'dark' ? t('Terang', 'Light') : t('Gelap', 'Dark')}
           </button>
-          <Link to="/login" className="px-4 py-2 border border-white rounded-full hover:bg-white hover:text-black transition-all">
-            Login
-          </Link>
-          <Link to="/register" className="px-6 py-2 bg-[#F5C800] text-black font-bold rounded-full hover:shadow-[0_0_20px_rgba(245,200,0,0.4)] transition-all">
-            Get Started
-          </Link>
+          {user ? (
+            <>
+              <Link
+                to={dashboardPathForRole(user.role)}
+                className={`px-4 py-2 border rounded-full transition-all ${
+                  isLight
+                    ? 'border-black text-black hover:bg-black hover:text-white'
+                    : 'border-white text-white hover:bg-white hover:text-black'
+                }`}
+              >
+                Dashboard
+              </Link>
+              <button onClick={logout} className="px-4 py-2 text-[#EF4444] hover:text-[#FF6B6B] transition-colors">
+                {t('Keluar', 'Logout')}
+              </button>
+            </>
+          ) : (
+            <>
+              <Link
+                to="/login"
+                className={`px-4 py-2 border rounded-full transition-all ${
+                  isLight
+                    ? 'border-black text-black hover:bg-black hover:text-white'
+                    : 'border-white text-white hover:bg-white hover:text-black'
+                }`}
+              >
+                {t('Masuk', 'Login')}
+              </Link>
+              <Link to="/register" className="px-6 py-2 bg-[#F5C800] text-black font-bold rounded-full hover:shadow-[0_0_20px_rgba(245,200,0,0.4)] transition-all">
+                {t('Mulai Sekarang', 'Get Started')}
+              </Link>
+            </>
+          )}
         </div>
       </div>
     </nav>

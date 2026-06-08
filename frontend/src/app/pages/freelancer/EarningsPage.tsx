@@ -1,109 +1,219 @@
-import { Download } from 'lucide-react';
+import { FormEvent, useEffect, useState } from 'react';
+import { Wallet, Smartphone, Clock } from 'lucide-react';
 import DashboardLayout from '../../components/DashboardLayout';
+import EmptyState from '../../components/EmptyState';
+import { apiRequest } from '../../lib/api';
+import { useLanguage } from '../../context/LanguageContext';
+
+interface WalletTransaction {
+  id: string;
+  type: 'CREDIT' | 'DEBIT';
+  amountFormatted: string;
+  balanceAfterFormatted: string;
+  description: string;
+  createdAt: string;
+}
+
+interface Withdrawal {
+  id: string;
+  amountFormatted: string;
+  netAmountFormatted: string;
+  method: string;
+  status: string;
+  createdAt: string;
+}
+
+interface WalletSummary {
+  balance: number;
+  balanceFormatted: string;
+  transactions: WalletTransaction[];
+  withdrawals: Withdrawal[];
+}
+
+const methods = ['GOPAY', 'OVO', 'DANA'];
 
 export default function FreelancerEarnings() {
-  const summary = [
-    { label: 'Total Earned', value: 'Rp 12.500.000', color: 'text-[#F5C800]' },
-    { label: 'This Month', value: 'Rp 2.250.000', color: 'text-[#F5C800]' },
-    { label: 'Pending', value: 'Rp 750.000', color: 'text-[#F97316]' },
-  ];
+  const { t, language } = useLanguage();
+  const [walletSummary, setWalletSummary] = useState<WalletSummary | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [form, setForm] = useState({
+    amount: '',
+    method: 'GOPAY',
+    accountNumber: '',
+    accountName: '',
+  });
 
-  const transactions = [
-    { client: 'Rania K.', project: 'Brand Product Shoot', date: '5 Mar 2026', amount: 'Rp 1.500.000', status: 'Received', statusColor: 'bg-[#22C55E]' },
-    { client: 'Budi S.', project: 'Corporate Event Coverage', date: '28 Feb 2026', amount: 'Rp 2.000.000', status: 'Pending', statusColor: 'bg-[#F97316]' },
-    { client: 'Sarah M.', project: 'Fashion Editorial Shoot', date: '20 Feb 2026', amount: 'Rp 2.500.000', status: 'Received', statusColor: 'bg-[#22C55E]' },
-  ];
+  const loadWallet = () => {
+    setLoading(true);
+    apiRequest<{ wallet: WalletSummary }>('/wallet/me')
+      .then((response) => setWalletSummary(response.wallet))
+      .catch((err) => setError(err instanceof Error ? err.message : t('Gagal memuat saldo', 'Failed to load balance')))
+      .finally(() => setLoading(false));
+  };
 
-  const monthlyData = [
-    { month: 'Oct', earned: 1500000, pending: 500000 },
-    { month: 'Nov', earned: 2200000, pending: 300000 },
-    { month: 'Dec', earned: 1800000, pending: 400000 },
-    { month: 'Jan', earned: 2500000, pending: 200000 },
-    { month: 'Feb', earned: 2100000, pending: 600000 },
-    { month: 'Mar', earned: 2250000, pending: 750000 },
-  ];
+  useEffect(() => {
+    loadWallet();
+  }, []);
 
-  const maxValue = Math.max(...monthlyData.map(d => d.earned + d.pending));
+  const submitWithdraw = async (event: FormEvent) => {
+    event.preventDefault();
+    setError('');
+    setSuccess('');
+    try {
+      setSubmitting(true);
+      const response = await apiRequest<{ wallet: WalletSummary }>('/wallet/withdrawals', {
+        method: 'POST',
+        body: JSON.stringify(form),
+      });
+      setWalletSummary(response.wallet);
+      setForm((current) => ({ ...current, amount: '', accountNumber: '', accountName: '' }));
+      setSuccess(t('Pengajuan penarikan dibuat. Status saldo: Sedang Diproses.', 'Withdrawal request created. Balance status: Processing.'));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('Gagal membuat penarikan', 'Failed to create withdrawal'));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const transactions = walletSummary?.transactions || [];
+  const withdrawals = walletSummary?.withdrawals || [];
 
   return (
-    <DashboardLayout userType="freelancer" userName="Fauzan A.">
+    <DashboardLayout userType="freelancer">
       <h1 className="text-5xl mb-8" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>
-        Earnings
+        {t('Pendapatan', 'Earnings')}
       </h1>
 
-      <div className="grid grid-cols-3 gap-6 mb-8">
-        {summary.map((item, i) => (
-          <div key={i} className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-6">
-            <div className={`text-3xl font-bold mb-2 ${item.color}`}>{item.value}</div>
-            <div className="text-[#888888]">{item.label}</div>
-          </div>
-        ))}
-      </div>
+      {loading && <EmptyState title={t('Memuat saldo', 'Loading balance')} description={t('Menyiapkan ringkasan saldo dan pencairan Anda.', 'Preparing your balance and withdrawal summary.')} />}
 
-      <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-8 mb-8">
-        <h2 className="text-2xl font-bold mb-6" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>
-          Monthly Earnings
-        </h2>
-        <div className="flex items-end gap-4 h-64">
-          {monthlyData.map((data, i) => (
-            <div key={i} className="flex-1 flex flex-col items-center gap-2">
-              <div className="w-full flex flex-col gap-1">
-                <div
-                  className="w-full bg-[#F5C800] rounded-t"
-                  style={{ height: `${(data.earned / maxValue) * 200}px` }}
-                ></div>
-                <div
-                  className="w-full bg-[#F97316] rounded-t"
-                  style={{ height: `${(data.pending / maxValue) * 200}px` }}
-                ></div>
-              </div>
-              <span className="text-sm text-[#888888]">{data.month}</span>
-            </div>
-          ))}
-        </div>
-        <div className="flex gap-6 mt-6 justify-center">
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-[#F5C800] rounded"></div>
-            <span className="text-sm text-[#888888]">Earned</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-[#F97316] rounded"></div>
-            <span className="text-sm text-[#888888]">Pending</span>
-          </div>
-        </div>
-      </div>
-
-      <div className="mb-8">
-        <h2 className="text-2xl font-bold mb-6" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>
-          Transaction History
-        </h2>
-        <div className="space-y-4">
-          {transactions.map((transaction, i) => (
-            <div key={i} className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-6 hover:border-l-4 hover:border-l-[#F5C800] transition-all">
-              <div className="flex items-center justify-between">
+      {!loading && (
+        <div className="grid lg:grid-cols-[1fr_380px] gap-6">
+          <section className="space-y-6">
+            <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <Wallet className="w-7 h-7 text-[#F5C800]" />
                 <div>
-                  <h3 className="font-bold text-white mb-1">{transaction.project}</h3>
-                  <p className="text-sm text-[#888888]">from {transaction.client}</p>
-                </div>
-                <div className="text-right">
-                  <div className="text-[#F5C800] font-bold mb-1">{transaction.amount}</div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-sm text-[#888888]">{transaction.date}</span>
-                    <span className={`px-3 py-1 ${transaction.statusColor} text-white font-bold rounded-full text-xs`}>
-                      {transaction.status}
-                    </span>
-                  </div>
+                  <div className="text-sm text-[#888888]">{t('Saldo Tersedia', 'Available Balance')}</div>
+                  <div className="text-4xl font-bold text-[#F5C800]">{walletSummary?.balanceFormatted || 'Rp 0'}</div>
                 </div>
               </div>
+              <p className="text-sm text-[#888888]">
+                {t('Saldo bertambah setelah client mengonfirmasi pekerjaan selesai. Status penarikan akan diperbarui sesuai proses pencairan.', 'Your balance increases after the client confirms the project is complete. Withdrawal status will update with the payout process.')}
+              </p>
             </div>
-          ))}
-        </div>
-      </div>
 
-      <button className="w-full px-8 py-4 bg-[#F5C800] text-black font-bold rounded-lg hover:shadow-[0_0_20px_rgba(245,200,0,0.4)] transition-all flex items-center justify-center gap-2">
-        <Download className="w-5 h-5" />
-        Withdraw Funds
-      </button>
+            <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-6">
+              <h2 className="text-3xl mb-4" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>
+                {t('Riwayat Mutasi', 'Balance History')}
+              </h2>
+              {transactions.length === 0 && <p className="text-sm text-[#888888]">{t('Belum ada mutasi saldo.', 'No balance activity yet.')}</p>}
+              <div className="space-y-3">
+                {transactions.map((transaction) => (
+                  <div key={transaction.id} className="flex items-start justify-between gap-4 border border-[#2A2A2A] rounded-lg p-4 bg-[#141414]">
+                    <div>
+                      <div className="font-bold text-white">{transaction.description}</div>
+                      <div className="text-sm text-[#888888]">{new Date(transaction.createdAt).toLocaleString(language === 'id' ? 'id-ID' : 'en-US')}</div>
+                      <div className="text-xs text-[#888888] mt-1">{t('Saldo akhir:', 'Ending balance:')} {transaction.balanceAfterFormatted}</div>
+                    </div>
+                    <div className={transaction.type === 'CREDIT' ? 'text-[#22C55E] font-bold' : 'text-[#EF4444] font-bold'}>
+                      {transaction.type === 'CREDIT' ? '+' : '-'} {transaction.amountFormatted}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+
+          <aside className="space-y-6">
+            <form onSubmit={submitWithdraw} className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-6 space-y-4">
+              <div className="flex items-center gap-2">
+                <Smartphone className="w-5 h-5 text-[#F5C800]" />
+                <h2 className="text-3xl" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>
+                  {t('Tarik Saldo', 'Withdraw Balance')}
+                </h2>
+              </div>
+
+              {error && <div className="p-3 rounded-lg border border-[#EF4444] bg-[#EF4444]/10 text-[#EF4444] text-sm">{error}</div>}
+              {success && <div className="p-3 rounded-lg border border-[#22C55E] bg-[#22C55E]/10 text-[#22C55E] text-sm">{success}</div>}
+
+              <label className="block text-sm text-[#888888]">
+                {t('Nominal Penarikan', 'Withdrawal Amount')}
+                <input
+                  type="number"
+                  min="1"
+                  value={form.amount}
+                  onChange={(event) => setForm((current) => ({ ...current, amount: event.target.value }))}
+                  className="mt-2 w-full bg-[#141414] border border-[#2A2A2A] rounded-lg px-4 py-3 text-white focus:border-[#F5C800] focus:outline-none"
+                  placeholder={t('Contoh: 50000', 'Example: 50000')}
+                />
+              </label>
+
+              <label className="block text-sm text-[#888888]">
+                E-Wallet
+                <select
+                  value={form.method}
+                  onChange={(event) => setForm((current) => ({ ...current, method: event.target.value }))}
+                  className="mt-2 w-full bg-[#141414] border border-[#2A2A2A] rounded-lg px-4 py-3 text-white focus:border-[#F5C800] focus:outline-none"
+                >
+                  {methods.map((method) => <option key={method} value={method}>{method}</option>)}
+                </select>
+              </label>
+
+              <label className="block text-sm text-[#888888]">
+                {t('Nomor E-Wallet', 'E-Wallet Number')}
+                <input
+                  value={form.accountNumber}
+                  onChange={(event) => setForm((current) => ({ ...current, accountNumber: event.target.value }))}
+                  className="mt-2 w-full bg-[#141414] border border-[#2A2A2A] rounded-lg px-4 py-3 text-white focus:border-[#F5C800] focus:outline-none"
+                  placeholder="08xxxxxxxxxx"
+                />
+              </label>
+
+              <label className="block text-sm text-[#888888]">
+                {t('Nama Pemilik', 'Account Holder Name')}
+                <input
+                  value={form.accountName}
+                  onChange={(event) => setForm((current) => ({ ...current, accountName: event.target.value }))}
+                  className="mt-2 w-full bg-[#141414] border border-[#2A2A2A] rounded-lg px-4 py-3 text-white focus:border-[#F5C800] focus:outline-none"
+                  placeholder={t('Nama sesuai e-wallet', 'Name registered on the e-wallet')}
+                />
+              </label>
+
+              <button
+                disabled={submitting}
+                className="w-full py-3 bg-[#F5C800] text-black rounded-lg font-bold disabled:opacity-60"
+              >
+                {submitting ? t('Memproses...', 'Processing...') : t('Ajukan Penarikan', 'Submit Withdrawal')}
+              </button>
+            </form>
+
+            <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-6">
+              <div className="flex items-center gap-2 mb-4">
+                <Clock className="w-5 h-5 text-[#F5C800]" />
+                <h2 className="text-3xl" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>
+                  {t('Riwayat Penarikan', 'Withdrawal History')}
+                </h2>
+              </div>
+              {withdrawals.length === 0 && <p className="text-sm text-[#888888]">{t('Belum ada pengajuan penarikan.', 'No withdrawal requests yet.')}</p>}
+              <div className="space-y-3">
+                {withdrawals.map((withdrawal) => (
+                  <div key={withdrawal.id} className="border border-[#2A2A2A] rounded-lg p-4 bg-[#141414]">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="font-bold text-white">{withdrawal.method}</div>
+                      <span className="text-xs px-2 py-1 rounded-full bg-[#F5C800]/10 text-[#F5C800]">{withdrawal.status}</span>
+                    </div>
+                    <div className="text-sm text-[#888888] mt-2">{t('Ditarik', 'Requested')} {withdrawal.amountFormatted}</div>
+                    <div className="text-sm text-[#888888]">{t('Diterima', 'Received')} {withdrawal.netAmountFormatted}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </aside>
+        </div>
+      )}
     </DashboardLayout>
   );
 }

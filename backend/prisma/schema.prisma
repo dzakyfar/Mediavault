@@ -1,0 +1,384 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  CLIENT
+  FREELANCER
+  BOTH
+  ADMIN
+}
+
+enum ProjectStatus {
+  DRAFT
+  OPEN
+  IN_PROGRESS
+  CONFIRMED
+  PAID
+  UNDER_REVIEW
+  WAITING_PAYMENT
+  DELIVERED
+  COMPLETED
+  AUTO_COMPLETED
+  DISPUTED
+  CANCELLED
+}
+
+enum ApplicationStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+enum NotificationType {
+  INFO
+  PROJECT
+  PAYMENT
+  MESSAGE
+}
+
+enum ProjectSubmissionStatus {
+  PENDING
+  APPROVED
+  REVISION_REQUESTED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  EXPIRED
+  FAILED
+}
+
+enum WithdrawalStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum WalletMutationType {
+  CREDIT
+  DEBIT
+}
+
+model User {
+  id             String               @id @default(cuid())
+  fullName       String
+  email          String               @unique
+  passwordHash   String?
+  googleId       String?              @unique
+  avatarUrl      String?
+  role           UserRole?
+  phone          String?
+  telegramChatId String?
+  telegramUsername String?
+  telegramNotifyEnabled Boolean @default(false)
+  telegramLinkedAt DateTime?
+  telegramConnectToken String? @unique
+  telegramConnectExpiresAt DateTime?
+  city           String?
+  province       String?
+  district       String?
+  village        String?
+  postalCode     String?
+  addressDetail  String?
+  latitude       Float?
+  longitude      Float?
+  locationSource String?
+  bio            String?
+  specialty      String?
+  startingPrice  Int?
+  isAvailable    Boolean              @default(false)
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+  clientProjects Project[]            @relation("ClientProjects")
+  freelancerJobs Project[]            @relation("FreelancerProjects")
+  applications   ProjectApplication[]
+  portfolioItems PortfolioItem[]
+  sentMessages   Message[]            @relation("SentMessages")
+  receivedMessages Message[]          @relation("ReceivedMessages")
+  notifications  Notification[]
+  offerings      Offering[]
+  wallet         Wallet?
+  walletTransactions WalletTransaction[]
+  withdrawals    Withdrawal[]
+}
+
+model Project {
+  id            String               @id @default(cuid())
+  title         String
+  description   String
+  category      String
+  serviceType   String?
+  province      String?
+  city          String?
+  district      String?
+  village       String?
+  postalCode    String?
+  address       String?
+  addressDetail String?
+  latitude      Float?
+  longitude     Float?
+  locationSource String?
+  budget        Int?
+  eventDate     DateTime?
+  deadline      DateTime?
+  status        ProjectStatus        @default(OPEN)
+  progress      Int                  @default(0)
+  deliveredAt   DateTime?
+  autoReleaseAt DateTime?
+  completedAt   DateTime?
+  clientId      String
+  freelancerId  String?
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+  client        User                 @relation("ClientProjects", fields: [clientId], references: [id], onDelete: Cascade)
+  freelancer    User?                @relation("FreelancerProjects", fields: [freelancerId], references: [id], onDelete: SetNull)
+  applications  ProjectApplication[]
+  files         ProjectFile[]
+  invoices      Invoice[]
+  payments      Payment[]
+  histories     ProjectHistory[]
+  submissions   ProjectSubmission[]
+  reviews       FreelancerReview[]
+}
+
+model Offering {
+  id              String   @id @default(cuid())
+  freelancerId    String
+  title           String
+  serviceType     String?
+  price           Int
+  ratePerHour     Int?
+  ratePerPhoto    Int?
+  extraPersonFee  Int?
+  estimatedHours  Int      @default(2)
+  description     String?
+  benefits        String[]
+  toolsSpec       String?
+  capacityPersons Int?
+  relatedSpecs    String[]
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  freelancer      User     @relation(fields: [freelancerId], references: [id], onDelete: Cascade)
+
+  @@index([freelancerId, isActive])
+}
+
+model ProjectApplication {
+  id           String            @id @default(cuid())
+  projectId    String
+  freelancerId String
+  message      String?
+  serviceType   String?
+  status       ApplicationStatus @default(PENDING)
+  createdAt    DateTime          @default(now())
+  project      Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  freelancer   User              @relation(fields: [freelancerId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, freelancerId])
+}
+
+model PortfolioItem {
+  id          String   @id @default(cuid())
+  freelancerId String
+  title       String
+  category    String?
+  serviceType String?
+  description String?
+  fileUrl     String?
+  fileName    String?
+  fileType    String?
+  fileSize    Int?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  freelancer  User     @relation(fields: [freelancerId], references: [id], onDelete: Cascade)
+  media       PortfolioMedia[]
+}
+
+model PortfolioMedia {
+  id              String        @id @default(cuid())
+  portfolioItemId String
+  fileUrl         String
+  fileName        String?
+  fileType        String?
+  fileSize        Int?
+  sortOrder       Int           @default(0)
+  createdAt       DateTime      @default(now())
+  portfolioItem   PortfolioItem @relation(fields: [portfolioItemId], references: [id], onDelete: Cascade)
+
+  @@index([portfolioItemId, sortOrder])
+}
+
+model ProjectFile {
+  id          String   @id @default(cuid())
+  projectId   String
+  fileName    String
+  fileKey     String
+  contentType String?
+  size        Int?
+  createdAt   DateTime @default(now())
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model FreelancerReview {
+  id           String   @id @default(cuid())
+  projectId    String   @unique
+  clientId     String
+  freelancerId String
+  rating       Int
+  comment      String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  project      Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([freelancerId, createdAt])
+}
+
+model ProjectSubmission {
+  id            String                  @id @default(cuid())
+  projectId     String
+  freelancerId  String
+  comment       String
+  fileUrl       String?
+  fileName      String?
+  fileType      String?
+  fileSize      Int?
+  status        ProjectSubmissionStatus @default(PENDING)
+  reviewComment String?
+  reviewedAt    DateTime?
+  createdAt     DateTime                @default(now())
+  updatedAt     DateTime                @updatedAt
+  project       Project                 @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model Invoice {
+  id        String   @id @default(cuid())
+  projectId String
+  number    String   @unique
+  amount    Int
+  status    String   @default("PENDING")
+  createdAt DateTime @default(now())
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model Payment {
+  id              String        @id @default(cuid())
+  projectId       String
+  klikqrisOrderId String        @unique
+  amountRequest   Int
+  amountPaid      Int?
+  baseAmount      Int
+  adminFeeClient  Int
+  totalAmount     Int
+  qrisUrl         String?
+  directUrl       String?
+  signature       String
+  status          PaymentStatus @default(PENDING)
+  expiredAt       DateTime?
+  paidAt          DateTime?
+  gatewayResponse Json?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  project         Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, status])
+}
+
+model Wallet {
+  userId    String   @id
+  balance   Int      @default(0)
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model WalletTransaction {
+  id            String             @id @default(cuid())
+  userId        String
+  type          WalletMutationType
+  amount        Int
+  balanceAfter  Int
+  description   String
+  referenceType String?
+  referenceId   String?
+  createdAt     DateTime           @default(now())
+  user          User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([referenceType, referenceId])
+}
+
+model Withdrawal {
+  id            String           @id @default(cuid())
+  freelancerId  String
+  amount        Int
+  adminFee      Int
+  netAmount     Int
+  bankName      String?
+  accountNumber String?
+  accountName   String?
+  status        WithdrawalStatus @default(PENDING)
+  processedAt   DateTime?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  freelancer    User             @relation(fields: [freelancerId], references: [id], onDelete: Cascade)
+
+  @@index([freelancerId, status])
+}
+
+model PlatformRevenue {
+  id            String   @id @default(cuid())
+  amount        Int
+  sourceType    String   // 'CLIENT_FEE' | 'FREELANCER_FEE'
+  referenceType String?  // 'PROJECT'
+  referenceId   String?  // projectId
+  description   String
+  createdAt     DateTime @default(now())
+
+  @@index([sourceType, createdAt])
+  @@index([referenceType, referenceId])
+}
+
+model Message {
+  id         String   @id @default(cuid())
+  senderId   String
+  receiverId String
+  body       String
+  imageUrl   String?
+  imageName  String?
+  imageMime  String?
+  imageSize  Int?
+  readAt     DateTime?
+  createdAt  DateTime @default(now())
+  sender     User     @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver   User     @relation("ReceivedMessages", fields: [receiverId], references: [id], onDelete: Cascade)
+}
+
+model ProjectHistory {
+  id        String   @id @default(cuid())
+  projectId String
+  actorId   String?
+  title     String
+  body      String?
+  eventType String
+  createdAt DateTime @default(now())
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  type      NotificationType @default(INFO)
+  title     String
+  body      String?
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+}

@@ -1,25 +1,84 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { Zap, Eye, EyeOff } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
+import { dashboardPathForRole } from '../lib/api';
+import GoogleSignInButton from '../components/GoogleSignInButton';
+import GoogleSignupConsentModal from '../components/GoogleSignupConsentModal';
 
 export default function LoginPage() {
+  const { t } = useLanguage();
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [pendingGoogleCredential, setPendingGoogleCredential] = useState('');
+  const [googleConsentError, setGoogleConsentError] = useState('');
   const navigate = useNavigate();
+  const { login, loginWithGoogle } = useAuth();
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError('');
+
     if (!email || !password) {
-      setError('Please fill in all fields');
+      setError(t('Isi semua field terlebih dahulu', 'Please fill in all fields'));
       return;
     }
-    navigate('/role-select');
+
+    try {
+      setSubmitting(true);
+      const user = await login(email, password);
+      navigate(dashboardPathForRole(user.role));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('Login gagal', 'Login failed'));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleGoogleLogin = async (credential: string) => {
+    try {
+      setError('');
+      setGoogleConsentError('');
+      setSubmitting(true);
+      const user = await loginWithGoogle(credential);
+      navigate(dashboardPathForRole(user.role));
+    } catch (err) {
+      if (err instanceof Error && err.message.includes('GOOGLE_SIGNUP_REQUIRES_CONSENT')) {
+        setPendingGoogleCredential(credential);
+        return;
+      }
+
+      setError(err instanceof Error ? err.message : t('Login Google gagal', 'Google login failed'));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const completeGoogleSignup = async ({ password, phone }: { password: string; phone: string }) => {
+    try {
+      setSubmitting(true);
+      setGoogleConsentError('');
+      const user = await loginWithGoogle(pendingGoogleCredential, {
+        acceptedTerms: true,
+        password,
+        phone,
+      });
+      setPendingGoogleCredential('');
+      navigate(dashboardPathForRole(user.role));
+    } catch (err) {
+      setGoogleConsentError(err instanceof Error ? err.message : t('Registrasi Google gagal', 'Google registration failed'));
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
-    <div className="min-h-screen bg-[#0A0A0A] flex" style={{ fontFamily: 'DM Sans, sans-serif' }}>
+    <>
+    <div className="min-h-screen bg-[#0A0A0A] flex mv-ambient" style={{ fontFamily: 'DM Sans, sans-serif' }}>
       <div className="hidden md:flex md:w-1/2 bg-[#0A0A0A] relative overflow-hidden">
         <Link to="/" className="absolute top-8 left-8 flex items-center gap-2 z-10">
           <Zap className="w-6 h-6 text-[#F5C800]" />
@@ -28,9 +87,9 @@ export default function LoginPage() {
         <div className="absolute inset-0 flex items-center justify-center">
           <div className="text-center">
             <h2 className="text-6xl text-white mb-4" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>
-              Your next shoot
+              {t('Produksi berikutnya', 'Your next shoot')}
               <br />
-              starts here.
+              {t('dimulai di sini.', 'starts here.')}
             </h2>
           </div>
         </div>
@@ -45,23 +104,20 @@ export default function LoginPage() {
           </Link>
 
           <h1 className="text-5xl text-white mb-4" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>
-            Welcome back.
+            {t('Selamat datang kembali.', 'Welcome back.')}
           </h1>
           <p className="text-[#888888] mb-8">
-            Don't have an account?{' '}
+            {t('Belum punya akun?', "Don't have an account?")}{' '}
             <Link to="/register" className="text-[#F5C800] hover:underline">
-              Sign up free
+              {t('Daftar gratis', 'Sign up free')}
             </Link>
           </p>
 
-          <button className="w-full bg-white text-black font-bold py-3 rounded-full mb-6 hover:bg-gray-100 transition-colors flex items-center justify-center gap-2">
-            <span>G</span>
-            Continue with Google
-          </button>
+          <GoogleSignInButton disabled={submitting} text="signin_with" onCredential={handleGoogleLogin} />
 
           <div className="flex items-center gap-4 mb-6">
             <div className="flex-1 h-px bg-[#2A2A2A]"></div>
-            <span className="text-[#888888] text-sm">or</span>
+            <span className="text-[#888888] text-sm">{t('atau', 'or')}</span>
             <div className="flex-1 h-px bg-[#2A2A2A]"></div>
           </div>
 
@@ -84,7 +140,7 @@ export default function LoginPage() {
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Enter your password"
+                placeholder={t('Masukkan password', 'Enter your password')}
                   className="w-full bg-[#1A1A1A] border border-[#2A2A2A] rounded-lg px-4 py-3 text-white placeholder-[#888888] focus:border-[#F5C800] focus:outline-none focus:ring-2 focus:ring-[#F5C800]/20 transition-all"
                 />
                 <button
@@ -98,8 +154,11 @@ export default function LoginPage() {
             </div>
 
             <div className="flex justify-end mb-6">
-              <a href="#" className="text-[#888888] text-sm hover:text-[#F5C800] transition-colors">
-                Forgot password?
+              <a
+                href="mailto:fauzanalwahyu827@gmail.com,dzakyfardya@gmail.com?subject=Bantuan%20Reset%20Password%20MediaVault"
+                className="text-[#888888] text-sm hover:text-[#F5C800] transition-colors"
+              >
+                {t('Lupa password?', 'Forgot password?')}
               </a>
             </div>
 
@@ -111,20 +170,32 @@ export default function LoginPage() {
 
             <button
               type="submit"
+              disabled={submitting}
               className="w-full bg-[#F5C800] text-black font-bold py-4 rounded-full hover:shadow-[0_0_20px_rgba(245,200,0,0.4)] transition-all"
             >
-              LOG IN
+              {submitting ? t('SEDANG LOGIN...', 'LOGGING IN...') : t('LOGIN', 'LOG IN')}
             </button>
           </form>
 
           <p className="text-center text-[#888888] text-sm mt-6">
-            New here?{' '}
+            {t('Baru di sini?', 'New here?')}{' '}
             <Link to="/register" className="text-[#F5C800] hover:underline">
-              Create account
+              {t('Buat akun', 'Create account')}
             </Link>
           </p>
         </div>
       </div>
     </div>
+    <GoogleSignupConsentModal
+      open={Boolean(pendingGoogleCredential)}
+      submitting={submitting}
+      error={googleConsentError}
+      onCancel={() => {
+        setPendingGoogleCredential('');
+        setGoogleConsentError('');
+      }}
+      onConfirm={completeGoogleSignup}
+    />
+    </>
   );
 }

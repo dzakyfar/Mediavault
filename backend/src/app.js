@@ -1,20 +1,73 @@
 const express = require('express');
 const cors = require('cors');
 const authRoutes = require('./routes/authRoutes');
+const dashboardRoutes = require('./routes/dashboardRoutes');
+const projectRoutes = require('./routes/projectRoutes');
+const freelancerRoutes = require('./routes/freelancerRoutes');
+const messageRoutes = require('./routes/messageRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
+const portfolioRoutes = require('./routes/portfolioRoutes');
+const uploadRoutes = require('./routes/uploadRoutes');
+const paymentRoutes = require('./routes/paymentRoutes');
+const offeringRoutes = require('./routes/offeringRoutes');
+const walletRoutes = require('./routes/walletRoutes');
+const telegramRoutes = require('./routes/telegramRoutes');
 const errorMiddleware = require('./middleware/errorMiddleware');
+const { isS3Configured, localUploadRoot } = require('./utils/s3Storage');
+const { isTelegramConfigured } = require('./services/telegramService');
 
 const app = express();
 
+const allowedOrigins = (process.env.CORS_ORIGINS || [
+  'https://mediavault.studio',
+  'https://www.mediavault.studio',
+  'http://localhost:5173',
+  'http://localhost:5174',
+].join(','))
+  .split(',')
+  .map((origin) => origin.trim().replace(/\/$/, ''))
+  .filter(Boolean);
+
 // Middleware
-app.use(cors());
-app.use(express.json());
+app.use(cors({
+  origin(origin, callback) {
+    if (!origin || allowedOrigins.includes(origin.replace(/\/$/, ''))) {
+      callback(null, true);
+      return;
+    }
+
+    callback(new Error('Origin tidak diizinkan oleh CORS'));
+  },
+}));
+app.use(express.json({ limit: '160mb' }));
+app.use(express.urlencoded({ extended: true, limit: '160mb' }));
+app.use('/uploads-local', express.static(localUploadRoot));
 
 // Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/projects', projectRoutes);
+app.use('/api/freelancers', freelancerRoutes);
+app.use('/api/messages', messageRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/portfolio', portfolioRoutes);
+app.use('/api/uploads', uploadRoutes);
+app.use('/api/payments', paymentRoutes);
+app.use('/api/offerings', offeringRoutes);
+app.use('/api/wallet', walletRoutes);
+app.use('/api/telegram', telegramRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'OK', message: 'Backend MediaVault berjalan' });
+  res.json({
+    status: 'OK',
+    message: 'Backend MediaVault berjalan',
+    mediaStorage: isS3Configured() ? 's3' : 'local_fallback',
+    telegramBot: {
+      configured: isTelegramConfigured(),
+      mode: (process.env.TELEGRAM_BOT_MODE || 'polling').toLowerCase(),
+    },
+  });
 });
 
 // Error handling

@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Mediavault">
+  <rect width="64" height="64" rx="16" fill="#0A0A0A"/>
+  <path d="M36.9 5.5 14.5 36.1h14.1l-2.4 22.4 23.3-32.1H35.3l1.6-20.9Z" fill="#F5C800"/>
+  <path d="M36.9 5.5 14.5 36.1h14.1l-2.4 22.4 23.3-32.1H35.3l1.6-20.9Z" fill="none" stroke="#FFF3A3" stroke-width="2.5" stroke-linejoin="round"/>
+</svg>
