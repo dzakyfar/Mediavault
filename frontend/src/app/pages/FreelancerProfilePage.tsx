@@ -4,8 +4,18 @@ import { Camera, LocateFixed, MapPin, MessageCircle, RefreshCcw, Star, X } from 
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import EmptyState from '../components/EmptyState';
+import DraggableLocationMap from '../components/dashboard/DraggableLocationMap';
 import { useAuth } from '../context/AuthContext';
 import { apiRequest } from '../lib/api';
+import {
+  AddressSuggestion,
+  estimateRoadDistanceKm,
+  fallbackPostalCodeForCity,
+  fetchDrivingDistanceKm,
+  geocodeIndonesianAddress,
+  normalizeRegionName,
+  searchIndonesianAddressSuggestions,
+} from '../lib/indonesiaRegions';
 import { findCity, findDistrict, findProvince, locationOptions } from '../lib/locationOptions';
 
 interface Offering {
@@ -98,6 +108,58 @@ const currency = new Intl.NumberFormat('id-ID', {
 
 const formatCurrency = (amount: number) => currency.format(amount || 0).replace(/\s/g, ' ');
 
+const findProvinceLoose = (name: string) => {
+  const normalized = normalizeRegionName(name);
+  if (!normalized) return null;
+  return locationOptions.find((province) => normalizeRegionName(province.name) === normalized)
+    || locationOptions.find((province) => {
+      const provinceName = normalizeRegionName(province.name);
+      return provinceName.includes(normalized) || normalized.includes(provinceName);
+    })
+    || null;
+};
+
+const findCityLoose = (provinceName: string, cityName: string) => {
+  const province = findProvinceLoose(provinceName);
+  const normalized = normalizeRegionName(cityName);
+  if (!province || !normalized) return null;
+  return province?.cities.find((city) => normalizeRegionName(city.name) === normalized)
+    || province?.cities.find((city) => {
+      const optionName = normalizeRegionName(city.name);
+      return optionName.includes(normalized) || normalized.includes(optionName);
+    })
+    || null;
+};
+
+const findDistrictLoose = (provinceName: string, cityName: string, districtName: string) => {
+  const city = findCityLoose(provinceName, cityName);
+  const normalized = normalizeRegionName(districtName);
+  if (!city || !normalized) return null;
+  return city?.districts.find((district) => normalizeRegionName(district.name) === normalized)
+    || city?.districts.find((district) => {
+      const optionName = normalizeRegionName(district.name);
+      return optionName.includes(normalized) || normalized.includes(optionName);
+    })
+    || null;
+};
+
+const readNominatimAddress = (address: Record<string, string> = {}) => {
+  const province = address.state || '';
+  const city = address.city || address.town || address.county || address.municipality || address.city_district || '';
+  const district = address.suburb || address.city_district || address.municipality || address.district || '';
+  const village = address.village || address.neighbourhood || address.hamlet || address.suburb || '';
+  const roadDetail = [address.road, address.house_number, address.building].filter(Boolean).join(' ');
+
+  return {
+    province,
+    city,
+    district,
+    village,
+    postalCode: address.postcode || '',
+    roadDetail,
+  };
+};
+
 const normalizeFreelancerProfile = (freelancer: Partial<FreelancerProfile>): FreelancerProfile => {
   const offerings = freelancer.offerings || [];
   const offeringServices = offerings.map((offering) => offering.serviceType || offering.title).filter(Boolean);
@@ -135,18 +197,6 @@ const normalizeFreelancerProfile = (freelancer: Partial<FreelancerProfile>): Fre
   };
 };
 
-const distanceInKm = (originLat: number, originLon: number, destinationLat: number, destinationLon: number) => {
-  const radius = 6371;
-  const toRadians = (degree: number) => degree * (Math.PI / 180);
-  const deltaLat = toRadians(destinationLat - originLat);
-  const deltaLon = toRadians(destinationLon - originLon);
-  const a = Math.sin(deltaLat / 2) ** 2
-    + Math.cos(toRadians(originLat)) * Math.cos(toRadians(destinationLat))
-    * Math.sin(deltaLon / 2) ** 2;
-
-  return radius * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-};
-
 export default function FreelancerProfilePage() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -161,6 +211,11 @@ export default function FreelancerProfilePage() {
   const [walletSummary, setWalletSummary] = useState<WalletSummary | null>(null);
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
+  const [addressSuggestions, setAddressSuggestions] = useState<AddressSuggestion[]>([]);
+  const [addressSuggesting, setAddressSuggesting] = useState(false);
+  const [routeDistanceKm, setRouteDistanceKm] = useState<number | null>(null);
+  const [routeLoading, setRouteLoading] = useState(false);
+  const [freelancerGeo, setFreelancerGeo] = useState<{ latitude: string; longitude: string } | null>(null);
   const [orderData, setOrderData] = useState({
     serviceType: '',
     needType: '',
@@ -209,16 +264,16 @@ export default function FreelancerProfilePage() {
     const extraPersonFee = Math.max(0, persons - 1) * (currentOffering?.extraPersonFee || 0);
     const clientLat = Number(orderData.latitude);
     const clientLon = Number(orderData.longitude);
-    const freelancerLat = Number(freelancer?.latitude);
-    const freelancerLon = Number(freelancer?.longitude);
-    const hasCoordinateDistance = freelancer?.latitude != null && freelancer.longitude != null
+    const freelancerLat = Number(freelancerGeo?.latitude ?? freelancer?.latitude);
+    const freelancerLon = Number(freelancerGeo?.longitude ?? freelancer?.longitude);
+    const hasCoordinateDistance = (freelancerGeo || (freelancer?.latitude != null && freelancer.longitude != null))
       && orderData.latitude !== '' && orderData.longitude !== ''
       && Number.isFinite(freelancerLat) && Number.isFinite(freelancerLon)
       && Number.isFinite(clientLat) && Number.isFinite(clientLon);
     const distanceKm = hasCoordinateDistance
-      ? Math.round(distanceInKm(freelancerLat, freelancerLon, clientLat, clientLon))
+      ? (routeDistanceKm ?? estimateRoadDistanceKm(freelancerLat, freelancerLon, clientLat, clientLon))
       : orderData.city && freelancer?.city && freelancer.city !== '-'
-        ? (orderData.city.toLowerCase() === freelancer.city.toLowerCase() ? 8 : 18)
+        ? (orderData.city.toLowerCase() === freelancer.city.toLowerCase() ? 8 : 120)
         : 10;
     const transportFee = Math.max(0, distanceKm - 10) * 1;
     const subtotal = serviceFee + extraPersonFee + transportFee;
@@ -235,6 +290,7 @@ export default function FreelancerProfilePage() {
       adminFee,
       subtotal,
       total,
+      distanceSource: routeDistanceKm ? 'rute jalan OSRM' : hasCoordinateDistance ? 'estimasi koordinat' : 'estimasi kota',
       ready: Boolean(
         orderData.serviceType &&
         orderData.needType &&
@@ -252,7 +308,7 @@ export default function FreelancerProfilePage() {
         persons <= maxPersons
       ),
     };
-  }, [currentOffering, freelancer?.city, freelancer?.latitude, freelancer?.longitude, maxPersons, orderData]);
+  }, [currentOffering, freelancer?.city, freelancer?.latitude, freelancer?.longitude, freelancerGeo, maxPersons, orderData, routeDistanceKm]);
 
   const orderBlockingReason = useMemo(() => {
     if (isOwnProfile) return 'Profile sendiri tidak bisa dipesan.';
@@ -285,6 +341,155 @@ export default function FreelancerProfilePage() {
   }, [id]);
 
   useEffect(() => {
+    if (!freelancer) return undefined;
+    if (freelancer.latitude != null && freelancer.longitude != null) {
+      setFreelancerGeo(null);
+      return undefined;
+    }
+
+    const query = [
+      freelancer.addressDetail,
+      freelancer.village,
+      freelancer.district,
+      freelancer.city,
+      freelancer.province,
+      freelancer.postalCode,
+    ].filter(Boolean).join(', ');
+    if (query.trim().length < 6) return undefined;
+
+    let cancelled = false;
+    const timeout = window.setTimeout(async () => {
+      const result = await geocodeIndonesianAddress(`${query}, Indonesia`);
+      if (!cancelled && result) {
+        setFreelancerGeo({ latitude: result.latitude, longitude: result.longitude });
+      }
+    }, 600);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeout);
+    };
+  }, [
+    freelancer?.addressDetail,
+    freelancer?.city,
+    freelancer?.district,
+    freelancer?.id,
+    freelancer?.latitude,
+    freelancer?.longitude,
+    freelancer?.postalCode,
+    freelancer?.province,
+    freelancer?.village,
+  ]);
+
+  useEffect(() => {
+    if (orderData.locationSource === 'share-location' || orderData.locationSource === 'manual-map') return undefined;
+    const query = [
+      orderData.addressDetail,
+      orderData.village,
+      orderData.district,
+      orderData.city,
+      orderData.province,
+      orderData.postalCode,
+    ].filter(Boolean).join(', ');
+    if (query.trim().length < 8) return undefined;
+
+    let cancelled = false;
+    const timeout = window.setTimeout(async () => {
+      const result = await geocodeIndonesianAddress(`${query}, Indonesia`);
+      if (!cancelled && result) {
+        setOrderData((current) => ({
+          ...current,
+          latitude: result.latitude,
+          longitude: result.longitude,
+          postalCode: current.postalCode || result.postalCode || fallbackPostalCodeForCity(current.city),
+          locationSource: 'manual-geocode',
+        }));
+      }
+    }, 700);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeout);
+    };
+  }, [
+    orderData.addressDetail,
+    orderData.city,
+    orderData.district,
+    orderData.locationSource,
+    orderData.postalCode,
+    orderData.province,
+    orderData.village,
+  ]);
+
+  useEffect(() => {
+    const query = [
+      orderData.addressDetail,
+      orderData.district,
+      orderData.city,
+      orderData.province,
+    ].filter(Boolean).join(', ');
+    if (orderData.addressDetail.trim().length < 3 || query.trim().length < 5) {
+      setAddressSuggestions([]);
+      return undefined;
+    }
+
+    let cancelled = false;
+    setAddressSuggesting(true);
+    const timeout = window.setTimeout(async () => {
+      const suggestions = await searchIndonesianAddressSuggestions(`${query}, Indonesia`, 5);
+      if (!cancelled) {
+        setAddressSuggestions(suggestions);
+        setAddressSuggesting(false);
+      }
+    }, 450);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeout);
+      setAddressSuggesting(false);
+    };
+  }, [orderData.addressDetail, orderData.city, orderData.district, orderData.province]);
+
+  useEffect(() => {
+    const originLat = Number(freelancerGeo?.latitude ?? freelancer?.latitude);
+    const originLon = Number(freelancerGeo?.longitude ?? freelancer?.longitude);
+    const destinationLat = Number(orderData.latitude);
+    const destinationLon = Number(orderData.longitude);
+    const canRoute = Number.isFinite(originLat)
+      && Number.isFinite(originLon)
+      && Number.isFinite(destinationLat)
+      && Number.isFinite(destinationLon);
+
+    if (!canRoute) {
+      setRouteDistanceKm(null);
+      return undefined;
+    }
+
+    let cancelled = false;
+    setRouteLoading(true);
+    const timeout = window.setTimeout(async () => {
+      const distance = await fetchDrivingDistanceKm(originLat, originLon, destinationLat, destinationLon);
+      if (!cancelled) {
+        setRouteDistanceKm(distance);
+        setRouteLoading(false);
+      }
+    }, 500);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeout);
+      setRouteLoading(false);
+    };
+  }, [
+    freelancer?.latitude,
+    freelancer?.longitude,
+    freelancerGeo?.latitude,
+    freelancerGeo?.longitude,
+    orderData.latitude,
+    orderData.longitude,
+  ]);
+
+  useEffect(() => {
     if (!paymentOpen || !payment || payment.status !== 'PENDING') return undefined;
     const interval = window.setInterval(async () => {
       try {
@@ -305,6 +510,27 @@ export default function FreelancerProfilePage() {
     }, 1200);
     return () => window.clearTimeout(timeout);
   }, [navigate, payment, paymentOpen]);
+
+  const applyAddressSuggestion = (suggestion: AddressSuggestion) => {
+    const parsed = readNominatimAddress(suggestion.address);
+    const nextProvince = findProvinceLoose(parsed.province)?.name || parsed.province || orderData.province;
+    const nextCity = findCityLoose(nextProvince, parsed.city)?.name || parsed.city || orderData.city;
+    const nextDistrict = findDistrictLoose(nextProvince, nextCity, parsed.district)?.name || parsed.district || orderData.district;
+
+    setOrderData((current) => ({
+      ...current,
+      province: nextProvince,
+      city: nextCity,
+      district: nextDistrict,
+      village: parsed.village || current.village,
+      postalCode: suggestion.postalCode || parsed.postalCode || current.postalCode || fallbackPostalCodeForCity(nextCity),
+      addressDetail: parsed.roadDetail || suggestion.displayName,
+      latitude: suggestion.latitude,
+      longitude: suggestion.longitude,
+      locationSource: 'address-suggestion',
+    }));
+    setAddressSuggestions([]);
+  };
 
   const useCurrentLocation = () => {
     if (!navigator.geolocation) {
@@ -334,11 +560,11 @@ export default function FreelancerProfilePage() {
             ...current,
             latitude,
             longitude,
-            province: findProvince(provinceName)?.name || provinceName,
-            city: findCity(provinceName, cityName)?.name || cityName,
-            district: findDistrict(provinceName, cityName, districtName)?.name || districtName,
+            province: findProvinceLoose(provinceName)?.name || provinceName,
+            city: findCityLoose(provinceName, cityName)?.name || cityName,
+            district: findDistrictLoose(provinceName, cityName, districtName)?.name || districtName,
             village: villageName,
-            postalCode: address.postcode || current.postalCode,
+            postalCode: address.postcode || current.postalCode || fallbackPostalCodeForCity(cityName),
             addressDetail: [address.road, address.house_number, address.building].filter(Boolean).join(' ')
               || payload.display_name
               || current.addressDetail,
@@ -405,6 +631,16 @@ export default function FreelancerProfilePage() {
         title: `${orderData.serviceType} - ${orderData.needType}`,
         budget: costSummary.subtotal,
         address,
+        costBreakdown: {
+          serviceFee: costSummary.serviceFee,
+          extraPersonFee: costSummary.extraPersonFee,
+          transportFee: costSummary.transportFee,
+          distanceKm: costSummary.distanceKm,
+          distanceSource: costSummary.distanceSource,
+          rentalHours: costSummary.rentalHours,
+          adminFee: costSummary.adminFee,
+          total: costSummary.total,
+        },
       }),
     });
   };
@@ -690,7 +926,17 @@ export default function FreelancerProfilePage() {
 
                     <select
                       value={orderData.province}
-                      onChange={(e) => setOrderData({ ...orderData, province: e.target.value, city: '', district: '', village: '', postalCode: '' })}
+                      onChange={(e) => setOrderData({
+                        ...orderData,
+                        province: e.target.value,
+                        city: '',
+                        district: '',
+                        village: '',
+                        postalCode: '',
+                        latitude: '',
+                        longitude: '',
+                        locationSource: 'manual',
+                      })}
                       className="w-full bg-[#141414] border border-[#2A2A2A] rounded-lg px-4 py-3 text-white focus:border-[#F5C800] focus:outline-none"
                     >
                       <option value="">Provinsi</option>
@@ -699,7 +945,16 @@ export default function FreelancerProfilePage() {
                     </select>
                     <select
                       value={orderData.city}
-                      onChange={(e) => setOrderData({ ...orderData, city: e.target.value, district: '', village: '', postalCode: '' })}
+                      onChange={(e) => setOrderData({
+                        ...orderData,
+                        city: e.target.value,
+                        district: '',
+                        village: '',
+                        postalCode: fallbackPostalCodeForCity(e.target.value),
+                        latitude: '',
+                        longitude: '',
+                        locationSource: 'manual',
+                      })}
                       disabled={!orderData.province}
                       className="w-full bg-[#141414] border border-[#2A2A2A] rounded-lg px-4 py-3 text-white focus:border-[#F5C800] focus:outline-none disabled:opacity-60"
                     >
@@ -709,7 +964,15 @@ export default function FreelancerProfilePage() {
                     </select>
                     <select
                       value={orderData.district}
-                      onChange={(e) => setOrderData({ ...orderData, district: e.target.value, village: '', postalCode: '' })}
+                      onChange={(e) => setOrderData({
+                        ...orderData,
+                        district: e.target.value,
+                        village: '',
+                        postalCode: orderData.postalCode || fallbackPostalCodeForCity(orderData.city),
+                        latitude: '',
+                        longitude: '',
+                        locationSource: 'manual',
+                      })}
                       disabled={!orderData.city}
                       className="w-full bg-[#141414] border border-[#2A2A2A] rounded-lg px-4 py-3 text-white focus:border-[#F5C800] focus:outline-none disabled:opacity-60"
                     >
@@ -719,7 +982,7 @@ export default function FreelancerProfilePage() {
                     </select>
                     <input
                       value={orderData.village}
-                      onChange={(e) => setOrderData({ ...orderData, village: e.target.value })}
+                      onChange={(e) => setOrderData({ ...orderData, village: e.target.value, locationSource: 'manual' })}
                       placeholder="Desa/Kelurahan"
                       className="w-full bg-[#141414] border border-[#2A2A2A] rounded-lg px-4 py-3 text-white placeholder-[#888888] focus:border-[#F5C800] focus:outline-none"
                     />
@@ -732,10 +995,40 @@ export default function FreelancerProfilePage() {
                     />
                     <textarea
                       value={orderData.addressDetail}
-                      onChange={(e) => setOrderData({ ...orderData, addressDetail: e.target.value })}
+                      onChange={(e) => setOrderData({ ...orderData, addressDetail: e.target.value, locationSource: 'manual' })}
                       placeholder="Jl. Mawar No.5, depan apotek"
                       rows={3}
                       className="w-full bg-[#141414] border border-[#2A2A2A] rounded-lg px-4 py-3 text-white placeholder-[#888888] focus:border-[#F5C800] focus:outline-none"
+                    />
+                    {(addressSuggesting || addressSuggestions.length > 0) && (
+                      <div className="bg-[#141414] border border-[#2A2A2A] rounded-lg overflow-hidden">
+                        {addressSuggesting && (
+                          <div className="px-4 py-3 text-sm text-[#888888]">Mencari saran alamat...</div>
+                        )}
+                        {addressSuggestions.map((suggestion) => (
+                          <button
+                            key={`${suggestion.latitude}-${suggestion.longitude}-${suggestion.label}`}
+                            type="button"
+                            onClick={() => applyAddressSuggestion(suggestion)}
+                            className="w-full text-left px-4 py-3 text-sm text-white hover:bg-[#F5C800]/10 border-t border-[#2A2A2A] first:border-t-0"
+                          >
+                            <span className="block font-bold">Pakai alamat ini</span>
+                            <span className="block text-[#888888]">{suggestion.label}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    <DraggableLocationMap
+                      latitude={orderData.latitude}
+                      longitude={orderData.longitude}
+                      fallbackQuery={[orderData.addressDetail, orderData.city, orderData.province].filter(Boolean).join(', ')}
+                      onChange={(latitude, longitude) => setOrderData({
+                        ...orderData,
+                        latitude,
+                        longitude,
+                        locationSource: 'manual-map',
+                      })}
                     />
 
                     <div className="bg-[#141414] border border-[#2A2A2A] rounded-lg p-4 space-y-2 text-sm">
@@ -761,7 +1054,7 @@ export default function FreelancerProfilePage() {
                         <span className="text-[#F5C800] font-bold">{formatCurrency(costSummary.total)}</span>
                       </div>
                       <p className="text-xs text-[#888888]">
-                        Transportasi estimasi {costSummary.distanceKm} km. 10 km pertama gratis, sisanya Rp 1/km.
+                        Transportasi estimasi {costSummary.distanceKm} km ({costSummary.distanceSource}{routeLoading ? ', menghitung rute...' : ''}). 10 km pertama gratis, sisanya Rp 1/km.
                       </p>
                     </div>
 
@@ -942,6 +1235,18 @@ export default function FreelancerProfilePage() {
                 )}
               </div>
               <div className="space-y-3 text-sm">
+                <div className="flex justify-between gap-4">
+                  <span className="text-[#888888]">Biaya Jasa ({costSummary.rentalHours} jam)</span>
+                  <span className="font-bold">{formatCurrency(costSummary.serviceFee)}</span>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <span className="text-[#888888]">Biaya Orang Tambahan</span>
+                  <span className="font-bold">{formatCurrency(costSummary.extraPersonFee)}</span>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <span className="text-[#888888]">Transportasi ({costSummary.distanceKm} km)</span>
+                  <span className="font-bold">{formatCurrency(costSummary.transportFee)}</span>
+                </div>
                 <div className="flex justify-between gap-4">
                   <span className="text-[#888888]">Subtotal Pesanan</span>
                   <span className="font-bold">{payment.baseAmountFormatted}</span>

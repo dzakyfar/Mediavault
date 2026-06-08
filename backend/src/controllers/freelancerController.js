@@ -209,6 +209,7 @@ exports.orderFreelancerService = async (req, res, next) => {
       postalCode,
       address,
       addressDetail,
+      costBreakdown,
     } = req.body;
 
     if (!serviceType || !needType || !description || !eventDate || !deadline || !province || !city || !district || !village || !addressDetail) {
@@ -299,6 +300,15 @@ exports.orderFreelancerService = async (req, res, next) => {
           eventType: 'DIRECT_ORDER_CREATED',
         },
       }),
+      costBreakdown ? prisma.projectHistory.create({
+        data: {
+          projectId: project.id,
+          actorId: req.user.id,
+          title: 'Snapshot biaya pesanan',
+          body: JSON.stringify(costBreakdown),
+          eventType: 'ORDER_COST_BREAKDOWN',
+        },
+      }) : Promise.resolve(null),
     ]);
 
     res.status(201).json({ projectId: project.id });

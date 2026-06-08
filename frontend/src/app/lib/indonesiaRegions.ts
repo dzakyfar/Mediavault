@@ -77,6 +77,7 @@ export interface GeocodeAddressResult {
   longitude: string;
   postalCode: string;
   displayName: string;
+  address?: Record<string, string>;
 }
 
 export const geocodeIndonesianAddress = async (query: string): Promise<GeocodeAddressResult | null> => {
@@ -99,5 +100,82 @@ export const geocodeIndonesianAddress = async (query: string): Promise<GeocodeAd
     longitude: Number(first.lon).toFixed(6),
     postalCode: first.address?.postcode || '',
     displayName: first.display_name || normalizedQuery,
+    address: first.address || {},
   };
+};
+
+export interface AddressSuggestion extends GeocodeAddressResult {
+  label: string;
+}
+
+export const searchIndonesianAddressSuggestions = async (
+  query: string,
+  limit = 5
+): Promise<AddressSuggestion[]> => {
+  const normalizedQuery = query.trim();
+  if (normalizedQuery.length < 3) return [];
+
+  const response = await fetch(
+    `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=${limit}&countrycodes=id&accept-language=id&q=${encodeURIComponent(normalizedQuery)}`,
+    { headers: { Accept: 'application/json' } }
+  );
+
+  if (!response.ok) return [];
+
+  const payload = await response.json();
+  return Array.isArray(payload)
+    ? payload
+      .filter((item) => item?.lat && item?.lon)
+      .map((item) => ({
+        latitude: Number(item.lat).toFixed(6),
+        longitude: Number(item.lon).toFixed(6),
+        postalCode: item.address?.postcode || '',
+        displayName: item.display_name || normalizedQuery,
+        label: item.display_name || normalizedQuery,
+        address: item.address || {},
+      }))
+    : [];
+};
+
+const toRadians = (degree: number) => degree * (Math.PI / 180);
+
+export const straightDistanceKm = (
+  originLat: number,
+  originLon: number,
+  destinationLat: number,
+  destinationLon: number
+) => {
+  const radius = 6371;
+  const deltaLat = toRadians(destinationLat - originLat);
+  const deltaLon = toRadians(destinationLon - originLon);
+  const a = Math.sin(deltaLat / 2) ** 2
+    + Math.cos(toRadians(originLat)) * Math.cos(toRadians(destinationLat))
+    * Math.sin(deltaLon / 2) ** 2;
+
+  return radius * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+};
+
+export const estimateRoadDistanceKm = (
+  originLat: number,
+  originLon: number,
+  destinationLat: number,
+  destinationLon: number
+) => Math.ceil(straightDistanceKm(originLat, originLon, destinationLat, destinationLon) * 1.25);
+
+export const fetchDrivingDistanceKm = async (
+  originLat: number,
+  originLon: number,
+  destinationLat: number,
+  destinationLon: number
+) => {
+  const response = await fetch(
+    `https://router.project-osrm.org/route/v1/driving/${originLon},${originLat};${destinationLon},${destinationLat}?overview=false&alternatives=false&steps=false`,
+    { headers: { Accept: 'application/json' } }
+  );
+
+  if (!response.ok) return null;
+
+  const payload = await response.json();
+  const meters = payload?.routes?.[0]?.distance;
+  return Number.isFinite(Number(meters)) ? Math.ceil(Number(meters) / 1000) : null;
 };

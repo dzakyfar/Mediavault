@@ -216,6 +216,7 @@ exports.registerFreelancer = async (req, res, next) => {
       longitude,
       locationSource,
       portfolio,
+      portfolios,
       agreed,
     } = req.body;
 
@@ -260,12 +261,25 @@ exports.registerFreelancer = async (req, res, next) => {
       throw new Error('Persetujuan syarat & ketentuan freelancer wajib dicentang');
     }
 
-    const portfolioError = portfolio?.fileUrl ? validateInlineImage({
-      imageUrl: portfolio.fileUrl,
-      imageMime: portfolio.fileType,
-      imageSize: portfolio.fileSize,
-      maxBytes: PORTFOLIO_IMAGE_MAX_BYTES,
-    }) : null;
+    const portfolioList = Array.isArray(portfolios)
+      ? portfolios
+      : portfolio?.fileUrl
+        ? [portfolio]
+        : [];
+
+    if (portfolioList.length > 5) {
+      res.status(400);
+      throw new Error('Maksimal 5 foto portfolio saat registrasi freelancer');
+    }
+
+    const portfolioError = portfolioList
+      .map((item) => validateInlineImage({
+        imageUrl: item.fileUrl,
+        imageMime: item.fileType,
+        imageSize: item.fileSize,
+        maxBytes: PORTFOLIO_IMAGE_MAX_BYTES,
+      }))
+      .find(Boolean);
 
     if (portfolioError) {
       res.status(400);
@@ -295,18 +309,19 @@ exports.registerFreelancer = async (req, res, next) => {
         select: publicUserSelect,
       });
 
-      if (portfolio?.fileUrl) {
+      for (const [index, item] of portfolioList.entries()) {
+        if (!item?.fileUrl) continue;
         await tx.portfolioItem.create({
           data: {
             freelancerId: req.user.id,
-            title: portfolio.title?.trim() || 'Portfolio awal freelancer',
+            title: item.title?.trim() || `Portfolio awal freelancer ${index + 1}`,
             category: selectedCategories[0],
             serviceType: selectedCategories[0],
             description: 'Portfolio awal dari proses registrasi freelancer.',
-            fileUrl: portfolio.fileUrl,
-            fileName: portfolio.fileName || null,
-            fileType: portfolio.fileType || null,
-            fileSize: Number.isFinite(Number(portfolio.fileSize)) ? Number(portfolio.fileSize) : null,
+            fileUrl: item.fileUrl,
+            fileName: item.fileName || null,
+            fileType: item.fileType || null,
+            fileSize: Number.isFinite(Number(item.fileSize)) ? Number(item.fileSize) : null,
           },
         });
       }

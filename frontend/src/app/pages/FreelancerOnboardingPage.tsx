@@ -40,13 +40,13 @@ export default function FreelancerOnboardingPage() {
     locationSource: user?.locationSource || 'manual',
     agreed: false,
   });
-  const [portfolio, setPortfolio] = useState<{
+  const [portfolios, setPortfolios] = useState<Array<{
     fileUrl: string;
     previewUrl: string;
     fileName: string;
     fileType: string;
     fileSize: number;
-  } | null>(null);
+  }>>([]);
   const [error, setError] = useState('');
   const [locationWarning, setLocationWarning] = useState('');
   const [saving, setSaving] = useState(false);
@@ -402,24 +402,30 @@ export default function FreelancerOnboardingPage() {
     }
   };
 
-  const attachPortfolio = async (file?: File) => {
-    if (!file) return;
-    const validationError = validateImageFile(file, PORTFOLIO_IMAGE_MAX_BYTES);
-    if (validationError) {
-      setError(validationError);
+  const attachPortfolio = async (files?: FileList | null) => {
+    const selectedFiles = Array.from(files || []);
+    if (selectedFiles.length === 0) return;
+    if (portfolios.length + selectedFiles.length > 5) {
+      setError('Maksimal 5 foto portfolio. Hapus salah satu foto jika ingin mengganti.');
       return;
     }
 
     try {
       setUploading(true);
-      const uploaded = await uploadFileToS3(file, 'portfolio');
-      setPortfolio({
-        fileUrl: uploaded.key,
-        previewUrl: uploaded.url,
-        fileName: uploaded.fileName,
-        fileType: uploaded.fileType,
-        fileSize: uploaded.fileSize,
-      });
+      const uploadedFiles = [];
+      for (const file of selectedFiles) {
+        const validationError = validateImageFile(file, PORTFOLIO_IMAGE_MAX_BYTES);
+        if (validationError) throw new Error(validationError);
+        const uploaded = await uploadFileToS3(file, 'portfolio');
+        uploadedFiles.push({
+          fileUrl: uploaded.key,
+          previewUrl: uploaded.url,
+          fileName: uploaded.fileName,
+          fileType: uploaded.fileType,
+          fileSize: uploaded.fileSize,
+        });
+      }
+      setPortfolios((current) => [...current, ...uploadedFiles]);
       setError('');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Gagal upload portfolio');
@@ -441,13 +447,13 @@ export default function FreelancerOnboardingPage() {
       setError('');
       await registerFreelancer({
         ...form,
-        portfolio: portfolio ? {
-          title: `Portfolio ${form.categories[0]}`,
-          fileUrl: portfolio.fileUrl,
-          fileName: portfolio.fileName,
-          fileType: portfolio.fileType,
-          fileSize: portfolio.fileSize,
-        } : null,
+        portfolios: portfolios.map((item, index) => ({
+          title: `Portfolio ${form.categories[0]} ${index + 1}`,
+          fileUrl: item.fileUrl,
+          fileName: item.fileName,
+          fileType: item.fileType,
+          fileSize: item.fileSize,
+        })),
       });
       navigate('/dashboard/freelancer', { replace: true });
     } catch (err) {
@@ -654,17 +660,34 @@ export default function FreelancerOnboardingPage() {
                 <label className="inline-flex items-center gap-2 px-4 py-3 border border-[#888888] text-white rounded-lg hover:border-[#F5C800] hover:text-[#F5C800] cursor-pointer transition-colors">
                   <ImagePlus className="w-4 h-4" />
                   {uploading ? 'Uploading...' : 'Upload PNG/JPEG'}
-                  <input type="file" accept="image/png,image/jpeg" className="hidden" onChange={(event) => attachPortfolio(event.target.files?.[0])} />
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg"
+                    multiple
+                    className="hidden"
+                    onChange={(event) => attachPortfolio(event.target.files)}
+                  />
                 </label>
-                <span className="text-sm text-[#888888]">Opsional, maksimal 1MB. Otomatis tampil di profile.</span>
-                {portfolio && (
-                  <button type="button" onClick={() => setPortfolio(null)} className="inline-flex items-center gap-1 text-[#EF4444] text-sm">
-                    <X className="w-4 h-4" />
-                    Hapus file
-                  </button>
-                )}
+                <span className="text-sm text-[#888888]">Opsional, maksimal 5 foto. Tiap foto maksimal 5MB dan otomatis tampil di profile.</span>
               </div>
-              {portfolio && <img src={portfolio.previewUrl} alt={portfolio.fileName} className="mt-4 max-h-64 rounded-lg object-contain bg-[#141414]" />}
+              {portfolios.length > 0 && (
+                <div className="mt-4 grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {portfolios.map((item, index) => (
+                    <div key={`${item.fileUrl}-${index}`} className="relative rounded-lg overflow-hidden border border-[#2A2A2A] bg-[#141414]">
+                      <img src={item.previewUrl} alt={item.fileName} className="w-full h-36 object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => setPortfolios((current) => current.filter((_, itemIndex) => itemIndex !== index))}
+                        className="absolute right-2 top-2 inline-flex items-center justify-center w-8 h-8 rounded-full bg-black/75 text-[#EF4444] hover:bg-[#EF4444] hover:text-white"
+                        aria-label={`Hapus portfolio ${index + 1}`}
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                      <div className="px-3 py-2 text-xs text-[#888888] truncate">{item.fileName}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </Field>
 
             <label className="flex items-start gap-3 cursor-pointer">

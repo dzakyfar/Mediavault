@@ -51,6 +51,14 @@ const emptyForm = {
   fileSize: 0,
 };
 
+interface PortfolioDraft {
+  fileUrl: string;
+  previewUrl: string;
+  fileName: string;
+  fileType: string;
+  fileSize: number;
+}
+
 const serviceOptions = serviceCatalog.flatMap((category) => category.services);
 const tagOptions = serviceCatalog.map((category) => category.category);
 
@@ -69,6 +77,7 @@ const emptyOfferingForm = {
 export default function FreelancerPortfolio() {
   const [items, setItems] = useState<PortfolioItem[]>([]);
   const [form, setForm] = useState(emptyForm);
+  const [fileDrafts, setFileDrafts] = useState<PortfolioDraft[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -106,27 +115,50 @@ export default function FreelancerPortfolio() {
     loadOfferings();
   }, []);
 
-  const attachImage = async (file?: File) => {
-    if (!file) return;
-    const validationError = validateImageFile(file, PORTFOLIO_IMAGE_MAX_BYTES);
-    if (validationError) {
-      setError(validationError);
+  const attachImage = async (files?: FileList | null) => {
+    const selectedFiles = Array.from(files || []);
+    if (selectedFiles.length === 0) return;
+    if (!form.id && fileDrafts.length + selectedFiles.length > 5) {
+      setError('Maksimal 5 foto portfolio dalam sekali tambah.');
       return;
     }
 
-    const uploaded = await uploadFileToS3(file, 'portfolio');
-    setForm((current) => ({
-      ...current,
-      fileUrl: uploaded.key,
-      previewUrl: uploaded.url,
-      fileName: uploaded.fileName,
-      fileType: uploaded.fileType,
-      fileSize: uploaded.fileSize,
-    }));
-    setError('');
+    try {
+      const uploadedDrafts = [];
+      for (const file of selectedFiles.slice(0, form.id ? 1 : selectedFiles.length)) {
+        const validationError = validateImageFile(file, PORTFOLIO_IMAGE_MAX_BYTES);
+        if (validationError) throw new Error(validationError);
+        const uploaded = await uploadFileToS3(file, 'portfolio');
+        uploadedDrafts.push({
+          fileUrl: uploaded.key,
+          previewUrl: uploaded.url,
+          fileName: uploaded.fileName,
+          fileType: uploaded.fileType,
+          fileSize: uploaded.fileSize,
+        });
+      }
+
+      if (form.id) {
+        const uploaded = uploadedDrafts[0];
+        setForm((current) => ({
+          ...current,
+          fileUrl: uploaded.fileUrl,
+          previewUrl: uploaded.previewUrl,
+          fileName: uploaded.fileName,
+          fileType: uploaded.fileType,
+          fileSize: uploaded.fileSize,
+        }));
+      } else {
+        setFileDrafts((current) => [...current, ...uploadedDrafts]);
+      }
+      setError('');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Gagal upload portfolio');
+    }
   };
 
   const editItem = (item: PortfolioItem) => {
+    setFileDrafts([]);
     setForm({
       id: item.id,
       title: item.title,
@@ -141,7 +173,10 @@ export default function FreelancerPortfolio() {
     });
   };
 
-  const resetForm = () => setForm(emptyForm);
+  const resetForm = () => {
+    setForm(emptyForm);
+    setFileDrafts([]);
+  };
 
   const saveItem = async (event: FormEvent) => {
     event.preventDefault();
@@ -167,10 +202,26 @@ export default function FreelancerPortfolio() {
         fileType: form.fileType || null,
         fileSize: form.fileSize || null,
       };
-      await apiRequest(form.id ? `/portfolio/${form.id}` : '/portfolio', {
-        method: form.id ? 'PATCH' : 'POST',
-        body: JSON.stringify(payload),
-      });
+      if (form.id || fileDrafts.length === 0) {
+        await apiRequest(form.id ? `/portfolio/${form.id}` : '/portfolio', {
+          method: form.id ? 'PATCH' : 'POST',
+          body: JSON.stringify(payload),
+        });
+      } else {
+        for (const [index, draft] of fileDrafts.entries()) {
+          await apiRequest('/portfolio', {
+            method: 'POST',
+            body: JSON.stringify({
+              ...payload,
+              title: fileDrafts.length > 1 ? `${form.title} ${index + 1}` : form.title,
+              fileUrl: draft.fileUrl,
+              fileName: draft.fileName,
+              fileType: draft.fileType,
+              fileSize: draft.fileSize,
+            }),
+          });
+        }
+      }
       resetForm();
       await loadItems();
     } catch (err) {
@@ -354,13 +405,37 @@ export default function FreelancerPortfolio() {
           <label className="inline-flex items-center gap-2 px-4 py-3 border border-[#888888] text-white rounded-lg hover:border-[#F5C800] hover:text-[#F5C800] cursor-pointer transition-colors">
             <ImagePlus className="w-4 h-4" />
             Upload PNG/JPEG
-            <input type="file" accept="image/png,image/jpeg" className="hidden" onChange={(event) => attachImage(event.target.files?.[0])} />
+            <input
+              type="file"
+              accept="image/png,image/jpeg"
+              multiple={!form.id}
+              className="hidden"
+              onChange={(event) => attachImage(event.target.files)}
+            />
           </label>
-          <span className="text-sm text-[#888888]">Maksimal 1MB per gambar.</span>
+          <span className="text-sm text-[#888888]">{form.id ? 'Edit satu gambar.' : 'Bisa upload maksimal 5 foto sekaligus.'} Maksimal 5MB per gambar.</span>
         </div>
 
         {form.previewUrl && (
           <img src={form.previewUrl} alt={form.fileName} className="mt-4 max-h-56 rounded-lg object-contain bg-[#141414]" />
+        )}
+        {!form.id && fileDrafts.length > 0 && (
+          <div className="mt-4 grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {fileDrafts.map((item, index) => (
+              <div key={`${item.fileUrl}-${index}`} className="relative rounded-lg overflow-hidden border border-[#2A2A2A] bg-[#141414]">
+                <img src={item.previewUrl} alt={item.fileName} className="w-full h-36 object-cover" />
+                <button
+                  type="button"
+                  onClick={() => setFileDrafts((current) => current.filter((_, itemIndex) => itemIndex !== index))}
+                  className="absolute right-2 top-2 inline-flex items-center justify-center w-8 h-8 rounded-full bg-black/75 text-[#EF4444] hover:bg-[#EF4444] hover:text-white"
+                  aria-label={`Hapus foto portfolio ${index + 1}`}
+                >
+                  <X className="w-4 h-4" />
+                </button>
+                <div className="px-3 py-2 text-xs text-[#888888] truncate">{item.fileName}</div>
+              </div>
+            ))}
+          </div>
         )}
 
         <button
