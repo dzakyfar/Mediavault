@@ -19,6 +19,16 @@ import {
   getCurrentPosition,
   RegionOption,
 } from '../lib/indonesiaRegions';
+import {
+  AddressLookupResult,
+  AddressSuggestion,
+  estimateRoadDistanceKm,
+  geocodeAddress,
+  getDrivingDistanceKm,
+  reverseGeocodeCoordinates,
+  resolveAddressSuggestion,
+  searchAddressSuggestions,
+} from '../lib/googleMaps';
 
 interface Offering {
   id: string;
@@ -135,6 +145,7 @@ const currency = new Intl.NumberFormat('id-ID', {
 });
 
 const formatCurrency = (amount: number) => currency.format(amount || 0).replace(/\s/g, ' ');
+const transportRatePerKm = Math.max(1, Number(import.meta.env.VITE_TRANSPORT_RATE_PER_KM || 1));
 
 const describeOffering = (offering: Offering) => [
   offering.description,
@@ -178,18 +189,6 @@ const normalizeFreelancerProfile = (freelancer: Partial<FreelancerProfile>): Fre
   };
 };
 
-const distanceInKm = (originLat: number, originLon: number, destinationLat: number, destinationLon: number) => {
-  const radius = 6371;
-  const toRadians = (degree: number) => degree * (Math.PI / 180);
-  const deltaLat = toRadians(destinationLat - originLat);
-  const deltaLon = toRadians(destinationLon - originLon);
-  const a = Math.sin(deltaLat / 2) ** 2
-    + Math.cos(toRadians(originLat)) * Math.cos(toRadians(destinationLat))
-    * Math.sin(deltaLon / 2) ** 2;
-
-  return radius * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-};
-
 export default function FreelancerProfilePage() {
   const { t } = useLanguage();
   const { id } = useParams();
@@ -208,6 +207,14 @@ export default function FreelancerProfilePage() {
   const [selectedPortfolio, setSelectedPortfolio] = useState<PortfolioItem | null>(null);
   const [selectedPortfolioImageIndex, setSelectedPortfolioImageIndex] = useState(0);
   const [selectedOfferingId, setSelectedOfferingId] = useState('');
+  const [addressSuggestions, setAddressSuggestions] = useState<AddressSuggestion[]>([]);
+  const [addressSuggesting, setAddressSuggesting] = useState(false);
+  const [routeDistanceKm, setRouteDistanceKm] = useState<number | null>(null);
+  const [routeDistanceSource, setRouteDistanceSource] = useState<'google-directions' | 'osrm' | 'estimated' | 'city-estimate'>('city-estimate');
+  const [routeLoading, setRouteLoading] = useState(false);
+  const [reverseGeocoding, setReverseGeocoding] = useState(false);
+  const [addressSyncMessage, setAddressSyncMessage] = useState('');
+  const [freelancerCoordinates, setFreelancerCoordinates] = useState<{ latitude: string; longitude: string } | null>(null);
   const [regionLoading, setRegionLoading] = useState({
     provinces: false,
     cities: false,
@@ -404,6 +411,8 @@ export default function FreelancerProfilePage() {
       district: '',
       village: '',
       postalCode: '',
+      latitude: '',
+      longitude: '',
       locationSource: 'manual',
     }));
   };
@@ -419,6 +428,8 @@ export default function FreelancerProfilePage() {
       district: '',
       village: '',
       postalCode: fallbackPostalCodeForCity(name),
+      latitude: '',
+      longitude: '',
       locationSource: 'manual',
     }));
   };
@@ -430,6 +441,8 @@ export default function FreelancerProfilePage() {
       ...current,
       district: name,
       village: '',
+      latitude: '',
+      longitude: '',
       locationSource: 'manual',
     }));
   };
@@ -438,8 +451,88 @@ export default function FreelancerProfilePage() {
     setOrderData((current) => ({
       ...current,
       village: name,
+      latitude: '',
+      longitude: '',
       locationSource: 'manual',
     }));
+  };
+
+  const composeClientAddress = (data = orderData) => [
+    data.addressDetail,
+    data.village,
+    data.district,
+    data.city,
+    data.province,
+    data.postalCode,
+  ].filter(Boolean).join(', ');
+
+  const matchRegionsFromLookup = async (lookup: AddressLookupResult) => {
+    const parts = lookup.parts || {};
+    const provinceName = parts.province || orderData.province;
+    const cityName = parts.city || orderData.city;
+    const districtName = parts.district || orderData.district;
+    const villageName = parts.village || orderData.village;
+    const provinceOptions = provinces.length ? provinces : await fetchRegionOptions('/provinces.json');
+    if (provinces.length === 0) setProvinces(provinceOptions);
+
+    const provinceMatch = findRegionByName(provinceOptions, provinceName);
+    let cityOptions: RegionOption[] = [];
+    let districtOptions: RegionOption[] = [];
+    let villageOptions: RegionOption[] = [];
+    let cityMatch: RegionOption | null = null;
+    let districtMatch: RegionOption | null = null;
+    let villageMatch: RegionOption | null = null;
+
+    if (provinceMatch) {
+      cityOptions = await fetchRegionOptions(`/regencies/${provinceMatch.id}.json`);
+      cityMatch = findRegionByName(cityOptions, cityName);
+    }
+
+    if (cityMatch) {
+      districtOptions = await fetchRegionOptions(`/districts/${cityMatch.id}.json`);
+      districtMatch = findRegionByName(districtOptions, districtName);
+    }
+
+    if (districtMatch) {
+      villageOptions = await fetchRegionOptions(`/villages/${districtMatch.id}.json`);
+      villageMatch = findRegionByName(villageOptions, villageName);
+    }
+
+    setSelectedProvinceId(provinceMatch?.id || selectedProvinceId);
+    setSelectedCityId(cityMatch?.id || selectedCityId);
+    setSelectedDistrictId(districtMatch?.id || selectedDistrictId);
+    if (cityOptions.length > 0) setCities(cityOptions);
+    if (districtOptions.length > 0) setDistricts(districtOptions);
+    if (villageOptions.length > 0) setVillages(villageOptions);
+
+    return {
+      province: provinceMatch?.name || provinceName,
+      city: cityMatch?.name || cityName,
+      district: districtMatch?.name || districtName,
+      village: villageMatch?.name || villageName,
+    };
+  };
+
+  const applyAddressLookup = async (
+    lookup: AddressLookupResult,
+    locationSource: 'manual-geocode' | 'address-suggestion' | 'map-pin' | 'share-location'
+  ) => {
+    const matched = await matchRegionsFromLookup(lookup);
+    setOrderData((current) => ({
+      ...current,
+      province: matched.province || current.province,
+      city: matched.city || current.city,
+      district: matched.district || current.district,
+      village: matched.village || current.village,
+      postalCode: lookup.postalCode || lookup.parts?.postalCode || current.postalCode || fallbackPostalCodeForCity(matched.city),
+      addressDetail: lookup.parts?.addressDetail || lookup.label || current.addressDetail,
+      latitude: lookup.latitude,
+      longitude: lookup.longitude,
+      locationSource,
+    }));
+    setAddressSyncMessage(lookup.provider === 'google'
+      ? t('Alamat tersinkron dari Google Maps.', 'Address synced from Google Maps.')
+      : t('Alamat tersinkron dari fallback peta.', 'Address synced from map fallback.'));
   };
 
   const useProfileAddress = () => {
@@ -475,18 +568,18 @@ export default function FreelancerProfilePage() {
     const extraPersonFee = Math.max(0, persons - 1) * (currentOffering?.extraPersonFee || 0);
     const clientLat = Number(orderData.latitude);
     const clientLon = Number(orderData.longitude);
-    const freelancerLat = Number(freelancer?.latitude);
-    const freelancerLon = Number(freelancer?.longitude);
-    const hasCoordinateDistance = freelancer?.latitude != null && freelancer.longitude != null
+    const freelancerLat = Number(freelancer?.latitude ?? freelancerCoordinates?.latitude);
+    const freelancerLon = Number(freelancer?.longitude ?? freelancerCoordinates?.longitude);
+    const hasCoordinateDistance = Boolean(freelancer?.latitude != null || freelancerCoordinates)
       && orderData.latitude !== '' && orderData.longitude !== ''
       && Number.isFinite(freelancerLat) && Number.isFinite(freelancerLon)
       && Number.isFinite(clientLat) && Number.isFinite(clientLon);
     const distanceKm = hasCoordinateDistance
-      ? Math.ceil(distanceInKm(freelancerLat, freelancerLon, clientLat, clientLon))
+      ? (routeDistanceKm ?? estimateRoadDistanceKm(freelancerLat, freelancerLon, clientLat, clientLon))
       : orderData.city && freelancer?.city && freelancer.city !== '-'
-        ? (orderData.city.toLowerCase() === freelancer.city.toLowerCase() ? 8 : 18)
+        ? (orderData.city.toLowerCase() === freelancer.city.toLowerCase() ? 8 : 120)
         : 10;
-    const transportFee = Math.max(0, Math.ceil(distanceKm - 10)) * 1;
+    const transportFee = Math.max(0, Math.ceil(distanceKm * transportRatePerKm));
     const subtotal = serviceFee + extraPersonFee + transportFee;
     const adminFee = Math.round(subtotal * 0.01);
     const total = subtotal + adminFee;
@@ -501,6 +594,10 @@ export default function FreelancerProfilePage() {
       adminFee,
       subtotal,
       total,
+      transportRatePerKm,
+      distanceSource: hasCoordinateDistance
+        ? routeDistanceSource
+        : 'city-estimate',
       ready: Boolean(
         orderData.serviceType &&
         orderData.needType &&
@@ -518,7 +615,17 @@ export default function FreelancerProfilePage() {
         persons <= maxPersons
       ),
     };
-  }, [currentOffering, freelancer?.city, freelancer?.latitude, freelancer?.longitude, maxPersons, orderData]);
+  }, [
+    currentOffering,
+    freelancer?.city,
+    freelancer?.latitude,
+    freelancer?.longitude,
+    freelancerCoordinates,
+    maxPersons,
+    orderData,
+    routeDistanceKm,
+    routeDistanceSource,
+  ]);
 
   const orderBlockingReason = useMemo(() => {
     if (isOwnProfile) return t('Profil sendiri tidak bisa dipesan.', 'You cannot order your own profile.');
@@ -578,6 +685,147 @@ export default function FreelancerProfilePage() {
     return () => window.clearTimeout(timeout);
   }, [navigate, payment, paymentOpen]);
 
+  useEffect(() => {
+    if (!freelancer) return undefined;
+    if (freelancer.latitude != null && freelancer.longitude != null) {
+      setFreelancerCoordinates(null);
+      return undefined;
+    }
+
+    const query = [
+      freelancer.addressDetail,
+      freelancer.village,
+      freelancer.district,
+      freelancer.city,
+      freelancer.province,
+      freelancer.postalCode,
+    ].filter(Boolean).join(', ');
+    if (query.trim().length < 6) return undefined;
+
+    let cancelled = false;
+    const timeout = window.setTimeout(async () => {
+      const lookup = await geocodeAddress(`${query}, Indonesia`);
+      if (!cancelled && lookup) {
+        setFreelancerCoordinates({ latitude: lookup.latitude, longitude: lookup.longitude });
+      }
+    }, 500);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeout);
+    };
+  }, [
+    freelancer?.addressDetail,
+    freelancer?.city,
+    freelancer?.district,
+    freelancer?.id,
+    freelancer?.latitude,
+    freelancer?.longitude,
+    freelancer?.postalCode,
+    freelancer?.province,
+    freelancer?.village,
+  ]);
+
+  useEffect(() => {
+    const query = [
+      orderData.addressDetail,
+      orderData.district,
+      orderData.city,
+      orderData.province,
+    ].filter(Boolean).join(', ');
+
+    if (query.trim().length < 5 || orderData.addressDetail.trim().length < 3) {
+      setAddressSuggestions([]);
+      return undefined;
+    }
+
+    let cancelled = false;
+    setAddressSuggesting(true);
+    const timeout = window.setTimeout(async () => {
+      const suggestions = await searchAddressSuggestions(`${query}, Indonesia`);
+      if (!cancelled) {
+        setAddressSuggestions(suggestions.slice(0, 5));
+        setAddressSuggesting(false);
+      }
+    }, 350);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeout);
+      setAddressSuggesting(false);
+    };
+  }, [orderData.addressDetail, orderData.city, orderData.district, orderData.province]);
+
+  useEffect(() => {
+    if (['manual-geocode', 'address-suggestion', 'map-pin', 'share-location'].includes(orderData.locationSource)) return undefined;
+    const query = composeClientAddress();
+    if (query.trim().length < 8 || orderData.addressDetail.trim().length < 3) return undefined;
+
+    let cancelled = false;
+    const timeout = window.setTimeout(async () => {
+      const lookup = await geocodeAddress(`${query}, Indonesia`);
+      if (!cancelled && lookup) {
+        await applyAddressLookup(lookup, 'manual-geocode');
+      }
+    }, 750);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeout);
+    };
+  }, [
+    orderData.addressDetail,
+    orderData.city,
+    orderData.district,
+    orderData.locationSource,
+    orderData.postalCode,
+    orderData.province,
+    orderData.village,
+  ]);
+
+  useEffect(() => {
+    const originLat = Number(freelancer?.latitude ?? freelancerCoordinates?.latitude);
+    const originLon = Number(freelancer?.longitude ?? freelancerCoordinates?.longitude);
+    const destinationLat = Number(orderData.latitude);
+    const destinationLon = Number(orderData.longitude);
+    const canRoute = Number.isFinite(originLat)
+      && Number.isFinite(originLon)
+      && Number.isFinite(destinationLat)
+      && Number.isFinite(destinationLon)
+      && orderData.latitude !== ''
+      && orderData.longitude !== '';
+
+    if (!canRoute) {
+      setRouteDistanceKm(null);
+      setRouteDistanceSource('city-estimate');
+      return undefined;
+    }
+
+    let cancelled = false;
+    setRouteLoading(true);
+    const timeout = window.setTimeout(async () => {
+      const result = await getDrivingDistanceKm(originLat, originLon, destinationLat, destinationLon);
+      if (!cancelled) {
+        setRouteDistanceKm(result.distanceKm);
+        setRouteDistanceSource(result.provider);
+        setRouteLoading(false);
+      }
+    }, 500);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeout);
+      setRouteLoading(false);
+    };
+  }, [
+    freelancer?.latitude,
+    freelancer?.longitude,
+    freelancerCoordinates?.latitude,
+    freelancerCoordinates?.longitude,
+    orderData.latitude,
+    orderData.longitude,
+  ]);
+
   const useCurrentLocation = async () => {
     if (!navigator.geolocation) {
       setOrderError(t('Browser tidak mendukung fitur lokasi.', 'Your browser does not support location features.'));
@@ -591,62 +839,10 @@ export default function FreelancerProfilePage() {
       const position = await getCurrentPosition({ enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
       const latitude = String(position.coords.latitude);
       const longitude = String(position.coords.longitude);
-
-      try {
-        const response = await fetch(
-          `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json&accept-language=id`,
-          { headers: { Accept: 'application/json' } }
-        );
-        const payload = await response.json();
-        const address = payload.address || {};
-        const provinceName = address.state || address.region || '';
-        const cityName = address.city || address.town || address.county || address.city_district || '';
-        const districtName = address.suburb || address.city_district || address.municipality || '';
-        const villageName = address.village || address.neighbourhood || address.hamlet || address.suburb || '';
-
-        const provinceMatch = findRegionByName(provinces, provinceName);
-        let cityOptions: RegionOption[] = [];
-        let districtOptions: RegionOption[] = [];
-        let villageOptions: RegionOption[] = [];
-        let cityMatch: RegionOption | null = null;
-        let districtMatch: RegionOption | null = null;
-        let villageMatch: RegionOption | null = null;
-
-        if (provinceMatch) {
-          cityOptions = await fetchRegionOptions(`/regencies/${provinceMatch.id}.json`);
-          cityMatch = findRegionByName(cityOptions, cityName);
-        }
-        if (cityMatch) {
-          districtOptions = await fetchRegionOptions(`/districts/${cityMatch.id}.json`);
-          districtMatch = findRegionByName(districtOptions, districtName);
-        }
-        if (districtMatch) {
-          villageOptions = await fetchRegionOptions(`/villages/${districtMatch.id}.json`);
-          villageMatch = findRegionByName(villageOptions, villageName);
-        }
-
-        setSelectedProvinceId(provinceMatch?.id || '');
-        setSelectedCityId(cityMatch?.id || '');
-        setSelectedDistrictId(districtMatch?.id || '');
-        setCities(cityOptions);
-        setDistricts(districtOptions);
-        setVillages(villageOptions);
-
-        setOrderData((current) => ({
-          ...current,
-          latitude,
-          longitude,
-          province: provinceMatch?.name || provinceName || current.province,
-          city: cityMatch?.name || cityName || current.city,
-          district: districtMatch?.name || districtName || current.district,
-          village: villageMatch?.name || villageName || current.village,
-          postalCode: address.postcode || current.postalCode,
-          addressDetail: [address.road, address.house_number, address.building].filter(Boolean).join(' ')
-            || payload.display_name
-            || current.addressDetail,
-          locationSource: 'share-location',
-        }));
-      } catch {
+      const lookup = await reverseGeocodeCoordinates(latitude, longitude);
+      if (lookup) {
+        await applyAddressLookup(lookup, 'share-location');
+      } else {
         setOrderData((current) => ({
           ...current,
           latitude,
@@ -709,6 +905,17 @@ export default function FreelancerProfilePage() {
         title: `${orderData.serviceType} - ${orderData.needType}`,
         budget: costSummary.subtotal,
         address,
+        costBreakdown: {
+          serviceFee: costSummary.serviceFee,
+          extraPersonFee: costSummary.extraPersonFee,
+          transportFee: costSummary.transportFee,
+          distanceKm: costSummary.distanceKm,
+          distanceSource: costSummary.distanceSource,
+          transportRatePerKm: costSummary.transportRatePerKm,
+          rentalHours: costSummary.rentalHours,
+          adminFee: costSummary.adminFee,
+          total: costSummary.total,
+        },
       }),
     });
   };
@@ -1231,22 +1438,68 @@ export default function FreelancerProfilePage() {
                     />
                     <textarea
                       value={orderData.addressDetail}
-                      onChange={(e) => setOrderData({ ...orderData, addressDetail: e.target.value })}
+                      onChange={(e) => setOrderData({
+                        ...orderData,
+                        addressDetail: e.target.value,
+                        locationSource: 'manual',
+                      })}
                       placeholder={t('Contoh: Jl. Mawar No.5, depan apotek', 'Example: Studio street, building number, nearby landmark')}
                       rows={3}
                       className="w-full bg-[#141414] border border-[#2A2A2A] rounded-lg px-4 py-3 text-white placeholder-[#888888] focus:border-[#F5C800] focus:outline-none"
                     />
+                    {(addressSuggesting || addressSuggestions.length > 0) && (
+                      <div className="bg-[#141414] border border-[#2A2A2A] rounded-lg overflow-hidden">
+                        {addressSuggesting && (
+                          <div className="px-4 py-3 text-sm text-[#888888]">
+                            {t('Mencari saran alamat...', 'Searching address suggestions...')}
+                          </div>
+                        )}
+                        {addressSuggestions.map((suggestion) => (
+                          <button
+                            key={`${suggestion.provider}-${suggestion.id}`}
+                            type="button"
+                            onClick={async () => {
+                              setAddressSuggesting(true);
+                              const lookup = await resolveAddressSuggestion(suggestion);
+                              if (lookup) await applyAddressLookup(lookup, 'address-suggestion');
+                              setAddressSuggestions([]);
+                              setAddressSuggesting(false);
+                            }}
+                            className="w-full text-left px-4 py-3 text-sm text-white hover:bg-[#F5C800]/10 border-t border-[#2A2A2A] first:border-t-0"
+                          >
+                            <span className="block font-bold">{suggestion.mainText || t('Pakai alamat ini', 'Use this address')}</span>
+                            <span className="block text-[#888888]">{suggestion.secondaryText || suggestion.label}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    {addressSyncMessage && (
+                      <p className="text-xs text-[#22C55E]">{addressSyncMessage}</p>
+                    )}
                     <DraggableLocationMap
                       latitude={orderData.latitude}
                       longitude={orderData.longitude}
                       fallbackQuery={[orderData.addressDetail, orderData.village, orderData.district, orderData.city, orderData.province, orderData.postalCode].filter(Boolean).join(', ')}
-                      onChange={(latitude, longitude) => setOrderData((current) => ({
-                        ...current,
-                        latitude,
-                        longitude,
-                        locationSource: 'map-pin',
-                      }))}
+                      onChange={(latitude, longitude) => {
+                        setOrderData((current) => ({
+                          ...current,
+                          latitude,
+                          longitude,
+                          locationSource: 'map-pin',
+                        }));
+                      }}
+                      onCommit={async (latitude, longitude) => {
+                        setReverseGeocoding(true);
+                        const lookup = await reverseGeocodeCoordinates(latitude, longitude);
+                        if (lookup) await applyAddressLookup(lookup, 'map-pin');
+                        setReverseGeocoding(false);
+                      }}
                     />
+                    {reverseGeocoding && (
+                      <p className="text-xs text-[#888888]">
+                        {t('Menyinkronkan alamat dari marker peta...', 'Syncing address from map marker...')}
+                      </p>
+                    )}
 
                     <div className="bg-[#141414] border border-[#2A2A2A] rounded-lg p-4 space-y-2 text-sm">
                       <div className="flex justify-between gap-4">
@@ -1271,7 +1524,10 @@ export default function FreelancerProfilePage() {
                         <span className="text-[#F5C800] font-bold">{formatCurrency(costSummary.total)}</span>
                       </div>
                       <p className="text-xs text-[#888888]">
-                        {t(`Transportasi estimasi ${costSummary.distanceKm} km. 10 km pertama gratis, sisanya Rp 1/km.`, `Estimated transport distance is ${costSummary.distanceKm} km. The first 10 km are free, then Rp 1/km.`)}
+                        {t(
+                          `Transportasi ${costSummary.distanceKm} km x ${formatCurrency(costSummary.transportRatePerKm)}/km (${costSummary.distanceSource}${routeLoading ? ', menghitung rute...' : ''}).`,
+                          `Transport ${costSummary.distanceKm} km x ${formatCurrency(costSummary.transportRatePerKm)}/km (${costSummary.distanceSource}${routeLoading ? ', calculating route...' : ''}).`
+                        )}
                       </p>
                     </div>
 
@@ -1614,6 +1870,18 @@ export default function FreelancerProfilePage() {
                 )}
               </div>
               <div className="space-y-3 text-sm">
+                <div className="flex justify-between gap-4">
+                  <span className="text-[#888888]">{t('Biaya Jasa', 'Service Fee')} ({costSummary.rentalHours} {t('jam', 'hours')})</span>
+                  <span className="font-bold">{formatCurrency(costSummary.serviceFee)}</span>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <span className="text-[#888888]">{t('Biaya Orang Tambahan', 'Additional Person Fee')}</span>
+                  <span className="font-bold">{formatCurrency(costSummary.extraPersonFee)}</span>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <span className="text-[#888888]">{t('Transportasi', 'Transportation')} ({costSummary.distanceKm} km)</span>
+                  <span className="font-bold">{formatCurrency(costSummary.transportFee)}</span>
+                </div>
                 <div className="flex justify-between gap-4">
                   <span className="text-[#888888]">{t('Subtotal Pesanan', 'Order Subtotal')}</span>
                   <span className="font-bold">{payment.baseAmountFormatted}</span>

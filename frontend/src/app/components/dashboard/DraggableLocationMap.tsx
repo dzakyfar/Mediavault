@@ -6,6 +6,7 @@ interface DraggableLocationMapProps {
   longitude: string;
   fallbackQuery?: string;
   onChange: (latitude: string, longitude: string) => void;
+  onCommit?: (latitude: string, longitude: string) => void;
 }
 
 const TILE_SIZE = 256;
@@ -36,9 +37,11 @@ export default function DraggableLocationMap({
   longitude,
   fallbackQuery,
   onChange,
+  onCommit,
 }: DraggableLocationMapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const dragStartTileRef = useRef<{ x: number; y: number } | null>(null);
+  const lastCoordinateRef = useRef<{ latitude: string; longitude: string } | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [dragging, setDragging] = useState(false);
   const [zoom, setZoom] = useState(DEFAULT_ZOOM);
@@ -96,7 +99,10 @@ export default function DraggableLocationMap({
     setDragOffset({ x, y });
     const nextTileX = originTile.x + x / TILE_SIZE;
     const nextTileY = originTile.y + y / TILE_SIZE;
-    onChange(tileYToLat(nextTileY, zoom).toFixed(6), tileXToLon(nextTileX, zoom).toFixed(6));
+    const nextLatitude = tileYToLat(nextTileY, zoom).toFixed(6);
+    const nextLongitude = tileXToLon(nextTileX, zoom).toFixed(6);
+    lastCoordinateRef.current = { latitude: nextLatitude, longitude: nextLongitude };
+    onChange(nextLatitude, nextLongitude);
   };
 
   const changeZoom = (delta: number) => {
@@ -132,12 +138,17 @@ export default function DraggableLocationMap({
           if (!dragging) return;
           event.currentTarget.releasePointerCapture(event.pointerId);
           setDragging(false);
+          if (lastCoordinateRef.current) {
+            onCommit?.(lastCoordinateRef.current.latitude, lastCoordinateRef.current.longitude);
+          }
           dragStartTileRef.current = null;
+          lastCoordinateRef.current = null;
           setDragOffset({ x: 0, y: 0 });
         }}
         onPointerCancel={() => {
           setDragging(false);
           dragStartTileRef.current = null;
+          lastCoordinateRef.current = null;
           setDragOffset({ x: 0, y: 0 });
         }}
       >
