@@ -72,7 +72,8 @@ jobs:
             set -e
             cd /home/ec2-user/mediavault/Mediavault
             git fetch origin main
-            git pull --ff-only origin main
+            git checkout main || git checkout -b main
+            git reset --hard origin/main
 
             if ! command -v docker >/dev/null 2>&1; then
               if command -v dnf >/dev/null 2>&1; then
