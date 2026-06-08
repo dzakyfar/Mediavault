@@ -121,3 +121,6 @@ node_modules/
 .env
 .DS_Store
 *.log
+
+# Nested local copy accidentally tracked as a submodule/gitlink.
+/Mediavault/
