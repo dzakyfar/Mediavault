@@ -18,8 +18,8 @@ interface AuthContextValue {
   loading: boolean;
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<CurrentUser>;
-  loginWithGoogle: (credential: string, options?: { acceptedTerms?: boolean; password?: string }) => Promise<CurrentUser>;
-  register: (payload: { fullName: string; email: string; password: string }) => Promise<CurrentUser>;
+  loginWithGoogle: (credential: string, options?: { acceptedTerms?: boolean; password?: string; phone?: string }) => Promise<CurrentUser>;
+  register: (payload: { fullName: string; email: string; phone: string; password: string }) => Promise<CurrentUser>;
   updateRole: (role: UserRole) => Promise<CurrentUser>;
   updateProfile: (payload: Partial<CurrentUser>) => Promise<CurrentUser>;
   registerFreelancer: (payload: unknown) => Promise<CurrentUser>;

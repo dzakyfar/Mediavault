@@ -1,4 +1,5 @@
 import { createPortal } from 'react-dom';
+import { useLanguage } from '../../context/LanguageContext';
 
 interface ConfirmDialogProps {
   open: boolean;
@@ -16,18 +17,20 @@ export default function ConfirmDialog({
   title,
   description,
   confirmLabel,
-  cancelLabel = 'Cancel',
+  cancelLabel,
   danger = false,
   onCancel,
   onConfirm,
 }: ConfirmDialogProps) {
+  const { t } = useLanguage();
+
   if (!open) return null;
 
   return createPortal((
     <div className="fixed inset-y-0 left-0 right-0 z-[100] flex items-center justify-center px-4 md:left-60">
       <button
         type="button"
-        aria-label="Close dialog"
+        aria-label={t('Tutup dialog', 'Close dialog')}
         onClick={onCancel}
         className="absolute inset-0 bg-black/70 backdrop-blur-sm"
       />
@@ -42,7 +45,7 @@ export default function ConfirmDialog({
             onClick={onCancel}
             className="px-4 py-2 border border-[#888888] text-white rounded-lg hover:border-[#F5C800] transition-colors"
           >
-            {cancelLabel}
+            {cancelLabel || t('Batal', 'Cancel')}
           </button>
           <button
             type="button"

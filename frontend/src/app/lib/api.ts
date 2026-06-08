@@ -8,6 +8,10 @@ export interface CurrentUser {
   avatarKey?: string | null;
   role: UserRole | null;
   phone?: string | null;
+  telegramChatId?: string | null;
+  telegramUsername?: string | null;
+  telegramNotifyEnabled?: boolean;
+  telegramLinkedAt?: string | null;
   city?: string | null;
   province?: string | null;
   district?: string | null;

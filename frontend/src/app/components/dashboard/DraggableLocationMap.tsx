@@ -116,6 +116,14 @@ export default function DraggableLocationMap({
           event.preventDefault();
           changeZoom(event.deltaY > 0 ? -1 : 1);
         }}
+        onPointerDown={(event) => {
+          const target = event.target as HTMLElement;
+          if (target.closest('button') || target.closest('a')) return;
+          event.currentTarget.setPointerCapture(event.pointerId);
+          dragStartTileRef.current = centerTile;
+          setDragging(true);
+          updateFromPointer(event.clientX, event.clientY);
+        }}
         onPointerMove={(event) => {
           if (!dragging) return;
           updateFromPointer(event.clientX, event.clientY);
@@ -159,7 +167,7 @@ export default function DraggableLocationMap({
           <MapPin className="w-10 h-10 fill-[#F5C800] text-black" />
         </button>
         <div className="absolute left-3 top-3 rounded-lg bg-black/65 px-3 py-2 text-xs text-white">
-          Geser marker untuk mengatur titik lokasi
+          Geser peta atau marker untuk mengatur titik lokasi
         </div>
         <div className="absolute right-3 top-3 z-20 flex flex-col overflow-hidden rounded-lg border border-[#2A2A2A] bg-black/70">
           <button

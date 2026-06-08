@@ -4,6 +4,7 @@ import { Plus, Camera, Trash2 } from 'lucide-react';
 import DashboardLayout from '../../components/DashboardLayout';
 import EmptyState from '../../components/EmptyState';
 import ConfirmDialog from '../../components/dashboard/ConfirmDialog';
+import { useLanguage } from '../../context/LanguageContext';
 import { apiRequest } from '../../lib/api';
 
 interface Project {
@@ -36,6 +37,7 @@ const normalizeProject = (project: Project): Project => ({
 });
 
 export default function ClientProjects() {
+  const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState('all');
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
@@ -44,11 +46,11 @@ export default function ClientProjects() {
   const [deleting, setDeleting] = useState(false);
 
   const tabs = [
-    { id: 'all', label: 'All' },
-    { id: 'in-progress', label: 'In Progress' },
-    { id: 'under-review', label: 'Under Review' },
-    { id: 'completed', label: 'Completed' },
-    { id: 'waiting-payment', label: 'Waiting Payment' },
+    { id: 'all', label: t('Semua', 'All') },
+    { id: 'in-progress', label: t('Dikerjakan', 'In Progress') },
+    { id: 'under-review', label: t('Direview', 'Under Review') },
+    { id: 'completed', label: t('Selesai', 'Completed') },
+    { id: 'waiting-payment', label: t('Menunggu Pembayaran', 'Waiting Payment') },
   ];
 
   useEffect(() => {
@@ -59,13 +61,28 @@ export default function ClientProjects() {
     setLoading(true);
     apiRequest<{ projects: Project[] }>('/projects/mine?as=client')
       .then((response) => setProjects((response.projects || []).map(normalizeProject)))
-      .catch((err) => setError(err instanceof Error ? err.message : 'Gagal memuat project'))
+      .catch((err) => setError(err instanceof Error ? err.message : t('Gagal memuat project', 'Failed to load projects')))
       .finally(() => setLoading(false));
   };
 
   const filteredProjects = activeTab === 'all'
     ? projects
     : projects.filter((project) => project.rawStatus.toLowerCase().replaceAll('_', '-') === activeTab);
+  const statusLabel = (status: string) => {
+    const normalized = status.toLowerCase().replaceAll('_', ' ');
+    const labels: Record<string, string> = {
+      open: t('Terbuka', 'Open'),
+      'in progress': t('Dikerjakan', 'In Progress'),
+      confirmed: t('Dikonfirmasi', 'Confirmed'),
+      paid: t('Dibayar', 'Paid'),
+      'under review': t('Direview', 'Under Review'),
+      'waiting payment': t('Menunggu Pembayaran', 'Waiting Payment'),
+      delivered: t('Dikirim', 'Delivered'),
+      completed: t('Selesai', 'Completed'),
+      cancelled: t('Dibatalkan', 'Cancelled'),
+    };
+    return labels[normalized] || status;
+  };
 
   const deleteProject = async () => {
     if (!deleteTarget) return;
@@ -77,7 +94,7 @@ export default function ClientProjects() {
       setProjects((current) => current.filter((project) => project.id !== deleteTarget.id));
       setDeleteTarget(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Gagal menghapus project');
+      setError(err instanceof Error ? err.message : t('Gagal menghapus project', 'Failed to delete project'));
     } finally {
       setDeleting(false);
     }
@@ -87,10 +104,10 @@ export default function ClientProjects() {
     <DashboardLayout userType="client">
       <ConfirmDialog
         open={Boolean(deleteTarget)}
-        title="Hapus Proyek?"
-        description={`Proyek "${deleteTarget?.title || ''}" akan dihapus permanen dari database. Tindakan ini tidak bisa dibatalkan.`}
-        cancelLabel="Batal"
-        confirmLabel={deleting ? 'Menghapus...' : 'Ya, Hapus'}
+        title={t('Hapus Proyek?', 'Delete Project?')}
+        description={t(`Proyek "${deleteTarget?.title || ''}" akan dihapus permanen. Tindakan ini tidak bisa dibatalkan.`, `Project "${deleteTarget?.title || ''}" will be permanently deleted. This action cannot be undone.`)}
+        cancelLabel={t('Batal', 'Cancel')}
+        confirmLabel={deleting ? t('Menghapus...', 'Deleting...') : t('Ya, Hapus', 'Yes, Delete')}
         danger
         onCancel={() => {
           if (!deleting) setDeleteTarget(null);
@@ -99,14 +116,14 @@ export default function ClientProjects() {
       />
       <div className="flex items-center justify-between mb-8">
         <h1 className="text-5xl" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>
-          My Projects
+        {t('Proyek Saya', 'My Projects')}
         </h1>
         <Link
           to="/post-job"
           className="flex items-center gap-2 px-6 py-3 bg-[#F5C800] text-black font-bold rounded-lg hover:shadow-[0_0_20px_rgba(245,200,0,0.4)] transition-all"
         >
           <Plus className="w-5 h-5" />
-          Post New Job
+          {t('Buat Pekerjaan Baru', 'Post New Job')}
         </Link>
       </div>
 
@@ -133,16 +150,16 @@ export default function ClientProjects() {
       )}
 
       <div className="space-y-4">
-        {loading && <EmptyState title="Memuat project" description="Mengambil daftar project dari backend." />}
+        {loading && <EmptyState title={t('Memuat proyek', 'Loading projects')} description={t('Menyiapkan daftar proyek terbaru Anda.', 'Preparing your latest project list.')} />}
 
         {!loading && filteredProjects.length === 0 && (
           <EmptyState
-            title="Tidak ada project"
-            description="Project dari database akan muncul di sini setelah Anda membuat job baru."
+            title={t('Tidak ada proyek', 'No projects found')}
+            description={t('Proyek yang Anda buat akan tampil di sini.', 'Projects you create will appear here.')}
             action={(
               <Link to="/post-job" className="inline-flex items-center gap-2 px-4 py-2 bg-[#F5C800] text-black font-bold rounded-lg">
                 <Plus className="w-4 h-4" />
-                Post New Job
+                {t('Buat Pekerjaan Baru', 'Post New Job')}
               </Link>
             )}
           />
@@ -158,20 +175,20 @@ export default function ClientProjects() {
                     <div className="w-8 h-8 rounded-full bg-[#141414] flex items-center justify-center">
                       <Camera className="w-4 h-4 text-[#F5C800]" />
                     </div>
-                    by {project.freelancer}
+                    {t('Freelancer', 'Freelancer')}: {project.freelancer}
                   </div>
-                  <span>Location: {project.city || '-'}</span>
-                  <span>Service: {project.serviceType || project.category}</span>
+                  <span>{t('Lokasi', 'Location')}: {project.city || '-'}</span>
+                  <span>{t('Jasa', 'Service')}: {project.serviceType || project.category}</span>
                 </div>
               </div>
               <span className={`px-4 py-2 rounded-full text-sm font-bold ${project.statusColor}`}>
-                {project.status}
+                {statusLabel(project.status)}
               </span>
             </div>
 
             <div className="mb-4">
               <div className="flex items-center justify-between text-sm mb-2">
-                <span className="text-[#888888]">Progress</span>
+                <span className="text-[#888888]">{t('Progress', 'Progress')}</span>
                 <span className="text-[#F5C800] font-bold">{project.progress}%</span>
               </div>
               <div className="w-full h-2 bg-[#141414] rounded-full overflow-hidden">
@@ -184,9 +201,9 @@ export default function ClientProjects() {
 
             <div className="flex items-center justify-between flex-wrap gap-4">
               <div className="flex gap-6 text-sm">
-                <span className="text-[#888888]">Pelaksanaan: {project.eventDate}</span>
-                <span className="text-[#888888]">Deadline: {project.due}</span>
-                <span className="text-[#888888]">{project.files} Files Uploaded</span>
+                <span className="text-[#888888]">{t('Pelaksanaan', 'Event date')}: {project.eventDate}</span>
+                <span className="text-[#888888]">{t('Deadline', 'Deadline')}: {project.due}</span>
+                <span className="text-[#888888]">{t(`${project.files} file diupload`, `${project.files} file${project.files === 1 ? '' : 's'} uploaded`)}</span>
                 <span className="text-[#888888]">{project.amount}</span>
               </div>
               <div className="flex gap-2">
@@ -194,12 +211,15 @@ export default function ClientProjects() {
                   to={`/dashboard/client/projects/${project.id}`}
                   className="px-4 py-2 border border-[#888888] text-white rounded-lg text-sm hover:border-[#F5C800] hover:text-[#F5C800] transition-colors"
                 >
-                  View Detail
+                  {t('Lihat Detail', 'View Details')}
                 </Link>
-                {project.status === 'Waiting Payment' && (
-                  <span className="px-4 py-2 bg-[#2A2A2A] text-[#888888] font-bold rounded-lg text-sm cursor-not-allowed">
-                    Payment Soon
-                  </span>
+                {project.rawStatus === 'WAITING_PAYMENT' && (
+                  <Link
+                    to={`/dashboard/client/projects/${project.id}`}
+                    className="px-4 py-2 bg-[#F5C800] text-black font-bold rounded-lg text-sm hover:shadow-[0_0_10px_rgba(245,200,0,0.4)] transition-all"
+                  >
+                    {t('Lanjutkan Pembayaran', 'Continue Payment')}
+                  </Link>
                 )}
                 <button
                   type="button"
@@ -207,7 +227,7 @@ export default function ClientProjects() {
                   className="inline-flex items-center gap-2 px-4 py-2 border border-[#EF4444] text-[#EF4444] rounded-lg text-sm font-bold hover:bg-[#EF4444] hover:text-white transition-colors"
                 >
                   <Trash2 className="w-4 h-4" />
-                  Hapus Proyek
+                  {t('Hapus Proyek', 'Delete Project')}
                 </button>
               </div>
             </div>
@@ -215,14 +235,14 @@ export default function ClientProjects() {
             {project.pendingOffers.length > 0 && (
               <div className="mt-5 pt-5 border-t border-[#2A2A2A] flex items-center justify-between gap-4 bg-[#141414] rounded-lg p-4">
                 <div>
-                  <h4 className="font-bold text-white">{project.pendingOffers.length} freelancer request job ini</h4>
-                  <p className="text-sm text-[#888888]">Buka detail untuk message, lihat profil, dan confirm freelancer.</p>
+                  <h4 className="font-bold text-white">{t(`${project.pendingOffers.length} freelancer mengajukan request`, `${project.pendingOffers.length} freelancer${project.pendingOffers.length === 1 ? '' : 's'} sent a request`)}</h4>
+                  <p className="text-sm text-[#888888]">{t('Buka detail untuk membaca pesan, melihat profil, dan memilih freelancer.', 'Open details to read messages, view profiles, and choose a freelancer.')}</p>
                 </div>
                 <Link
                   to={`/dashboard/client/projects/${project.id}`}
                   className="px-4 py-2 bg-[#F5C800] text-black font-bold rounded-lg text-sm hover:shadow-[0_0_10px_rgba(245,200,0,0.4)] transition-all"
                 >
-                  Review
+                  {t('Review Permintaan', 'Review Requests')}
                 </Link>
               </div>
             )}

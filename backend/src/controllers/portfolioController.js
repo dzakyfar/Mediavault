@@ -1,5 +1,5 @@
 const prisma = require('../config/prisma');
-const { PORTFOLIO_IMAGE_MAX_BYTES, validateInlineImage } = require('../utils/uploadLimits');
+const { validatePortfolioMediaFiles } = require('../utils/uploadLimits');
 const { resolvePortfolioMedia } = require('../utils/mediaUrls');
 
 const serializePortfolioItem = async (item) => resolvePortfolioMedia({
@@ -12,14 +12,45 @@ const serializePortfolioItem = async (item) => resolvePortfolioMedia({
   fileName: item.fileName,
   fileType: item.fileType,
   fileSize: item.fileSize,
+  media: item.media || [],
   createdAt: item.createdAt,
   updatedAt: item.updatedAt,
 });
+
+const portfolioInclude = {
+  media: { orderBy: { sortOrder: 'asc' } },
+};
+
+const normalizeMediaFiles = ({ files, fileUrl, fileName, fileType, fileSize }) => {
+  const incomingFiles = Array.isArray(files) ? files : [];
+  if (incomingFiles.length > 0) {
+    return incomingFiles
+      .filter((file) => file?.fileUrl)
+      .map((file, index) => ({
+        fileUrl: file.fileUrl,
+        fileName: file.fileName || null,
+        fileType: file.fileType || null,
+        fileSize: Number.isFinite(Number(file.fileSize)) ? Number(file.fileSize) : null,
+        sortOrder: index,
+      }));
+  }
+
+  if (!fileUrl) return [];
+
+  return [{
+    fileUrl,
+    fileName: fileName || null,
+    fileType: fileType || null,
+    fileSize: Number.isFinite(Number(fileSize)) ? Number(fileSize) : null,
+    sortOrder: 0,
+  }];
+};
 
 exports.listMyPortfolio = async (req, res, next) => {
   try {
     const items = await prisma.portfolioItem.findMany({
       where: { freelancerId: req.user.id },
+      include: portfolioInclude,
       orderBy: { createdAt: 'desc' },
     });
 
@@ -31,23 +62,19 @@ exports.listMyPortfolio = async (req, res, next) => {
 
 exports.createPortfolioItem = async (req, res, next) => {
   try {
-    const { title, category, serviceType, description, fileUrl, fileName, fileType, fileSize } = req.body;
+    const { title, category, serviceType, description, fileUrl, fileName, fileType, fileSize, files } = req.body;
 
     if (!title?.trim()) {
       res.status(400);
       throw new Error('Judul portfolio wajib diisi');
     }
 
-    const imageError = fileUrl ? validateInlineImage({
-      imageUrl: fileUrl,
-      imageMime: fileType,
-      imageSize: fileSize,
-      maxBytes: PORTFOLIO_IMAGE_MAX_BYTES,
-    }) : null;
+    const mediaFiles = normalizeMediaFiles({ files, fileUrl, fileName, fileType, fileSize });
+    const mediaError = validatePortfolioMediaFiles(mediaFiles);
 
-    if (imageError) {
+    if (mediaError) {
       res.status(400);
-      throw new Error(imageError);
+      throw new Error(mediaError);
     }
 
     const item = await prisma.portfolioItem.create({
@@ -57,11 +84,13 @@ exports.createPortfolioItem = async (req, res, next) => {
         category: category || null,
         serviceType: serviceType || null,
         description: description || null,
-        fileUrl: fileUrl || null,
-        fileName: fileName || null,
-        fileType: fileType || null,
-        fileSize: Number.isFinite(Number(fileSize)) ? Number(fileSize) : null,
+        fileUrl: mediaFiles[0]?.fileUrl || null,
+        fileName: mediaFiles[0]?.fileName || null,
+        fileType: mediaFiles[0]?.fileType || null,
+        fileSize: mediaFiles[0]?.fileSize ?? null,
+        media: mediaFiles.length ? { create: mediaFiles } : undefined,
       },
+      include: portfolioInclude,
     });
 
     res.status(201).json({ item: await serializePortfolioItem(item) });
@@ -73,7 +102,7 @@ exports.createPortfolioItem = async (req, res, next) => {
 exports.updatePortfolioItem = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { title, category, serviceType, description, fileUrl, fileName, fileType, fileSize } = req.body;
+    const { title, category, serviceType, description, fileUrl, fileName, fileType, fileSize, files } = req.body;
 
     const existing = await prisma.portfolioItem.findFirst({
       where: { id, freelancerId: req.user.id },
@@ -84,16 +113,14 @@ exports.updatePortfolioItem = async (req, res, next) => {
       throw new Error('Portfolio tidak ditemukan');
     }
 
-    const imageError = fileUrl ? validateInlineImage({
-      imageUrl: fileUrl,
-      imageMime: fileType,
-      imageSize: fileSize,
-      maxBytes: PORTFOLIO_IMAGE_MAX_BYTES,
-    }) : null;
+    const mediaFiles = files !== undefined
+      ? normalizeMediaFiles({ files, fileUrl, fileName, fileType, fileSize })
+      : null;
+    const mediaError = mediaFiles ? validatePortfolioMediaFiles(mediaFiles) : null;
 
-    if (imageError) {
+    if (mediaError) {
       res.status(400);
-      throw new Error(imageError);
+      throw new Error(mediaError);
     }
 
     const item = await prisma.portfolioItem.update({
@@ -103,11 +130,18 @@ exports.updatePortfolioItem = async (req, res, next) => {
         category: category ?? undefined,
         serviceType: serviceType ?? undefined,
         description: description ?? undefined,
-        fileUrl: fileUrl ?? undefined,
-        fileName: fileName ?? undefined,
-        fileType: fileType ?? undefined,
-        fileSize: fileSize === undefined ? undefined : Number(fileSize),
+        ...(mediaFiles ? {
+          fileUrl: mediaFiles[0]?.fileUrl || null,
+          fileName: mediaFiles[0]?.fileName || null,
+          fileType: mediaFiles[0]?.fileType || null,
+          fileSize: mediaFiles[0]?.fileSize ?? null,
+          media: {
+            deleteMany: {},
+            create: mediaFiles,
+          },
+        } : {}),
       },
+      include: portfolioInclude,
     });
 
     res.json({ item: await serializePortfolioItem(item) });

@@ -15,11 +15,32 @@ const resolveUserMedia = async (user) => {
   };
 };
 
-const resolvePortfolioMedia = async (item) => ({
-  ...item,
-  fileUrl: await resolveMediaUrl(item.fileUrl),
-  fileKey: isS3ObjectKey(item.fileUrl) ? item.fileUrl : null,
-});
+const resolvePortfolioMedia = async (item) => {
+  const resolvedMedia = await Promise.all((item.media || []).map(async (media) => ({
+    ...media,
+    fileUrl: await resolveMediaUrl(media.fileUrl),
+    fileKey: isS3ObjectKey(media.fileUrl) ? media.fileUrl : null,
+  })));
+  const legacyMedia = !resolvedMedia.length && item.fileUrl
+    ? [{
+      id: `${item.id}-legacy`,
+      portfolioItemId: item.id,
+      fileUrl: await resolveMediaUrl(item.fileUrl),
+      fileKey: isS3ObjectKey(item.fileUrl) ? item.fileUrl : null,
+      fileName: item.fileName,
+      fileType: item.fileType,
+      fileSize: item.fileSize,
+      sortOrder: 0,
+    }]
+    : [];
+
+  return {
+    ...item,
+    fileUrl: await resolveMediaUrl(item.fileUrl),
+    fileKey: isS3ObjectKey(item.fileUrl) ? item.fileUrl : null,
+    media: resolvedMedia.length ? resolvedMedia : legacyMedia,
+  };
+};
 
 const resolveProjectMedia = async (project) => ({
   ...project,

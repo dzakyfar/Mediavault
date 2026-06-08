@@ -1,6 +1,7 @@
 import { FormEvent, useState } from 'react';
 import { CheckCircle2, Circle } from 'lucide-react';
 import { apiRequest } from '../../lib/api';
+import { useLanguage } from '../../context/LanguageContext';
 
 interface TrackingStage {
   status: string;
@@ -26,14 +27,8 @@ interface ProjectTrackerProps {
   onUpdated: (project: unknown) => void;
 }
 
-const updateStages = [
-  { status: 'IN_PROGRESS', label: 'In Progress' },
-  { status: 'UNDER_REVIEW', label: 'Under Review' },
-  { status: 'WAITING_PAYMENT', label: 'Waiting Payment' },
-  { status: 'COMPLETED', label: 'Completed' },
-];
-
 export default function ProjectTracker({ projectId, stages, histories, canUpdate, onUpdated }: ProjectTrackerProps) {
+  const { t } = useLanguage();
   const [status, setStatus] = useState('IN_PROGRESS');
   const [note, setNote] = useState('');
   const [saving, setSaving] = useState(false);
@@ -51,16 +46,39 @@ export default function ProjectTracker({ projectId, stages, histories, canUpdate
       setNote('');
       onUpdated(response.project);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Gagal update progress');
+      setError(err instanceof Error ? err.message : t('Gagal update progress', 'Failed to update progress'));
     } finally {
       setSaving(false);
     }
   };
 
+  const updateStages = [
+    { status: 'IN_PROGRESS', label: t('Sedang Dikerjakan', 'In Progress') },
+    { status: 'UNDER_REVIEW', label: t('Dalam Review', 'Under Review') },
+    { status: 'WAITING_PAYMENT', label: t('Menunggu Pembayaran', 'Waiting Payment') },
+    { status: 'COMPLETED', label: t('Selesai', 'Completed') },
+  ];
+
+  const stageLabel = (stage: TrackingStage) => {
+    const labels: Record<string, string> = {
+      DRAFT: t('Draft', 'Draft'),
+      OPEN: t('Terbuka', 'Open'),
+      IN_PROGRESS: t('Sedang Dikerjakan', 'In Progress'),
+      CONFIRMED: t('Dikonfirmasi', 'Confirmed'),
+      PAID: t('Dibayar', 'Paid'),
+      UNDER_REVIEW: t('Dalam Review', 'Under Review'),
+      WAITING_PAYMENT: t('Menunggu Pembayaran', 'Waiting Payment'),
+      DELIVERED: t('Dikirim', 'Delivered'),
+      COMPLETED: t('Selesai', 'Completed'),
+      CANCELLED: t('Dibatalkan', 'Cancelled'),
+    };
+    return labels[stage.status] || stage.label;
+  };
+
   return (
     <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-8">
       <h2 className="text-3xl mb-5" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>
-        Project Tracking
+        {t('Tracking Proyek', 'Project Tracking')}
       </h2>
 
       <div className="grid md:grid-cols-5 gap-3 mb-6">
@@ -78,7 +96,7 @@ export default function ProjectTracker({ projectId, stages, histories, canUpdate
               }`}
             >
               <Icon className={`w-5 h-5 mb-3 ${stage.done ? 'text-[#22C55E]' : 'text-[#888888]'}`} />
-              <div className="font-bold text-white">{stage.label}</div>
+              <div className="font-bold text-white">{stageLabel(stage)}</div>
               <div className="text-sm text-[#888888]">{stage.progress}%</div>
             </div>
           );
@@ -99,11 +117,11 @@ export default function ProjectTracker({ projectId, stages, histories, canUpdate
           <input
             value={note}
             onChange={(event) => setNote(event.target.value)}
-            placeholder="Catatan update progress, contoh: File draft sudah dikirim ke client"
+            placeholder={t('Catatan update progress, contoh: File draft sudah dikirim ke client', 'Progress update note, example: Draft files have been sent to the client')}
             className="bg-[#141414] border border-[#2A2A2A] rounded-lg px-4 py-3 text-white placeholder-[#888888] focus:border-[#F5C800] focus:outline-none"
           />
           <button disabled={saving} className="px-5 py-3 bg-[#F5C800] text-black font-bold rounded-lg disabled:opacity-60">
-            {saving ? 'Saving...' : 'Update'}
+            {saving ? t('Menyimpan...', 'Saving...') : t('Update Progress', 'Update Progress')}
           </button>
         </form>
       )}
@@ -111,7 +129,7 @@ export default function ProjectTracker({ projectId, stages, histories, canUpdate
       {error && <div className="mb-4 text-[#EF4444]">{error}</div>}
 
       <div className="space-y-3">
-        {histories.length === 0 && <p className="text-[#888888]">Belum ada riwayat progress.</p>}
+        {histories.length === 0 && <p className="text-[#888888]">{t('Belum ada riwayat progress.', 'No progress history yet.')}</p>}
         {histories.map((history) => (
           <div key={history.id} className="bg-[#141414] border border-[#2A2A2A] rounded-lg p-4">
             <div className="flex items-center justify-between gap-4">

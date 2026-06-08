@@ -2,6 +2,31 @@ const prisma = require('../config/prisma');
 const { formatCurrency, shortName } = require('../utils/formatters');
 const { resolveMediaUrl, resolvePortfolioMedia } = require('../utils/mediaUrls');
 const { serializeOffering } = require('./offeringController');
+const { notifyUser } = require('../services/notificationService');
+
+const parseMoney = (value) => {
+  if (value === undefined || value === null || value === '') return null;
+  const normalized = typeof value === 'string' ? value.replace(/[^\d]/g, '') : value;
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? Math.round(parsed) : null;
+};
+
+const countCharacters = (value = '') => String(value).length;
+
+const parseRequiredDate = (value, label) => {
+  const parsed = new Date(value);
+  if (!value || Number.isNaN(parsed.getTime())) {
+    throw new Error(`${label} wajib diisi dengan tanggal valid`);
+  }
+  return parsed;
+};
+
+const startOfTomorrow = () => {
+  const tomorrow = new Date();
+  tomorrow.setHours(0, 0, 0, 0);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  return tomorrow;
+};
 
 exports.listFreelancers = async (req, res, next) => {
   try {
@@ -103,6 +128,12 @@ exports.getFreelancerById = async (req, res, next) => {
             serviceType: true,
             description: true,
             fileUrl: true,
+            fileName: true,
+            fileType: true,
+            fileSize: true,
+            media: {
+              orderBy: { sortOrder: 'asc' },
+            },
           },
           orderBy: { createdAt: 'desc' },
         },
@@ -191,6 +222,7 @@ exports.getFreelancerById = async (req, res, next) => {
 exports.orderFreelancerService = async (req, res, next) => {
   try {
     const {
+      offeringId,
       serviceType,
       needType,
       title,
@@ -239,26 +271,58 @@ exports.orderFreelancerService = async (req, res, next) => {
       throw new Error('Tidak bisa memesan jasa dari akun sendiri');
     }
 
-    const serviceExists = freelancer.offerings.some((offering) =>
-      (offering.serviceType || offering.title) === serviceType
-    );
-    if (freelancer.offerings.length > 0 && !serviceExists) {
+    const selectedOffering = offeringId
+      ? freelancer.offerings.find((offering) => offering.id === offeringId)
+      : freelancer.offerings.find((offering) => (offering.serviceType || offering.title) === serviceType);
+    if (freelancer.offerings.length > 0 && !selectedOffering) {
       res.status(400);
       throw new Error('Jenis jasa tidak tersedia di profile freelancer ini');
     }
+    const normalizedServiceType = selectedOffering?.serviceType || serviceType;
+    const normalizedNeedType = selectedOffering?.title || needType;
 
-    const amount = Number(budget);
+    if (countCharacters(title || `${normalizedServiceType} - ${normalizedNeedType}`) > 64) {
+      res.status(400);
+      throw new Error('Judul pekerjaan maksimal 64 karakter');
+    }
+
+    if (countCharacters(description) > 500) {
+      res.status(400);
+      throw new Error('Deskripsi maksimal 500 karakter');
+    }
+
+    let parsedEventDate;
+    let parsedDeadline;
+    try {
+      parsedEventDate = parseRequiredDate(eventDate, 'Tanggal pelaksanaan');
+      parsedDeadline = parseRequiredDate(deadline, 'Deadline');
+    } catch (validationError) {
+      res.status(400);
+      throw validationError;
+    }
+
+    if (parsedDeadline < startOfTomorrow()) {
+      res.status(400);
+      throw new Error('Deadline minimal H+1');
+    }
+
+    const amount = parseMoney(budget);
+    if (!amount || amount < 10000) {
+      res.status(400);
+      throw new Error('Budget minimal Rp 10.000');
+    }
+
     const composedAddress = [addressDetail, village, district, city, province, postalCode].filter(Boolean).join(', ');
     const project = await prisma.project.create({
       data: {
-        title: title || `${serviceType} - ${needType}`,
+        title: title || `${normalizedServiceType} - ${normalizedNeedType}`,
         description,
-        category: serviceType,
-        serviceType,
+        category: normalizedServiceType,
+        serviceType: normalizedServiceType,
         province,
-        budget: Number.isFinite(amount) ? Math.round(amount) : null,
-        eventDate: new Date(eventDate),
-        deadline: new Date(deadline),
+        budget: amount,
+        eventDate: parsedEventDate,
+        deadline: parsedDeadline,
         city,
         district,
         village,
@@ -276,19 +340,18 @@ exports.orderFreelancerService = async (req, res, next) => {
     });
 
     await Promise.all([
-      prisma.notification.create({
-        data: {
-          userId: freelancer.id,
-          type: 'PROJECT',
-          title: 'Pesanan jasa baru menunggu pembayaran',
-          body: `${req.user.fullName} ingin memesan jasa ${serviceType}. Project menunggu pembayaran QRIS.`,
-        },
+      notifyUser({
+        userId: freelancer.id,
+        type: 'PROJECT',
+        title: 'Pesanan jasa baru menunggu pembayaran',
+        body: `${req.user.fullName} ingin memesan jasa ${normalizedServiceType}. Project menunggu pembayaran QRIS.`,
+        actionPath: `/dashboard/freelancer/projects/${project.id}`,
       }),
       prisma.message.create({
         data: {
           senderId: req.user.id,
           receiverId: freelancer.id,
-          body: `Saya ingin memesan jasa ${serviceType}: ${needType}. ${description}`,
+          body: `Saya ingin memesan jasa ${normalizedServiceType}: ${normalizedNeedType}. ${description}`,
         },
       }),
       prisma.projectHistory.create({
@@ -296,7 +359,7 @@ exports.orderFreelancerService = async (req, res, next) => {
           projectId: project.id,
           actorId: req.user.id,
           title: 'Pesanan jasa dibuat',
-          body: `${req.user.fullName} memesan jasa ${serviceType} ke ${freelancer.fullName} dan perlu menyelesaikan pembayaran QRIS.`,
+          body: `${req.user.fullName} memesan jasa ${normalizedServiceType} ke ${freelancer.fullName} dan perlu menyelesaikan pembayaran QRIS.`,
           eventType: 'DIRECT_ORDER_CREATED',
         },
       }),

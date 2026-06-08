@@ -32,7 +32,7 @@ export default function RequireAuth({ children, roles }: RequireAuthProps) {
     roles?.includes('FREELANCER')
     && user.role
     && ['FREELANCER', 'BOTH'].includes(user.role)
-    && (!user.isAvailable || !user.bio || !user.specialty || !user.startingPrice)
+    && (!user.bio || !user.specialty || !user.startingPrice)
     && location.pathname !== '/freelancer-onboarding'
   );
 

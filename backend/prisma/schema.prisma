@@ -76,6 +76,12 @@ model User {
   avatarUrl      String?
   role           UserRole?
   phone          String?
+  telegramChatId String?
+  telegramUsername String?
+  telegramNotifyEnabled Boolean @default(false)
+  telegramLinkedAt DateTime?
+  telegramConnectToken String? @unique
+  telegramConnectExpiresAt DateTime?
   city           String?
   province       String?
   district       String?
@@ -194,6 +200,21 @@ model PortfolioItem {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   freelancer  User     @relation(fields: [freelancerId], references: [id], onDelete: Cascade)
+  media       PortfolioMedia[]
+}
+
+model PortfolioMedia {
+  id              String        @id @default(cuid())
+  portfolioItemId String
+  fileUrl         String
+  fileName        String?
+  fileType        String?
+  fileSize        Int?
+  sortOrder       Int           @default(0)
+  createdAt       DateTime      @default(now())
+  portfolioItem   PortfolioItem @relation(fields: [portfolioItemId], references: [id], onDelete: Cascade)
+
+  @@index([portfolioItemId, sortOrder])
 }
 
 model ProjectFile {
@@ -310,6 +331,19 @@ model Withdrawal {
   freelancer    User             @relation(fields: [freelancerId], references: [id], onDelete: Cascade)
 
   @@index([freelancerId, status])
+}
+
+model PlatformRevenue {
+  id            String   @id @default(cuid())
+  amount        Int
+  sourceType    String   // 'CLIENT_FEE' | 'FREELANCER_FEE'
+  referenceType String?  // 'PROJECT'
+  referenceId   String?  // projectId
+  description   String
+  createdAt     DateTime @default(now())
+
+  @@index([sourceType, createdAt])
+  @@index([referenceType, referenceId])
 }
 
 model Message {

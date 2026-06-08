@@ -59,16 +59,16 @@ const readKlikqrisResponse = async (response) => {
   return payload;
 };
 
-const buildCreateUrl = ({ baseUrl, isSandbox }) => {
-  if (!isSandbox) return `${baseUrl}/create`;
-  if (/\/sandbox\/qris$/.test(baseUrl)) return `${baseUrl}/create`;
-  return `${baseUrl}/qris/create`;
-};
+// URL builder: langsung append /create dan /status ke baseUrl.
+// Tidak ada tebak-tebakan — pastikan KLIKQRIS_BASE_URL sudah menunjuk ke
+// endpoint yang benar (misal https://klikqris.com/api/sandbox/qris atau
+// https://klikqris.com/api/qrisv2).
+const buildCreateUrl = ({ baseUrl }) => `${baseUrl}/create`;
 
 const buildStatusUrl = ({ baseUrl, isSandbox, merchantId, orderId }) => {
-  if (!isSandbox) return `${baseUrl}/status/${merchantId}/${encodeURIComponent(orderId)}`;
-  if (/\/sandbox\/qris$/.test(baseUrl)) return `${baseUrl}/status/${encodeURIComponent(orderId)}`;
-  return `${baseUrl}/qris/status/${encodeURIComponent(orderId)}`;
+  // Sandbox biasanya tidak butuh merchantId di path
+  if (isSandbox) return `${baseUrl}/status/${encodeURIComponent(orderId)}`;
+  return `${baseUrl}/status/${merchantId}/${encodeURIComponent(orderId)}`;
 };
 
 const createKlikqrisTransaction = async ({ orderId, amount, description }) => {
@@ -76,7 +76,10 @@ const createKlikqrisTransaction = async ({ orderId, amount, description }) => {
   const config = getKlikqrisConfig();
   const { merchantId } = config;
 
-  const response = await fetch(buildCreateUrl(config), {
+  const createUrl = buildCreateUrl(config);
+  console.log(`[KlikQRIS] POST ${createUrl} | mode=${config.isSandbox ? 'sandbox' : 'production'} | orderId=${orderId}`);
+
+  const response = await fetch(createUrl, {
     method: 'POST',
     headers: klikqrisHeaders(),
     body: JSON.stringify({
@@ -106,13 +109,13 @@ const checkKlikqrisStatus = async (orderId) => {
   requireCredentials();
   const config = getKlikqrisConfig();
 
-  const response = await fetch(
-    buildStatusUrl({ ...config, orderId }),
-    {
-      method: 'GET',
-      headers: klikqrisHeaders(),
-    }
-  );
+  const statusUrl = buildStatusUrl({ ...config, orderId });
+  console.log(`[KlikQRIS] GET ${statusUrl} | mode=${config.isSandbox ? 'sandbox' : 'production'}`);
+
+  const response = await fetch(statusUrl, {
+    method: 'GET',
+    headers: klikqrisHeaders(),
+  });
   const payload = await readKlikqrisResponse(response);
   const data = payload.data || {};
 

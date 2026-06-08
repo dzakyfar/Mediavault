@@ -3,10 +3,12 @@ import { Zap } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { dashboardPathForRole } from '../lib/api';
 import { useTheme } from '../context/ThemeContext';
+import { useLanguage } from '../context/LanguageContext';
 
 export default function Navbar() {
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const { t } = useLanguage();
   const isLight = theme === 'light';
 
   return (
@@ -28,7 +30,7 @@ export default function Navbar() {
             }`}
             aria-label="Toggle theme"
           >
-            {theme === 'dark' ? 'Light' : 'Dark'}
+            {theme === 'dark' ? t('Terang', 'Light') : t('Gelap', 'Dark')}
           </button>
           {user ? (
             <>
@@ -43,7 +45,7 @@ export default function Navbar() {
                 Dashboard
               </Link>
               <button onClick={logout} className="px-4 py-2 text-[#EF4444] hover:text-[#FF6B6B] transition-colors">
-                Logout
+                {t('Keluar', 'Logout')}
               </button>
             </>
           ) : (
@@ -56,10 +58,10 @@ export default function Navbar() {
                     : 'border-white text-white hover:bg-white hover:text-black'
                 }`}
               >
-                Login
+                {t('Masuk', 'Login')}
               </Link>
               <Link to="/register" className="px-6 py-2 bg-[#F5C800] text-black font-bold rounded-full hover:shadow-[0_0_20px_rgba(245,200,0,0.4)] transition-all">
-                Get Started
+                {t('Mulai Sekarang', 'Get Started')}
               </Link>
             </>
           )}

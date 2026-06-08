@@ -2,6 +2,7 @@ const prisma = require('../config/prisma');
 const { shortName } = require('../utils/formatters');
 const { validateInlineImage } = require('../utils/uploadLimits');
 const { resolveMessageMedia } = require('../utils/mediaUrls');
+const { notifyUser } = require('../services/notificationService');
 
 const serializeMessage = (message, currentUserId) => ({
   id: message.id,
@@ -28,20 +29,31 @@ const serializeMessageWithMedia = async (message, currentUserId) =>
 
 exports.listMessages = async (req, res, next) => {
   try {
-    const [messages, applications] = await Promise.all([
+    const messageWhere = {
+      OR: [
+        { senderId: req.user.id },
+        { receiverId: req.user.id },
+      ],
+    };
+
+    const [messages, conversationMessages, applications] = await Promise.all([
       prisma.message.findMany({
-        where: {
-          OR: [
-            { senderId: req.user.id },
-            { receiverId: req.user.id },
-          ],
-        },
+        where: messageWhere,
         include: {
           sender: { select: { id: true, fullName: true } },
           receiver: { select: { id: true, fullName: true } },
         },
         orderBy: { createdAt: 'desc' },
         take: 50,
+      }),
+      prisma.message.findMany({
+        where: messageWhere,
+        include: {
+          sender: { select: { id: true, fullName: true } },
+          receiver: { select: { id: true, fullName: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 300,
       }),
       prisma.projectApplication.findMany({
         where: {
@@ -72,7 +84,7 @@ exports.listMessages = async (req, res, next) => {
     )).reverse();
 
     const conversationMap = new Map();
-    messages.forEach((message) => {
+    conversationMessages.forEach((message) => {
       const serialized = serializeMessage(message, req.user.id);
       const current = conversationMap.get(serialized.peerId);
       if (!current) {
@@ -119,6 +131,21 @@ exports.listMessages = async (req, res, next) => {
   }
 };
 
+exports.getUnreadMessageCount = async (req, res, next) => {
+  try {
+    const unreadCount = await prisma.message.count({
+      where: {
+        receiverId: req.user.id,
+        readAt: null,
+      },
+    });
+
+    res.json({ unreadCount });
+  } catch (error) {
+    next(error);
+  }
+};
+
 exports.sendMessage = async (req, res, next) => {
   try {
     const { receiverId, body = '', imageUrl, imageName, imageMime, imageSize } = req.body;
@@ -135,12 +162,29 @@ exports.sendMessage = async (req, res, next) => {
 
     const receiver = await prisma.user.findUnique({
       where: { id: receiverId },
-      select: { id: true, fullName: true },
+      select: { id: true, fullName: true, role: true, isAvailable: true },
     });
 
     if (!receiver) {
       res.status(404);
       throw new Error('Penerima pesan tidak ditemukan');
+    }
+
+    const receiverIsFreelancer = ['FREELANCER', 'BOTH'].includes(receiver.role);
+    if (receiverIsFreelancer && !receiver.isAvailable) {
+      const activeProject = await prisma.project.findFirst({
+        where: {
+          clientId: req.user.id,
+          freelancerId: receiver.id,
+          status: { notIn: ['COMPLETED', 'AUTO_COMPLETED', 'CANCELLED'] },
+        },
+        select: { id: true },
+      });
+
+      if (!activeProject) {
+        res.status(403);
+        throw new Error('Freelancer sedang sibuk dan belum menerima pesan baru');
+      }
     }
 
     const imageError = validateInlineImage({ imageUrl, imageMime, imageSize });
@@ -150,6 +194,10 @@ exports.sendMessage = async (req, res, next) => {
     }
 
     const cleanBody = body.trim() || (imageUrl ? 'Mengirim gambar' : '');
+    const receiverMessagePath =
+      receiver.role === 'FREELANCER' || (receiver.role === 'BOTH' && ['CLIENT', 'BOTH'].includes(req.user.role))
+        ? '/dashboard/freelancer/messages'
+        : '/dashboard/client/messages';
 
     const message = await prisma.message.create({
       data: {
@@ -167,13 +215,14 @@ exports.sendMessage = async (req, res, next) => {
       },
     });
 
-    await prisma.notification.create({
-      data: {
-        userId: receiverId,
-        type: 'MESSAGE',
-        title: 'Pesan baru',
-        body: `${req.user.fullName}: ${cleanBody.slice(0, 120)}`,
-      },
+    await notifyUser({
+      userId: receiverId,
+      type: 'MESSAGE',
+      title: 'Pesan baru',
+      body: `${req.user.fullName}: ${cleanBody.slice(0, 120)}`,
+      telegramTitle: 'Pesan baru',
+      telegramBody: 'You have 1 new message.',
+      actionPath: receiverMessagePath,
     }).catch(() => undefined);
 
     res.status(201).json({ message: await serializeMessageWithMedia(message, req.user.id) });
@@ -194,6 +243,15 @@ exports.markMessagesRead = async (req, res, next) => {
       },
       data: { readAt: new Date() },
     });
+
+    await prisma.notification.updateMany({
+      where: {
+        userId: req.user.id,
+        type: 'MESSAGE',
+        readAt: null,
+      },
+      data: { readAt: new Date() },
+    }).catch(() => undefined);
 
     res.json({ message: 'Pesan ditandai sudah dibaca' });
   } catch (error) {

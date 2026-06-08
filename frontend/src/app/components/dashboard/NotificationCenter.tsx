@@ -3,6 +3,7 @@ import { Bell, CheckCheck, CreditCard, FolderKanban, MessageCircle, RefreshCw } 
 import { Link } from 'react-router';
 import EmptyState from '../EmptyState';
 import { apiRequest } from '../../lib/api';
+import { useLanguage } from '../../context/LanguageContext';
 
 type NotificationType = 'INFO' | 'PROJECT' | 'PAYMENT' | 'MESSAGE';
 
@@ -29,14 +30,8 @@ const iconByType = {
   MESSAGE: MessageCircle,
 };
 
-const filterOptions = [
-  { id: 'all', label: 'All' },
-  { id: 'PROJECT', label: 'Project' },
-  { id: 'MESSAGE', label: 'Messages' },
-  { id: 'PAYMENT', label: 'Payment' },
-];
-
 export default function NotificationCenter({ userType }: { userType: 'client' | 'freelancer' }) {
+  const { t } = useLanguage();
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [activeFilter, setActiveFilter] = useState('all');
@@ -51,7 +46,7 @@ export default function NotificationCenter({ userType }: { userType: 'client' | 
       setUnreadCount(response.unreadCount);
       setError('');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Gagal memuat notifikasi');
+      setError(err instanceof Error ? err.message : t('Gagal memuat notifikasi', 'Failed to load notifications'));
     } finally {
       if (!silent) setLoading(false);
     }
@@ -63,6 +58,13 @@ export default function NotificationCenter({ userType }: { userType: 'client' | 
     return () => window.clearInterval(interval);
   }, []);
 
+  const filterOptions = [
+    { id: 'all', label: t('Semua', 'All') },
+    { id: 'PROJECT', label: t('Proyek', 'Projects') },
+    { id: 'MESSAGE', label: t('Pesan', 'Messages') },
+    { id: 'PAYMENT', label: t('Pembayaran', 'Payments') },
+  ];
+
   const filteredNotifications = useMemo(() => (
     activeFilter === 'all'
       ? notifications
@@ -72,12 +74,14 @@ export default function NotificationCenter({ userType }: { userType: 'client' | 
   const markAllRead = async () => {
     await apiRequest('/notifications/read-all', { method: 'PATCH' });
     await loadNotifications(true);
+    window.dispatchEvent(new Event('mediavault:notifications-refresh'));
   };
 
   const markOneRead = async (notification: NotificationItem) => {
     if (notification.read || notification.synthetic) return;
     await apiRequest(`/notifications/${notification.id}/read`, { method: 'PATCH' });
     await loadNotifications(true);
+    window.dispatchEvent(new Event('mediavault:notifications-refresh'));
   };
 
   return (
@@ -85,10 +89,12 @@ export default function NotificationCenter({ userType }: { userType: 'client' | 
       <div className="flex items-center justify-between gap-4 mb-8 flex-wrap">
         <div>
           <h1 className="text-5xl" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>
-            Notifications
+            {t('Notifikasi', 'Notifications')}
           </h1>
           <p className="text-sm text-[#888888]">
-            {unreadCount > 0 ? `${unreadCount} update belum dibaca` : 'Semua update sudah terbaca'}
+            {unreadCount > 0
+              ? t(`${unreadCount} update belum dibaca`, `${unreadCount} unread update${unreadCount > 1 ? 's' : ''}`)
+              : t('Semua update sudah terbaca', 'All updates have been read')}
           </p>
         </div>
         <div className="flex gap-2">
@@ -98,7 +104,7 @@ export default function NotificationCenter({ userType }: { userType: 'client' | 
             className="inline-flex items-center gap-2 px-4 py-2 border border-[#888888] text-white rounded-lg hover:border-[#F5C800] hover:text-[#F5C800] transition-colors"
           >
             <RefreshCw className="w-4 h-4" />
-            Refresh
+            {t('Muat Ulang', 'Refresh')}
           </button>
           <button
             type="button"
@@ -106,7 +112,7 @@ export default function NotificationCenter({ userType }: { userType: 'client' | 
             className="inline-flex items-center gap-2 px-4 py-2 bg-[#F5C800] text-black font-bold rounded-lg"
           >
             <CheckCheck className="w-4 h-4" />
-            Mark all read
+            {t('Tandai Semua Dibaca', 'Mark All As Read')}
           </button>
         </div>
       </div>
@@ -132,13 +138,13 @@ export default function NotificationCenter({ userType }: { userType: 'client' | 
         </div>
       )}
 
-      {loading && <EmptyState title="Memuat notifikasi" description="Mengambil update terbaru dari database." />}
+      {loading && <EmptyState title={t('Memuat notifikasi', 'Loading notifications')} description={t('Menyiapkan update penting untuk Anda.', 'Preparing your important updates.')} />}
       {!loading && filteredNotifications.length === 0 && (
         <EmptyState
-          title="Belum ada notifikasi"
+          title={t('Belum ada notifikasi', 'No notifications yet')}
           description={userType === 'client'
-            ? 'Request freelancer, status project, payment, dan pesan akan tampil di sini.'
-            : 'Offer client, status project, payment, dan pesan akan tampil di sini.'}
+            ? t('Update request freelancer, status project, pembayaran, dan pesan penting akan tampil di sini.', 'Freelancer requests, project status, payment updates, and important messages will appear here.')
+            : t('Update offer client, status project, pembayaran, dan pesan penting akan tampil di sini.', 'Client offers, project status, payment updates, and important messages will appear here.')}
         />
       )}
 

@@ -4,10 +4,12 @@ const { validateReferenceFiles, validateSubmissionFile } = require('../utils/upl
 const { resolveProjectMedia } = require('../utils/mediaUrls');
 const { completeProjectSettlement } = require('./paymentController');
 const { creditWallet } = require('../services/walletService');
+const { notifyTelegramOnly, notifyUser } = require('../services/notificationService');
 
 const parseBudget = (value) => {
   if (value === undefined || value === null || value === '') return null;
-  const parsed = Number(value);
+  const normalized = typeof value === 'string' ? value.replace(/[^\d]/g, '') : value;
+  const parsed = Number(normalized);
   return Number.isFinite(parsed) ? Math.round(parsed) : null;
 };
 
@@ -57,18 +59,50 @@ const createProjectHistory = (projectId, actorId, title, body, eventType) =>
     data: { projectId, actorId, title, body, eventType },
   });
 
+const countCharacters = (value = '') => String(value).length;
+
 const serializeProjectWithMedia = async (project) => resolveProjectMedia(serializeProject(project));
 
 const serializeProjectsWithMedia = async (projects) =>
   Promise.all(projects.map((project) => serializeProjectWithMedia(project)));
 
-const allowedProgressStatuses = ['IN_PROGRESS', 'CONFIRMED', 'UNDER_REVIEW', 'WAITING_PAYMENT', 'COMPLETED'];
+const allowedProgressStatuses = ['IN_PROGRESS', 'UNDER_REVIEW'];
 const statusProgress = {
   IN_PROGRESS: 25,
-  CONFIRMED: 25,
   UNDER_REVIEW: 60,
-  WAITING_PAYMENT: 85,
-  COMPLETED: 100,
+};
+
+const startOfTomorrow = () => {
+  const tomorrow = new Date();
+  tomorrow.setHours(0, 0, 0, 0);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  return tomorrow;
+};
+
+const parseRequiredDate = (value, label) => {
+  const parsed = new Date(value);
+  if (!value || Number.isNaN(parsed.getTime())) {
+    throw new Error(`${label} wajib diisi dengan tanggal valid`);
+  }
+  return parsed;
+};
+
+const validateBriefText = ({ title, description }) => {
+  if (title !== undefined && countCharacters(title) > 64) {
+    throw new Error('Judul pekerjaan maksimal 64 karakter');
+  }
+
+  if (description !== undefined && countCharacters(description) > 500) {
+    throw new Error('Deskripsi maksimal 500 karakter');
+  }
+};
+
+const validateDeadline = (deadline) => {
+  const parsedDeadline = parseRequiredDate(deadline, 'Deadline');
+  if (parsedDeadline < startOfTomorrow()) {
+    throw new Error('Deadline minimal H+1');
+  }
+  return parsedDeadline;
 };
 
 exports.listMyProjects = async (req, res, next) => {
@@ -119,14 +153,11 @@ exports.createProject = async (req, res, next) => {
       throw new Error('Judul, deskripsi, kategori, dan jasa yang dibutuhkan wajib diisi');
     }
 
-    if (title.trim().length < 10) {
+    try {
+      validateBriefText({ title, description });
+    } catch (validationError) {
       res.status(400);
-      throw new Error('Judul pekerjaan minimal 10 karakter');
-    }
-
-    if (description.trim().length < 30) {
-      res.status(400);
-      throw new Error('Deskripsi detail minimal 30 karakter');
+      throw validationError;
     }
 
     if (!eventDate || !deadline) {
@@ -140,13 +171,14 @@ exports.createProject = async (req, res, next) => {
       throw new Error('Budget minimal Rp 10.000');
     }
 
-    const tomorrow = new Date();
-    tomorrow.setHours(0, 0, 0, 0);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const parsedDeadline = new Date(deadline);
-    if (parsedDeadline < tomorrow) {
+    let parsedEventDate;
+    let parsedDeadline;
+    try {
+      parsedEventDate = parseRequiredDate(eventDate, 'Tanggal pelaksanaan');
+      parsedDeadline = validateDeadline(deadline);
+    } catch (validationError) {
       res.status(400);
-      throw new Error('Deadline minimal H+1');
+      throw validationError;
     }
 
     if (!province || !city || !district || !village || !addressDetail) {
@@ -187,8 +219,8 @@ exports.createProject = async (req, res, next) => {
         longitude: parseCoordinate(longitude),
         locationSource: locationSource || 'manual',
         budget: parsedBudget,
-        eventDate: eventDate ? new Date(eventDate) : null,
-        deadline: deadline ? new Date(deadline) : null,
+        eventDate: parsedEventDate,
+        deadline: parsedDeadline,
         clientId: req.user.id,
         files: {
           create: (referenceFiles || []).map((file) => ({
@@ -252,28 +284,96 @@ exports.updateProject = async (req, res, next) => {
       referenceFiles,
     } = req.body;
 
-    const updatedProject = await prisma.project.update({
-      where: { id: projectId },
-      data: {
+    try {
+      validateBriefText({ title, description });
+    } catch (validationError) {
+      res.status(400);
+      throw validationError;
+    }
+
+    const parsedBudget = budget === undefined ? undefined : parseBudget(budget);
+    if (parsedBudget !== undefined && (!parsedBudget || parsedBudget < 10000)) {
+      res.status(400);
+      throw new Error('Budget minimal Rp 10.000');
+    }
+
+    let parsedEventDate;
+    let parsedDeadline;
+    try {
+      parsedEventDate = eventDate === undefined ? undefined : parseRequiredDate(eventDate, 'Tanggal pelaksanaan');
+      parsedDeadline = deadline === undefined ? undefined : validateDeadline(deadline);
+    } catch (validationError) {
+      res.status(400);
+      throw validationError;
+    }
+    const nextProvince = province ?? project.province;
+    const nextCity = city ?? project.city;
+    const nextDistrict = district ?? project.district;
+    const nextVillage = village ?? project.village;
+    const nextAddressDetail = addressDetail ?? project.addressDetail;
+
+    if (!nextProvince || !nextCity || !nextDistrict || !nextVillage || !nextAddressDetail) {
+      res.status(400);
+      throw new Error('Provinsi, kota, kecamatan, desa, dan detail alamat wajib diisi');
+    }
+
+    const referenceFileError = referenceFiles === undefined ? null : validateReferenceFiles(referenceFiles || []);
+    if (referenceFileError) {
+      res.status(400);
+      throw new Error(referenceFileError);
+    }
+
+    const composedAddress = [
+      nextAddressDetail,
+      nextVillage,
+      nextDistrict,
+      nextCity,
+      nextProvince,
+      postalCode ?? project.postalCode,
+    ].filter(Boolean).join(', ');
+
+    const updateData = {
         ...(title ? { title } : {}),
         ...(description ? { description } : {}),
         ...(category ? { category } : {}),
         serviceType: serviceType ?? undefined,
-        province: province ?? undefined,
-        city: city ?? undefined,
-        district: district ?? undefined,
-        village: village ?? undefined,
+        province: nextProvince,
+        city: nextCity,
+        district: nextDistrict,
+        village: nextVillage,
         postalCode: postalCode ?? undefined,
-        address: address ?? undefined,
-        addressDetail: addressDetail ?? undefined,
+        address: locationSource === 'share-location' && address ? address : composedAddress,
+        addressDetail: nextAddressDetail,
         latitude: latitude === undefined ? undefined : parseCoordinate(latitude),
         longitude: longitude === undefined ? undefined : parseCoordinate(longitude),
         locationSource: locationSource ?? undefined,
-        budget: budget === undefined ? undefined : parseBudget(budget),
-        eventDate: eventDate ? new Date(eventDate) : undefined,
-        deadline: deadline ? new Date(deadline) : undefined,
-      },
-      include: projectInclude,
+        budget: parsedBudget,
+        eventDate: parsedEventDate,
+        deadline: parsedDeadline,
+    };
+
+    const updatedProject = await prisma.$transaction(async (tx) => {
+      if (referenceFiles !== undefined) {
+        await tx.projectFile.deleteMany({ where: { projectId } });
+      }
+
+      return tx.project.update({
+        where: { id: projectId },
+        data: {
+          ...updateData,
+          ...(referenceFiles !== undefined ? {
+            files: {
+              create: (referenceFiles || []).map((file) => ({
+                fileName: file.fileName,
+                fileKey: file.fileUrl,
+                contentType: file.fileType,
+                size: Number.isFinite(Number(file.fileSize)) ? Number(file.fileSize) : null,
+              })),
+            },
+          } : {}),
+        },
+        include: projectInclude,
+      });
     });
 
     await createProjectHistory(
@@ -296,6 +396,10 @@ exports.deleteProject = async (req, res, next) => {
     const project = await prisma.project.findUnique({
       where: { id: projectId },
       include: {
+        applications: {
+          where: { status: 'PENDING' },
+          select: { freelancerId: true },
+        },
         payments: {
           where: { status: 'PAID' },
           take: 1,
@@ -313,7 +417,25 @@ exports.deleteProject = async (req, res, next) => {
       throw new Error('Project yang sudah dibayar atau berjalan tidak bisa dihapus. Gunakan alur pembatalan/refund.');
     }
 
-    await prisma.project.delete({ where: { id: projectId } });
+    await prisma.$transaction([
+      prisma.notification.create({
+        data: {
+          userId: req.user.id,
+          type: 'PROJECT',
+          title: 'Project dihapus',
+          body: `Anda menghapus project "${project.title}".`,
+        },
+      }),
+      ...project.applications.map((application) => prisma.notification.create({
+        data: {
+          userId: application.freelancerId,
+          type: 'PROJECT',
+          title: 'Job request dihapus client',
+          body: `Job "${project.title}" sudah dihapus oleh client dan tidak tersedia lagi.`,
+        },
+      })),
+      prisma.project.delete({ where: { id: projectId } }),
+    ]);
     res.json({ message: 'Project berhasil dihapus' });
   } catch (error) {
     next(error);
@@ -404,6 +526,16 @@ exports.updateProjectProgress = async (req, res, next) => {
     if (!project.freelancerId) {
       res.status(400);
       throw new Error('Project belum memiliki freelancer');
+    }
+
+    if (project.freelancerId !== req.user.id) {
+      res.status(403);
+      throw new Error('Hanya freelancer yang mengerjakan project ini yang bisa mengubah progress');
+    }
+
+    if (!['PAID', 'CONFIRMED', 'IN_PROGRESS', 'UNDER_REVIEW'].includes(project.status)) {
+      res.status(400);
+      throw new Error('Progress hanya bisa diubah setelah project dibayar dan mulai dikerjakan');
     }
 
     const nextProgress = Math.max(
@@ -524,6 +656,13 @@ exports.submitProjectReview = async (req, res, next) => {
       }),
     ]);
 
+    await notifyTelegramOnly({
+      userId: project.clientId,
+      title: 'Hasil pekerjaan siap direview',
+      body: `${req.user.fullName} mengirim hasil untuk ${project.title}. Harap review dalam 72 jam.`,
+      actionPath: `/dashboard/client/projects/${project.id}`,
+    });
+
     res.status(201).json({ submission, project: await serializeProjectWithMedia(updatedProject) });
   } catch (error) {
     next(error);
@@ -598,6 +737,13 @@ exports.reviewProjectSubmission = async (req, res, next) => {
 
       await completeProjectSettlement(projectId, req.user.id, 'COMPLETED');
 
+      await notifyTelegramOnly({
+        userId: submission.freelancerId,
+        title: 'Pekerjaan disetujui client',
+        body: 'Client mengkonfirmasi pekerjaan selesai. Dana diteruskan ke saldo kamu.',
+        actionPath: `/dashboard/freelancer/projects/${projectId}`,
+      });
+
       const updatedProject = await prisma.project.findUnique({
         where: { id: projectId },
         include: projectInclude,
@@ -649,6 +795,13 @@ exports.reviewProjectSubmission = async (req, res, next) => {
         },
       }),
     ]);
+
+    await notifyTelegramOnly({
+      userId: submission.freelancerId,
+      title: 'Client meminta revisi',
+      body: reviewComment,
+      actionPath: `/dashboard/freelancer/projects/${projectId}`,
+    });
 
     res.json({ project: await serializeProjectWithMedia(updatedProject) });
   } catch (error) {
@@ -792,13 +945,12 @@ exports.applyToProject = async (req, res, next) => {
       });
 
     await Promise.all([
-      prisma.notification.create({
-        data: {
-          userId: project.clientId,
-          type: 'PROJECT',
-          title: 'Freelancer mengirim request job',
-          body: `${req.user.fullName} mengirim request untuk ${project.title}`,
-        },
+      notifyUser({
+        userId: project.clientId,
+        type: 'PROJECT',
+        title: 'Freelancer mengirim request job',
+        body: `${req.user.fullName} mengirim request untuk ${project.title}`,
+        actionPath: `/dashboard/client/projects/${project.id}`,
       }),
       prisma.message.create({
         data: {
@@ -817,6 +969,55 @@ exports.applyToProject = async (req, res, next) => {
     ]);
 
     res.status(201).json({ application });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.cancelProjectApplication = async (req, res, next) => {
+  try {
+    const { applicationId } = req.params;
+
+    const application = await prisma.projectApplication.findUnique({
+      where: { id: applicationId },
+      include: {
+        project: { select: { id: true, title: true, clientId: true, status: true } },
+      },
+    });
+
+    if (!application || application.freelancerId !== req.user.id) {
+      res.status(404);
+      throw new Error('Request job tidak ditemukan');
+    }
+
+    if (application.status !== 'PENDING' || application.project.status !== 'OPEN') {
+      res.status(400);
+      throw new Error('Request job sudah diproses dan tidak bisa dibatalkan');
+    }
+
+    await prisma.$transaction([
+      prisma.projectApplication.update({
+        where: { id: applicationId },
+        data: { status: 'REJECTED' },
+      }),
+      prisma.notification.create({
+        data: {
+          userId: application.project.clientId,
+          type: 'PROJECT',
+          title: 'Request job dibatalkan',
+          body: `${req.user.fullName} membatalkan request untuk ${application.project.title}`,
+        },
+      }),
+      createProjectHistory(
+        application.projectId,
+        req.user.id,
+        'Request job dibatalkan',
+        `${req.user.fullName} membatalkan request untuk ${application.project.title}`,
+        'APPLICATION_CANCELLED'
+      ),
+    ]);
+
+    res.json({ message: 'Request job berhasil dibatalkan' });
   } catch (error) {
     next(error);
   }
@@ -897,6 +1098,13 @@ exports.respondToApplication = async (req, res, next) => {
         ),
       ]);
 
+      await notifyTelegramOnly({
+        userId: application.freelancerId,
+        title: 'Request job diterima',
+        body: `${req.user.fullName} menerima request Anda untuk ${application.project.title}. Project menunggu pembayaran client.`,
+        actionPath: `/dashboard/freelancer/projects/${application.projectId}`,
+      });
+
       res.json({ project: await serializeProjectWithMedia(updatedProject) });
       return;
     }
@@ -937,6 +1145,13 @@ exports.respondToApplication = async (req, res, next) => {
     }
 
     await prisma.$transaction(rejectTransaction);
+
+    await notifyTelegramOnly({
+      userId: application.freelancerId,
+      title: 'Request job ditolak',
+      body: `${req.user.fullName} menolak request Anda untuk ${application.project.title}.`,
+      actionPath: '/dashboard/freelancer/requests',
+    });
 
     res.json({ message: 'Offer ditolak' });
   } catch (error) {
@@ -1030,7 +1245,7 @@ exports.rejectPaidProjectByFreelancer = async (req, res, next) => {
     }
 
     const paidPayment = project.payments[0];
-    const refundAmount = paidPayment?.amountPaid || paidPayment?.totalAmount || project.budget || 0;
+    const refundAmount = paidPayment?.baseAmount || project.budget || 0;
 
     const updatedProject = await prisma.$transaction(async (tx) => {
       const nextProject = await tx.project.update({
