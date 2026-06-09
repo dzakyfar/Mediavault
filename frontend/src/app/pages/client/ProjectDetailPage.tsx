@@ -134,7 +134,21 @@ export default function ClientProjectDetail() {
       .then((response) => {
         const nextProject = normalizeProjectDetail(response.project);
         setProject(nextProject);
-        if (nextProject.latestPayment) setPayment(nextProject.latestPayment);
+        if (nextProject.latestPayment) {
+          setPayment(nextProject.latestPayment);
+          if (nextProject.latestPayment.status === 'PENDING') {
+            apiRequest<{ payment: PaymentDetail }>(`/payments/projects/${id}/current`)
+              .then((paymentResponse) => {
+                setPayment(paymentResponse.payment);
+                if (paymentResponse.payment.status === 'PAID') {
+                  return apiRequest<{ project: ProjectDetail }>(`/projects/${id}`)
+                    .then((projectResponse) => setProject(normalizeProjectDetail(projectResponse.project)));
+                }
+                return undefined;
+              })
+              .catch(() => undefined);
+          }
+        }
       })
       .catch((err) => setError(err instanceof Error ? err.message : t('Gagal memuat detail proyek', 'Failed to load project details')))
       .finally(() => setLoading(false));

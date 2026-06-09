@@ -19,10 +19,12 @@ const parseAmount = (value) => {
 };
 
 const normalizeKlikqrisStatus = (status) => {
-  const normalized = String(status || '').toUpperCase();
-  if (normalized === 'SUCCESS' || normalized === 'PAID') return 'PAID';
-  if (normalized === 'EXPIRED') return 'EXPIRED';
-  if (normalized === 'FAILED') return 'FAILED';
+  const normalized = String(status || '').trim().toUpperCase();
+  if (['SUCCESS', 'SUCCEEDED', 'SUCCESSFUL', 'SETTLEMENT', 'SETTLED', 'PAID', 'PAYMENT_SUCCESS'].includes(normalized)) {
+    return 'PAID';
+  }
+  if (['EXPIRED', 'EXPIRE'].includes(normalized)) return 'EXPIRED';
+  if (['FAILED', 'FAIL', 'CANCELLED', 'CANCELED', 'ERROR'].includes(normalized)) return 'FAILED';
   return 'PENDING';
 };
 
@@ -71,6 +73,33 @@ const buildStatusUrl = ({ baseUrl, isSandbox, merchantId, orderId }) => {
   return `${baseUrl}/status/${merchantId}/${encodeURIComponent(orderId)}`;
 };
 
+const firstValue = (...values) => values.find((value) => value !== undefined && value !== null && value !== '');
+const getKlikqrisData = (payload) => payload?.data || payload?.result || payload?.order || payload?.transaction || payload?.payment || payload || {};
+const getKlikqrisStatus = (payload, data) => {
+  const directStatus = firstValue(
+    data.status,
+    data.transaction_status,
+    data.qris_status,
+    data.payment_status,
+    payload?.status,
+    payload?.message
+  );
+
+  if (data.is_paid === true || payload?.is_paid === true || data.paid === true || payload?.paid === true) {
+    return 'PAID';
+  }
+
+  return normalizeKlikqrisStatus(directStatus);
+};
+const getKlikqrisPaidAt = (data) => {
+  const value = firstValue(data.paid_at, data.payment_date, data.paidAt, data.settlement_time, data.updated_at);
+  return value ? new Date(value) : null;
+};
+const getKlikqrisExpiredAt = (data) => {
+  const value = firstValue(data.expired_at, data.expires_at, data.expiredAt, data.valid_until);
+  return value ? new Date(value) : null;
+};
+
 const createKlikqrisTransaction = async ({ orderId, amount, description }) => {
   requireCredentials();
   const config = getKlikqrisConfig();
@@ -90,18 +119,18 @@ const createKlikqrisTransaction = async ({ orderId, amount, description }) => {
     }),
   });
   const payload = await readKlikqrisResponse(response);
-  const data = payload.data || {};
+  const data = getKlikqrisData(payload);
 
   return {
     payload,
-    orderId: data.order_id || orderId,
-    amount: parseAmount(data.amount),
-    totalAmount: parseAmount(data.total_amount),
-    status: normalizeKlikqrisStatus(data.status),
-    directUrl: data.direct_url || data.redirect_url || null,
-    qrisUrl: data.qris_url || (data.qris_image ? data.qris_image : null),
-    expiredAt: data.expired_at ? new Date(data.expired_at) : null,
-    signature: data.signature,
+    orderId: firstValue(data.order_id, data.orderId, data.merchant_order_id, data.no_ref_merchant, orderId),
+    amount: parseAmount(firstValue(data.amount, data.amount_value, data.jumlah_dibayar)),
+    totalAmount: parseAmount(firstValue(data.total_amount, data.totalAmount, data.amount, data.jumlah_dibayar)),
+    status: getKlikqrisStatus(payload, data),
+    directUrl: firstValue(data.direct_url, data.redirect_url, data.payment_url, null),
+    qrisUrl: firstValue(data.qris_url, data.qris_image, data.qrImage?.fileUrl, data.qrisUrl, null),
+    expiredAt: getKlikqrisExpiredAt(data),
+    signature: firstValue(data.signature, data.sign, data.token, data.transaction_id, data.id),
   };
 };
 
@@ -117,15 +146,15 @@ const checkKlikqrisStatus = async (orderId) => {
     headers: klikqrisHeaders(),
   });
   const payload = await readKlikqrisResponse(response);
-  const data = payload.data || {};
+  const data = getKlikqrisData(payload);
 
   return {
     payload,
-    orderId: data.order_id || orderId,
-    status: normalizeKlikqrisStatus(data.status),
-    totalAmount: parseAmount(data.total_amount),
-    paidAt: data.paid_at ? new Date(data.paid_at) : null,
-    expiredAt: data.expired_at ? new Date(data.expired_at) : null,
+    orderId: firstValue(data.order_id, data.orderId, data.merchant_order_id, data.no_ref_merchant, orderId),
+    status: getKlikqrisStatus(payload, data),
+    totalAmount: parseAmount(firstValue(data.total_amount, data.totalAmount, data.amount, data.jumlah_dibayar)),
+    paidAt: getKlikqrisPaidAt(data),
+    expiredAt: getKlikqrisExpiredAt(data),
   };
 };
 

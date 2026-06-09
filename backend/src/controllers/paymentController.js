@@ -23,6 +23,31 @@ const generateOrderId = () =>
   `ORD-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
 
 const parseGatewayDate = (value) => (value ? new Date(value) : null);
+const firstPayloadValue = (...values) => values.find((value) => value !== undefined && value !== null && value !== '');
+const getWebhookData = (body = {}) => body.data || body.result || body.order || body.transaction || body.payment || body || {};
+const getWebhookOrderId = (data = {}) => firstPayloadValue(
+  data.order_id,
+  data.orderId,
+  data.merchant_order_id,
+  data.no_ref_merchant,
+  data.reference_id,
+  data.invoice_id
+);
+const getWebhookAmount = (data = {}) => parseAmount(firstPayloadValue(
+  data.amount_paid,
+  data.total_amount,
+  data.totalAmount,
+  data.amount,
+  data.jumlah_dibayar,
+  data.paid_amount
+));
+const getWebhookPaidAt = (data = {}) => parseGatewayDate(firstPayloadValue(
+  data.payment_date,
+  data.paid_at,
+  data.paidAt,
+  data.settlement_time,
+  data.updated_at
+));
 const invoiceNumber = (payment) => {
   const date = payment.createdAt || new Date();
   const ymd = [
@@ -91,6 +116,50 @@ const serializePayment = (payment) => ({
 const assertPaymentAccess = (payment, user) => {
   if (!payment || !payment.project) return false;
   return payment.project.clientId === user.id || payment.project.freelancerId === user.id || user.role === 'ADMIN';
+};
+
+const syncPendingPaymentFromGateway = async (payment) => {
+  if (!payment || payment.status !== 'PENDING') return payment;
+
+  const statusResult = await checkKlikqrisStatus(payment.klikqrisOrderId);
+
+  if (statusResult.status === 'PAID') {
+    return processSuccessfulPayment(
+      payment.id,
+      statusResult.totalAmount || payment.totalAmount,
+      statusResult.paidAt || new Date(),
+      statusResult.payload
+    );
+  }
+
+  if (statusResult.status === 'EXPIRED') {
+    return prisma.payment.update({
+      where: { id: payment.id },
+      data: {
+        status: 'EXPIRED',
+        expiredAt: statusResult.expiredAt || payment.expiredAt,
+        gatewayResponse: statusResult.payload,
+      },
+      include: paymentInclude,
+    });
+  }
+
+  if (statusResult.status === 'FAILED') {
+    return prisma.payment.update({
+      where: { id: payment.id },
+      data: {
+        status: 'FAILED',
+        gatewayResponse: statusResult.payload,
+      },
+      include: paymentInclude,
+    });
+  }
+
+  return prisma.payment.update({
+    where: { id: payment.id },
+    data: { gatewayResponse: statusResult.payload },
+    include: paymentInclude,
+  });
 };
 
 const processSuccessfulPayment = async (paymentId, amountPaid, paidAt = new Date(), gatewayResponse = null) => {
@@ -458,7 +527,7 @@ exports.payProjectWithWallet = async (req, res, next) => {
 
 exports.getProjectPayment = async (req, res, next) => {
   try {
-    const payment = await prisma.payment.findFirst({
+    let payment = await prisma.payment.findFirst({
       where: {
         projectId: req.params.projectId,
         project: {
@@ -476,6 +545,8 @@ exports.getProjectPayment = async (req, res, next) => {
       res.status(404);
       throw new Error('Payment belum tersedia untuk project ini');
     }
+
+    payment = await syncPendingPaymentFromGateway(payment);
 
     res.json({ payment: serializePayment(payment) });
   } catch (error) {
@@ -504,7 +575,7 @@ exports.listMyPayments = async (req, res, next) => {
 
 exports.getPaymentDetail = async (req, res, next) => {
   try {
-    const payment = await prisma.payment.findUnique({
+    let payment = await prisma.payment.findUnique({
       where: { id: req.params.paymentId },
       include: {
         project: {
@@ -527,6 +598,29 @@ exports.getPaymentDetail = async (req, res, next) => {
     if (!assertPaymentAccess(payment, req.user)) {
       res.status(404);
       throw new Error('Invoice tidak ditemukan');
+    }
+
+    if (payment.status === 'PENDING') {
+      await syncPendingPaymentFromGateway(payment);
+      payment = await prisma.payment.findUnique({
+        where: { id: req.params.paymentId },
+        include: {
+          project: {
+            include: {
+              client: { select: { fullName: true } },
+              freelancer: { select: { fullName: true } },
+              histories: {
+                orderBy: { createdAt: 'desc' },
+                take: 20,
+              },
+              submissions: {
+                orderBy: { createdAt: 'desc' },
+                take: 10,
+              },
+            },
+          },
+        },
+      });
     }
 
     res.json({
@@ -564,27 +658,7 @@ exports.checkPaymentStatus = async (req, res, next) => {
       throw new Error('Payment tidak ditemukan');
     }
 
-    const statusResult = await checkKlikqrisStatus(payment.klikqrisOrderId);
-    let nextPayment = payment;
-
-    if (statusResult.status === 'PAID') {
-      nextPayment = await processSuccessfulPayment(
-        payment.id,
-        statusResult.totalAmount || payment.totalAmount,
-        statusResult.paidAt || new Date(),
-        statusResult.payload
-      );
-    } else if (statusResult.status === 'EXPIRED' && payment.status !== 'PAID') {
-      nextPayment = await prisma.payment.update({
-        where: { id: payment.id },
-        data: {
-          status: 'EXPIRED',
-          expiredAt: statusResult.expiredAt || payment.expiredAt,
-          gatewayResponse: statusResult.payload,
-        },
-        include: paymentInclude,
-      });
-    }
+    const nextPayment = await syncPendingPaymentFromGateway(payment);
 
     res.json({ payment: serializePayment(nextPayment) });
   } catch (error) {
@@ -594,8 +668,8 @@ exports.checkPaymentStatus = async (req, res, next) => {
 
 exports.handleKlikqrisWebhook = async (req, res, next) => {
   try {
-    const data = req.body?.data || req.body || {};
-    const klikqrisOrderId = data.order_id;
+    const data = getWebhookData(req.body);
+    const klikqrisOrderId = getWebhookOrderId(data);
 
     if (!klikqrisOrderId) {
       res.status(400);
@@ -612,18 +686,39 @@ exports.handleKlikqrisWebhook = async (req, res, next) => {
       throw new Error('Payment webhook tidak ditemukan');
     }
 
-    if (!data.signature || data.signature !== payment.signature) {
-      res.status(403);
-      throw new Error('Signature webhook KlikQRIS tidak valid');
-    }
-
-    const normalizedStatus = normalizeKlikqrisStatus(data.status || req.body?.status);
+    const normalizedStatus = normalizeKlikqrisStatus(firstPayloadValue(
+      data.status,
+      data.transaction_status,
+      data.qris_status,
+      data.payment_status,
+      req.body?.status,
+      req.body?.message
+    ));
+    const signature = firstPayloadValue(
+      data.signature,
+      data.sign,
+      req.headers['x-signature'],
+      req.headers['x-callback-signature'],
+      req.headers['x-webhook-signature']
+    );
+    const signatureValid = signature && payment.signature && signature === payment.signature;
 
     if (normalizedStatus === 'PAID') {
+      if (!signatureValid) {
+        const verifiedPayment = await syncPendingPaymentFromGateway(payment);
+        if (verifiedPayment.status === 'PAID') {
+          res.json({ message: 'OK' });
+          return;
+        }
+
+        res.status(403);
+        throw new Error('Signature webhook KlikQRIS tidak valid dan status gateway belum PAID');
+      }
+
       await processSuccessfulPayment(
         payment.id,
-        parseAmount(data.amount_paid || data.total_amount || data.amount) || payment.totalAmount,
-        parseGatewayDate(data.payment_date || data.paid_at) || new Date(),
+        getWebhookAmount(data) || payment.totalAmount,
+        getWebhookPaidAt(data) || new Date(),
         req.body
       );
       res.json({ message: 'OK' });
