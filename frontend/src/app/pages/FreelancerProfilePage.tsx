@@ -17,8 +17,8 @@ import {
   findExactRegionByName,
   findRegionByName,
   getCurrentPosition,
-  RegionOption,
 } from '../lib/indonesiaRegions';
+import type { RegionOption } from '../lib/indonesiaRegions';
 import {
   AddressLookupResult,
   AddressSuggestion,
