@@ -120,10 +120,14 @@ jobs:
             # Jika KLIKQRIS_MODE=sandbox → pakai _SANDBOX secrets
             # Jika KLIKQRIS_MODE=production atau kosong → pakai secrets production
             KLIKQRIS_MODE_VALUE='${{ secrets.KLIKQRIS_MODE }}'
+            KLIKQRIS_MODE_VALUE="$(printf '%s' "$KLIKQRIS_MODE_VALUE" | tr '[:upper:]' '[:lower:]' | xargs)"
+            KLIKQRIS_MODE_VALUE="${KLIKQRIS_MODE_VALUE#klikqris_mode=}"
+            KLIKQRIS_MODE_VALUE="${KLIKQRIS_MODE_VALUE#KLIKQRIS_MODE=}"
             if [ "$KLIKQRIS_MODE_VALUE" = "sandbox" ]; then
               RESOLVED_KLIKQRIS_API_KEY='${{ secrets.KLIKQRIS_API_KEY_SANDBOX }}'
               RESOLVED_KLIKQRIS_MERCHANT_ID='${{ secrets.KLIKQRIS_MERCHANT_ID_SANDBOX }}'
               RESOLVED_KLIKQRIS_BASE_URL='${{ secrets.KLIKQRIS_BASE_URL_SANDBOX }}'
+              KLIKQRIS_MODE_VALUE="sandbox"
             else
               RESOLVED_KLIKQRIS_API_KEY='${{ secrets.KLIKQRIS_API_KEY }}'
               RESOLVED_KLIKQRIS_MERCHANT_ID='${{ secrets.KLIKQRIS_MERCHANT_ID }}'
