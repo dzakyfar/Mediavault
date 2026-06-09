@@ -7,6 +7,7 @@ import EmptyState from '../../components/EmptyState';
 import ProjectTracker from '../../components/dashboard/ProjectTracker';
 import ProjectReviewPanel, { ProjectSubmission } from '../../components/dashboard/ProjectReviewPanel';
 import { apiRequest } from '../../lib/api';
+import { buildGoogleMapsSearchUrl } from '../../lib/googleMaps';
 import { useLanguage } from '../../context/LanguageContext';
 
 interface ProjectDetail {
@@ -134,7 +135,21 @@ export default function ClientProjectDetail() {
       .then((response) => {
         const nextProject = normalizeProjectDetail(response.project);
         setProject(nextProject);
-        if (nextProject.latestPayment) setPayment(nextProject.latestPayment);
+        if (nextProject.latestPayment) {
+          setPayment(nextProject.latestPayment);
+          if (nextProject.latestPayment.status === 'PENDING') {
+            apiRequest<{ payment: PaymentDetail }>(`/payments/projects/${id}/current`)
+              .then((paymentResponse) => {
+                setPayment(paymentResponse.payment);
+                if (paymentResponse.payment.status === 'PAID') {
+                  return apiRequest<{ project: ProjectDetail }>(`/projects/${id}`)
+                    .then((projectResponse) => setProject(normalizeProjectDetail(projectResponse.project)));
+                }
+                return undefined;
+              })
+              .catch(() => undefined);
+          }
+        }
       })
       .catch((err) => setError(err instanceof Error ? err.message : t('Gagal memuat detail proyek', 'Failed to load project details')))
       .finally(() => setLoading(false));
@@ -312,7 +327,7 @@ export default function ClientProjectDetail() {
                   {project.postalCode && <p className="text-[#888888] mt-1">{t('Kode Pos:', 'Postal Code:')} {project.postalCode}</p>}
                   {project.latitude && project.longitude && (
                     <a
-                      href={`https://www.google.com/maps?q=${project.latitude},${project.longitude}`}
+                      href={buildGoogleMapsSearchUrl(`${project.latitude},${project.longitude}`)}
                       target="_blank"
                       rel="noreferrer"
                       className="inline-block mt-3 text-[#F5C800] hover:underline"

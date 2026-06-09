@@ -17,11 +17,12 @@ import {
   findExactRegionByName,
   findRegionByName,
   getCurrentPosition,
-  RegionOption,
 } from '../lib/indonesiaRegions';
+import type { RegionOption } from '../lib/indonesiaRegions';
 import {
   AddressLookupResult,
   AddressSuggestion,
+  buildGoogleMapsSearchUrl,
   estimateRoadDistanceKm,
   geocodeAddress,
   getDrivingDistanceKm,
@@ -1031,7 +1032,7 @@ export default function FreelancerProfilePage() {
                           <p>{[freelancer.addressDetail, freelancer.village, freelancer.district, freelancer.city, freelancer.province, freelancer.postalCode].filter(Boolean).join(', ') || t('Alamat detail belum dilengkapi.', 'Detailed address has not been completed yet.')}</p>
                           {freelancer.latitude != null && freelancer.longitude != null && (
                             <a
-                              href={`https://www.google.com/maps?q=${freelancer.latitude},${freelancer.longitude}`}
+                              href={buildGoogleMapsSearchUrl(`${freelancer.latitude},${freelancer.longitude}`)}
                               target="_blank"
                               rel="noreferrer"
                               className="mt-1 inline-block text-[#F5C800] hover:underline"

@@ -79,6 +79,106 @@ const progressIndex = (status: string) => {
 
 const formatDateTime = (date: string | null) => date ? new Date(date).toLocaleString('id-ID') : '-';
 
+const escapeHtml = (value: string | number | null | undefined) => String(value ?? '-')
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+  .replace(/'/g, '&#039;');
+
+const buildClientAddress = (project: PaymentDetail['project']) => [
+  project.addressDetail || project.address,
+  project.village,
+  project.district,
+  project.city,
+  project.province,
+  project.postalCode,
+].filter(Boolean).join(', ') || '-';
+
+const buildInvoiceHtml = (payment: PaymentDetail) => {
+  const rows = [
+    ['Invoice Number', payment.invoiceNumber],
+    ['KlikQRIS Order ID', payment.klikqrisOrderId],
+    ['Payment Status', payment.status],
+    ['Project', payment.project.title],
+    ['Service Type', payment.project.serviceType || '-'],
+    ['Client', payment.project.client || '-'],
+    ['Freelancer', payment.project.freelancer || '-'],
+    ['Event Date', formatDateTime(payment.project.eventDate)],
+    ['Deadline', formatDateTime(payment.project.deadline)],
+    ['Client Address', buildClientAddress(payment.project)],
+    ['Service + Transport/Person Fee', payment.baseAmountFormatted],
+    ['MediaVault Admin 1%', payment.adminFeeClientFormatted],
+    ['MediaVault Estimated Total', payment.amountRequestFormatted],
+    ['KlikQRIS Adjustment', payment.gatewayAdjustmentFormatted],
+    ['Total Paid', payment.amountPaidFormatted || payment.totalAmountFormatted],
+    ['Payment Time', formatDateTime(payment.paidAt)],
+    ['Issued At', formatDateTime(payment.createdAt)],
+  ];
+
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>${escapeHtml(payment.invoiceNumber)} - MediaVault Invoice</title>
+  <style>
+    body { margin: 0; background: #f5f2e8; color: #171717; font-family: Arial, sans-serif; }
+    main { max-width: 840px; margin: 32px auto; background: #fffaf0; border: 1px solid #ded6bf; border-radius: 18px; padding: 40px; }
+    header { display: flex; justify-content: space-between; gap: 24px; border-bottom: 2px solid #f5c800; padding-bottom: 24px; margin-bottom: 28px; }
+    h1 { margin: 0; font-size: 44px; letter-spacing: 0.04em; }
+    .brand { color: #8a6f00; font-weight: 800; letter-spacing: 0.12em; }
+    .status { display: inline-block; margin-top: 8px; padding: 8px 12px; border-radius: 999px; background: #f5c800; font-weight: 800; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; padding: 14px 0; border-bottom: 1px solid #e9dfc9; vertical-align: top; }
+    th { width: 36%; color: #6d6658; font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; }
+    td { font-weight: 700; }
+    .description { margin-top: 28px; padding: 18px; border-radius: 12px; background: #171717; color: #fffaf0; }
+    footer { margin-top: 28px; color: #6d6658; font-size: 12px; line-height: 1.6; }
+    @media print { body { background: white; } main { margin: 0; border: 0; border-radius: 0; } }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <div>
+        <div class="brand">MEDIAVAULT</div>
+        <h1>Transaction Invoice</h1>
+        <div class="status">${escapeHtml(payment.status)}</div>
+      </div>
+      <div>
+        <strong>${escapeHtml(payment.invoiceNumber)}</strong><br />
+        <span>Issued: ${escapeHtml(formatDateTime(payment.createdAt))}</span>
+      </div>
+    </header>
+    <table>
+      <tbody>
+        ${rows.map(([label, value]) => `<tr><th>${escapeHtml(label)}</th><td>${escapeHtml(value)}</td></tr>`).join('')}
+      </tbody>
+    </table>
+    <section class="description">
+      <strong>Project Description</strong>
+      <p>${escapeHtml(payment.project.description)}</p>
+    </section>
+    <footer>
+      This invoice was generated from MediaVault transaction data. Keep this document for project and payment records.
+    </footer>
+  </main>
+</body>
+</html>`;
+};
+
+const downloadHtmlFile = (fileName: string, content: string) => {
+  const blob = new Blob([content], { type: 'text/html;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = fileName;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+};
+
 export default function ClientPaymentDetail() {
   const { t } = useLanguage();
   const { id } = useParams();
@@ -129,7 +229,11 @@ export default function ClientPaymentDetail() {
     }
   };
 
-  const printInvoice = () => window.print();
+  const downloadInvoice = () => {
+    if (!payment) return;
+    const safeInvoiceNumber = payment.invoiceNumber.replace(/[^a-z0-9-]/gi, '-').replace(/-+/g, '-');
+    downloadHtmlFile(`mediavault-invoice-${safeInvoiceNumber}.html`, buildInvoiceHtml(payment));
+  };
 
   return (
     <DashboardLayout userType="client">
@@ -164,7 +268,7 @@ export default function ClientPaymentDetail() {
                       {submitting ? t('Memproses...', 'Processing...') : t('Konfirmasi Selesai', 'Confirm Complete')}
                     </button>
                   )}
-                  <button onClick={printInvoice} className="inline-flex items-center gap-2 px-4 py-3 border border-[#888888] rounded-lg text-white hover:border-[#F5C800] hover:text-[#F5C800]">
+                  <button onClick={downloadInvoice} className="inline-flex items-center gap-2 px-4 py-3 border border-[#888888] rounded-lg text-white hover:border-[#F5C800] hover:text-[#F5C800]">
                     <Download className="w-4 h-4" />
                     {t('Download Invoice', 'Download Invoice')}
                   </button>
