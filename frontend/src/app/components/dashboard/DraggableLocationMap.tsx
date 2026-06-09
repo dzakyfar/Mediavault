@@ -1,5 +1,6 @@
 import { MapPin, Minus, Plus } from 'lucide-react';
 import { useMemo, useRef, useState } from 'react';
+import { buildGoogleMapsEmbedUrl, buildGoogleMapsSearchUrl } from '../../lib/googleMaps';
 
 interface DraggableLocationMapProps {
   latitude: string;
@@ -69,27 +70,6 @@ export default function DraggableLocationMap({
     };
   }, [centerTile.x, centerTile.y, dragOffset.x, dragOffset.y, zoom]);
 
-  const tiles = useMemo(() => {
-    const baseX = Math.floor(centerTile.x);
-    const baseY = Math.floor(centerTile.y);
-    const offsetX = (centerTile.x - baseX) * TILE_SIZE;
-    const offsetY = (centerTile.y - baseY) * TILE_SIZE;
-    const maxTile = (2 ** zoom) - 1;
-
-    return Array.from({ length: 25 }, (_, index) => {
-      const dx = (index % 5) - 2;
-      const dy = Math.floor(index / 5) - 2;
-      const x = clamp(baseX + dx, 0, maxTile);
-      const y = clamp(baseY + dy, 0, maxTile);
-      return {
-        key: `${x}-${y}`,
-        url: `https://tile.openstreetmap.org/${zoom}/${x}/${y}.png`,
-        left: `calc(50% + ${(dx * TILE_SIZE) - offsetX}px)`,
-        top: `calc(50% + ${(dy * TILE_SIZE) - offsetY}px)`,
-      };
-    });
-  }, [centerTile.x, centerTile.y, zoom]);
-
   const updateFromPointer = (clientX: number, clientY: number) => {
     const rect = containerRef.current?.getBoundingClientRect();
     if (!rect) return;
@@ -112,6 +92,8 @@ export default function DraggableLocationMap({
   };
 
   const mapsQuery = latitude && longitude ? `${latitude},${longitude}` : fallbackQuery || `${center.lat},${center.lon}`;
+  const previewUrl = useMemo(() => buildGoogleMapsEmbedUrl(mapsQuery, zoom), [mapsQuery, zoom]);
+  const externalUrl = useMemo(() => buildGoogleMapsSearchUrl(mapsQuery), [mapsQuery]);
 
   return (
     <div className="rounded-xl border border-[#2A2A2A] bg-[#101010] overflow-hidden">
@@ -152,17 +134,16 @@ export default function DraggableLocationMap({
           setDragOffset({ x: 0, y: 0 });
         }}
       >
-        {tiles.map((tile) => (
-          <img
-            key={tile.key}
-            src={tile.url}
-            alt=""
-            draggable={false}
-            className="absolute w-64 h-64 max-w-none"
-            style={{ left: tile.left, top: tile.top }}
-          />
-        ))}
-        <div className="absolute inset-0 bg-black/5" />
+        <iframe
+          key={previewUrl}
+          title="Location map preview"
+          src={previewUrl}
+          className="absolute inset-0 h-full w-full border-0"
+          loading="lazy"
+          referrerPolicy="no-referrer-when-downgrade"
+          aria-hidden="true"
+        />
+        <div className="absolute inset-0 bg-black/10" />
         <button
           type="button"
           onPointerDown={(event) => {
@@ -208,7 +189,7 @@ export default function DraggableLocationMap({
           <span className="ml-3 text-[#666666]">Zoom {zoom}</span>
         </div>
         <a
-          href={`https://www.google.com/maps?q=${encodeURIComponent(mapsQuery)}`}
+          href={externalUrl}
           target="_blank"
           rel="noreferrer"
           className="text-[#F5C800] hover:underline"

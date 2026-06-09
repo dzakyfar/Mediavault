@@ -41,6 +41,22 @@ const googleMapsApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
 
 export const hasGoogleMapsApiKey = () => Boolean(googleMapsApiKey);
 
+const normalizeMapQuery = (query: string) => query.trim().replace(/\s+/g, ' ');
+
+export const buildGoogleMapsSearchUrl = (query: string) => {
+  const normalizedQuery = normalizeMapQuery(query);
+  return normalizedQuery
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(normalizedQuery)}`
+    : 'https://www.google.com/maps';
+};
+
+export const buildGoogleMapsEmbedUrl = (query: string, zoom = 15) => {
+  const normalizedQuery = normalizeMapQuery(query);
+  const safeQuery = normalizedQuery || 'Indonesia';
+  // This no-key embed URL keeps local/deploy previews working without requiring Google Maps Embed API billing.
+  return `https://maps.google.com/maps?q=${encodeURIComponent(safeQuery)}&z=${zoom}&output=embed`;
+};
+
 const loadGoogleMaps = (): Promise<any> => {
   if (!googleMapsApiKey) return Promise.reject(new Error('VITE_GOOGLE_MAPS_API_KEY belum dikonfigurasi'));
   if (window.google?.maps) return Promise.resolve(window.google);

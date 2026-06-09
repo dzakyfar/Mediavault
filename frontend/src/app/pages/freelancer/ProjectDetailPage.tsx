@@ -5,6 +5,7 @@ import EmptyState from '../../components/EmptyState';
 import ProjectTracker from '../../components/dashboard/ProjectTracker';
 import ProjectReviewPanel, { ProjectSubmission } from '../../components/dashboard/ProjectReviewPanel';
 import { apiRequest } from '../../lib/api';
+import { buildGoogleMapsSearchUrl } from '../../lib/googleMaps';
 import { useLanguage } from '../../context/LanguageContext';
 
 interface ProjectDetail {
@@ -136,7 +137,7 @@ export default function FreelancerProjectDetail() {
                   {project.postalCode && <p className="text-[#888888] mt-1">{t('Kode Pos:', 'Postal Code:')} {project.postalCode}</p>}
                   {project.latitude && project.longitude && (
                     <a
-                      href={`https://www.google.com/maps?q=${project.latitude},${project.longitude}`}
+                      href={buildGoogleMapsSearchUrl(`${project.latitude},${project.longitude}`)}
                       target="_blank"
                       rel="noreferrer"
                       className="inline-block mt-3 text-[#F5C800] hover:underline"
