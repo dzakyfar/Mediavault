@@ -57,14 +57,12 @@ export default function CostBreakdownDisplay({ data, createdAt }: CostBreakdownD
       </div>
       <div className="h-px bg-[#2A2A2A]" />
       <div className="flex items-center justify-between gap-4">
-        <div className="font-bold text-white">{t('Total', 'Total')}</div>
+        <div className="font-bold text-white">{t('Total Estimasi', 'Estimated Total')}</div>
         <div className="text-lg font-bold text-[#F5C800]">{formatCurrency(breakdown.total)}</div>
       </div>
-      {createdAt && (
-        <div className="pt-2 text-xs text-[#888888]">
-          {t('Sumber jarak:', 'Distance source:')} {breakdown.distanceSource} • {createdAt}
-        </div>
-      )}
+      <div className="mt-4 pt-3 border-t border-[#2A2A2A] text-xs text-[#EF4444]">
+        ⚠ {t('Total di atas belum termasuk biaya tambahan dari payment gateway QRIS (kode unik transaksi). Nominal final akan ditampilkan sebelum konfirmasi pembayaran.', 'The total above does not include additional QRIS gateway fees (transaction unique code). The final amount will be shown before payment confirmation.')}
+      </div>
     </div>
   );
 }

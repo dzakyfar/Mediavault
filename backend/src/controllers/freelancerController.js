@@ -367,7 +367,7 @@ exports.orderFreelancerService = async (req, res, next) => {
         data: {
           projectId: project.id,
           actorId: req.user.id,
-          title: 'Snapshot biaya pesanan',
+          title: 'Estimasi biaya pesanan',
           body: JSON.stringify(costBreakdown),
           eventType: 'ORDER_COST_BREAKDOWN',
         },
