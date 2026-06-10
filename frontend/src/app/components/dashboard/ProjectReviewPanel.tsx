@@ -46,7 +46,34 @@ export default function ProjectReviewPanel({
   }>>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [downloading, setDownloading] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Fetch the file as a blob then trigger a real browser download.
+  // This is necessary because S3 presigned URLs are cross-origin, so the
+  // HTML `download` attribute is ignored by the browser (it only works for
+  // same-origin URLs). Fetching first converts it to a local blob URL.
+  const handleDownload = async (url: string, fileName: string) => {
+    if (downloading) return;
+    try {
+      setDownloading(url);
+      const response = await fetch(url);
+      if (!response.ok) throw new Error('Download gagal');
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = blobUrl;
+      anchor.download = fileName;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      URL.revokeObjectURL(blobUrl);
+    } catch {
+      setError(t('Gagal mengunduh file. Coba lagi.', 'Failed to download file. Please try again.'));
+    } finally {
+      setDownloading(null);
+    }
+  };
 
   const pendingSubmission = submissions.find((submission) => submission.status === 'PENDING');
   const normalizedProjectStatus = projectStatus.toUpperCase().replace(/[\s-]+/g, '_');
@@ -215,16 +242,17 @@ export default function ProjectReviewPanel({
                     <div className="text-xs text-[#888888]">{formatFileSize(submission.fileSize)}</div>
                   )}
                 </div>
-                <a
-                  href={url}
-                  download={fileName}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 px-3 py-2 bg-[#F5C800] text-black text-xs font-bold rounded-lg hover:bg-[#e6b800] transition-colors shrink-0"
+                <button
+                  type="button"
+                  onClick={() => handleDownload(url, fileName)}
+                  disabled={downloading === url}
+                  className="inline-flex items-center gap-2 px-3 py-2 bg-[#F5C800] text-black text-xs font-bold rounded-lg hover:bg-[#e6b800] transition-colors shrink-0 disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   <Download className="w-3.5 h-3.5" />
-                  {t('Download', 'Download')}
-                </a>
+                  {downloading === url
+                    ? t('Mengunduh...', 'Downloading...')
+                    : t('Download', 'Download')}
+                </button>
               </div>
             </div>
           );
