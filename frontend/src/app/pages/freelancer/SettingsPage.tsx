@@ -251,6 +251,8 @@ export default function FreelancerSettings() {
     try {
       setSaving(true);
       setStatusMessage('');
+      // Safety: never save a raw data URL as avatar — it would make the request body huge
+      const safeAvatarUrl = formData.avatarUrl?.startsWith('data:') ? '' : formData.avatarUrl;
       await updateProfile({
         fullName: formData.fullName,
         email: formData.email,
@@ -264,7 +266,7 @@ export default function FreelancerSettings() {
         latitude: formData.latitude ? Number(formData.latitude) : null,
         longitude: formData.longitude ? Number(formData.longitude) : null,
         locationSource: formData.locationSource,
-        avatarUrl: formData.avatarUrl,
+        avatarUrl: safeAvatarUrl,
         specialty: formData.specialty,
         bio: formData.bio,
         startingPrice: formData.startingPrice ? Number(formData.startingPrice) : null,

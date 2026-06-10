@@ -1,8 +1,8 @@
 import { apiRequest } from './api';
 
 export type UploadScope = 'avatar' | 'message-image' | 'portfolio' | 'project-reference' | 'project-submission';
-const MAX_RETRIES = 2;
-const RETRY_DELAY_MS = 1000;
+const MAX_RETRIES = 3;
+const RETRY_DELAY_MS = 1500;
 
 interface PresignResponse {
   key: string;
@@ -125,42 +125,25 @@ async function withRetry<T>(fn: () => Promise<T>, label: string): Promise<T> {
 /**
  * Main upload function.
  * Strategy:
- *  1. Try S3 presign + PUT (fastest when S3 is configured)
- *  2. Fall back to backend direct upload with retry
- *  3. For small files (avatar/message-image), fall back to inline data URL
+ *  1. Try backend direct upload with retry (most reliable — works with or without S3)
+ *  2. Try S3 presign + PUT as alternative if direct upload fails
  */
 export async function uploadFileToS3(file: File, scope: UploadScope): Promise<UploadedFileRef> {
-  // Step 1: Try S3 presign upload (fast path)
-  const s3Result = await uploadFileViaS3Presign(file, scope);
-  if (s3Result) return s3Result;
-
-  // Step 2: Direct upload via backend with retry
+  // Step 1: Direct upload via backend (primary path, with retry)
   try {
     return await withRetry(() => uploadFileViaBackend(file, scope), 'direct-upload');
   } catch (directError) {
     const directMessage = directError instanceof Error ? directError.message : String(directError);
-    console.warn('[upload] Direct upload also failed:', directMessage);
+    console.warn('[upload] Direct upload failed, trying S3 presign:', directMessage);
 
-    // Step 3: Inline data URL fallback for small files (avatar, message image)
-    if (scope === 'avatar' || scope === 'message-image') {
-      try {
-        const dataUrl = await fileToDataUrl(file);
-        return {
-          key: dataUrl,
-          url: dataUrl,
-          fileName: file.name,
-          fileType: file.type || 'application/octet-stream',
-          fileSize: file.size,
-        };
-      } catch {
-        // data URL fallback also failed
-      }
-    }
+    // Step 2: Try S3 presign as alternative
+    const s3Result = await uploadFileViaS3Presign(file, scope);
+    if (s3Result) return s3Result;
 
     // All attempts failed — provide a clear error message
-    if (directMessage.includes('Failed to fetch') || directMessage.includes('fetch')) {
+    if (directMessage.includes('Failed to fetch') || directMessage.includes('fetch') || directMessage.includes('timeout')) {
       throw new Error('Tidak dapat terhubung ke server. Pastikan backend berjalan dan koneksi internet stabil.');
     }
-    throw directError instanceof Error ? directError : new Error('Gagal mengupload file');
+    throw directError instanceof Error ? directError : new Error('Gagal mengupload file. Silakan coba lagi.');
   }
 }
