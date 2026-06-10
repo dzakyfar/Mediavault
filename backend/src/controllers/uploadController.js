@@ -17,6 +17,7 @@ const {
   isS3ObjectKey,
   uploadLocalObject,
   uploadObject,
+  localUploadRoot,
 } = require('../utils/s3Storage');
 
 const scopeConfig = {
@@ -190,6 +191,60 @@ exports.getDownloadUrl = async (req, res, next) => {
     }
 
     res.json({ downloadUrl });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.proxyDownload = async (req, res, next) => {
+  try {
+    const { key, name } = req.query;
+
+    if (!isS3ObjectKey(key)) {
+      res.status(400);
+      throw new Error('S3 key tidak valid');
+    }
+
+    const safeFileName = name
+      ? String(name).replace(/[^a-zA-Z0-9._\- ]/g, '_')
+      : 'download';
+
+    if (!isS3Configured()) {
+      // Local fallback: stream from disk
+      const nodePath = require('path');
+      const fs = require('fs');
+      const localPath = nodePath.join(localUploadRoot, key.replace(/^uploads\//, ''));
+      if (!fs.existsSync(localPath)) {
+        res.status(404);
+        throw new Error('File tidak ditemukan');
+      }
+      res.setHeader('Content-Disposition', `attachment; filename="${safeFileName}"`);
+      fs.createReadStream(localPath).pipe(res);
+      return;
+    }
+
+    // Get a fresh presigned URL from S3 then proxy-stream to client.
+    // This avoids CORS issues because the browser only talks to our backend.
+    const signedUrl = await createPresignedDownload(key);
+    const https = require('https');
+
+    res.setHeader('Content-Disposition', `attachment; filename="${safeFileName}"`);
+
+    https.get(signedUrl, (s3Res) => {
+      if (s3Res.statusCode !== 200) {
+        res.status(502).end('Gagal mengambil file dari storage');
+        return;
+      }
+      if (s3Res.headers['content-type']) {
+        res.setHeader('Content-Type', s3Res.headers['content-type']);
+      }
+      if (s3Res.headers['content-length']) {
+        res.setHeader('Content-Length', s3Res.headers['content-length']);
+      }
+      s3Res.pipe(res);
+    }).on('error', (err) => {
+      next(err);
+    });
   } catch (error) {
     next(error);
   }

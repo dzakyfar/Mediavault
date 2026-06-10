@@ -1,6 +1,8 @@
 import { FormEvent, useRef, useState } from 'react';
 import { Download, FileUp, Send, X } from 'lucide-react';
-import { apiRequest } from '../../lib/api';
+import { apiRequest, getStoredToken } from '../../lib/api';
+
+const API_BASE_URL = (import.meta as { env?: { VITE_API_URL?: string } }).env?.VITE_API_URL || 'http://localhost:5000/api';
 import { PROJECT_SUBMISSION_MAX_BYTES, validateSubmissionFile } from '../../lib/uploadLimits';
 import { uploadFileToS3 } from '../../lib/s3Upload';
 import { useLanguage } from '../../context/LanguageContext';
@@ -49,16 +51,37 @@ export default function ProjectReviewPanel({
   const [downloading, setDownloading] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Fetch the file as a blob then trigger a real browser download.
-  // This is necessary because S3 presigned URLs are cross-origin, so the
-  // HTML `download` attribute is ignored by the browser (it only works for
-  // same-origin URLs). Fetching first converts it to a local blob URL.
+  // Download via backend proxy to avoid S3 CORS restrictions.
+  // The browser cannot fetch() a cross-origin S3 presigned URL directly
+  // because the bucket does not have a CORS policy that allows it.
+  // Instead we hit our own backend which streams the file from S3 and sets
+  // Content-Disposition: attachment so the browser downloads it normally.
   const handleDownload = async (url: string, fileName: string) => {
     if (downloading) return;
     try {
       setDownloading(url);
-      const response = await fetch(url);
+
+      // Extract the S3 key from a presigned URL or use the value directly if
+      // it's already a raw key (shouldn't normally happen here but safe guard).
+      let key: string;
+      if (url.startsWith('http')) {
+        // Presigned URL path looks like: /uploads/scope/userId/date/uuid-name.ext?X-Amz-...
+        const urlObj = new URL(url);
+        // pathname starts with /  e.g. "/uploads/project-submission/..."
+        key = urlObj.pathname.replace(/^\//, '');
+      } else {
+        key = url;
+      }
+
+      const apiBase = API_BASE_URL;
+      const token = getStoredToken();
+      const params = new URLSearchParams({ key, name: fileName });
+      const response = await fetch(`${apiBase}/uploads/proxy-download?${params.toString()}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+
       if (!response.ok) throw new Error('Download gagal');
+
       const blob = await response.blob();
       const blobUrl = URL.createObjectURL(blob);
       const anchor = document.createElement('a');
