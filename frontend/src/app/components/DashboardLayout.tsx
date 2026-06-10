@@ -21,6 +21,7 @@ export default function DashboardLayout({ children, userType, userName, greeting
   const { language, t } = useLanguage();
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [unreadMessages, setUnreadMessages] = useState(0);
+  const [otherContextUnread, setOtherContextUnread] = useState(0);
   const displayName = user?.fullName || userName || 'User';
   const firstName = displayName.split(' ')[0];
   const hour = new Date().getHours();
@@ -52,7 +53,7 @@ export default function DashboardLayout({ children, userType, userName, greeting
     const loadUnreadCounters = async () => {
       try {
         const [notificationResponse, messageResponse] = await Promise.all([
-          apiRequest<{ unreadCount: number }>('/notifications'),
+          apiRequest<{ unreadCount: number }>(`/notifications?context=${userType}`),
           apiRequest<{ unreadCount: number }>('/messages/unread-count'),
         ]);
         if (mounted) {
@@ -67,8 +68,22 @@ export default function DashboardLayout({ children, userType, userName, greeting
       }
     };
 
+    const otherContext = userType === 'client' ? 'freelancer' : 'client';
+    const loadOtherContextUnread = async () => {
+      try {
+        const response = await apiRequest<{ unreadCount: number }>(`/notifications/unread-count?context=${otherContext}`);
+        if (mounted) setOtherContextUnread(response.unreadCount || 0);
+      } catch {
+        if (mounted) setOtherContextUnread(0);
+      }
+    };
+
     loadUnreadCounters();
-    const interval = window.setInterval(loadUnreadCounters, 8000);
+    loadOtherContextUnread();
+    const interval = window.setInterval(() => {
+      loadUnreadCounters();
+      loadOtherContextUnread();
+    }, 8000);
     window.addEventListener('mediavault:notifications-refresh', loadUnreadCounters);
     window.addEventListener('mediavault:messages-refresh', loadUnreadCounters);
 
@@ -78,7 +93,7 @@ export default function DashboardLayout({ children, userType, userName, greeting
       window.removeEventListener('mediavault:notifications-refresh', loadUnreadCounters);
       window.removeEventListener('mediavault:messages-refresh', loadUnreadCounters);
     };
-  }, []);
+  }, [userType]);
 
   return (
     <div className="mv-no-page-transform flex min-h-screen bg-[#0A0A0A] mv-ambient" style={{ fontFamily: 'DM Sans, sans-serif' }}>
@@ -87,6 +102,7 @@ export default function DashboardLayout({ children, userType, userName, greeting
         userName={displayName}
         unreadMessages={unreadMessages}
         unreadNotifications={unreadNotifications}
+        otherContextUnread={otherContextUnread}
       />
 
       <div className="min-w-0 flex-1">
