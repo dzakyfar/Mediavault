@@ -41,7 +41,7 @@ export default function NotificationCenter({ userType }: { userType: 'client' | 
   const loadNotifications = async (silent = false) => {
     if (!silent) setLoading(true);
     try {
-      const response = await apiRequest<NotificationResponse>('/notifications');
+      const response = await apiRequest<NotificationResponse>(`/notifications?context=${userType}`);
       setNotifications(response.notifications);
       setUnreadCount(response.unreadCount);
       setError('');

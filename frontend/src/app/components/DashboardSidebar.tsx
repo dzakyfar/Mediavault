@@ -9,9 +9,10 @@ interface DashboardSidebarProps {
   userName: string;
   unreadMessages?: number;
   unreadNotifications?: number;
+  otherContextUnread?: number;
 }
 
-export default function DashboardSidebar({ userType, userName, unreadMessages = 0, unreadNotifications = 0 }: DashboardSidebarProps) {
+export default function DashboardSidebar({ userType, userName, unreadMessages = 0, unreadNotifications = 0, otherContextUnread = 0 }: DashboardSidebarProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
@@ -107,9 +108,14 @@ export default function DashboardSidebar({ userType, userName, unreadMessages = 
           <button
             type="button"
             onClick={handleSwitchRole}
-            className="block text-[#888888] hover:text-[#F5C800] mb-3 text-sm transition-colors"
+            className="flex items-center gap-2 w-full text-left text-[#888888] hover:text-[#F5C800] mb-3 text-sm transition-colors"
           >
-            {switchLabel}
+            <span className="flex-1">{switchLabel}</span>
+            {otherContextUnread > 0 && (
+              <span className="min-w-5 h-5 px-1.5 rounded-full text-[10px] font-bold inline-flex items-center justify-center bg-[#EF4444] text-white">
+                {otherContextUnread > 99 ? '99+' : otherContextUnread}
+              </span>
+            )}
           </button>
         )}
         <Link
