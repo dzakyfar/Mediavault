@@ -4,6 +4,13 @@ export type UploadScope = 'avatar' | 'message-image' | 'portfolio' | 'project-re
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 1500;
 
+/** Max dimension (px) for compressed images */
+const COMPRESS_MAX_DIMENSION = 1200;
+/** JPEG quality for compression (0-1) */
+const COMPRESS_QUALITY = 0.8;
+/** Only compress images larger than this threshold */
+const COMPRESS_THRESHOLD_BYTES = 400 * 1024; // 400KB
+
 interface PresignResponse {
   key: string;
   uploadUrl: string;
@@ -32,6 +39,73 @@ const fileToDataUrl = (file: File) => new Promise<string>((resolve, reject) => {
 });
 
 const delay = (ms: number) => new Promise((resolve) => { setTimeout(resolve, ms); });
+
+/**
+ * Compress an image file client-side:
+ *  - Resizes to max COMPRESS_MAX_DIMENSION on longest side
+ *  - Converts PNG → JPEG (smaller size, unless image has transparency)
+ *  - Targets COMPRESS_QUALITY JPEG quality
+ *
+ * Only compresses if the file exceeds COMPRESS_THRESHOLD_BYTES.
+ * Returns the original file unchanged for non-images or already-small files.
+ */
+async function compressImage(file: File): Promise<File> {
+  if (!file.type.startsWith('image/') || file.type === 'image/gif') {
+    return file;
+  }
+  if (file.size <= COMPRESS_THRESHOLD_BYTES) {
+    return file;
+  }
+
+  return new Promise<File>((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      let { width, height } = img;
+
+      // Scale down if larger than max dimension
+      if (width > COMPRESS_MAX_DIMENSION || height > COMPRESS_MAX_DIMENSION) {
+        const ratio = Math.min(COMPRESS_MAX_DIMENSION / width, COMPRESS_MAX_DIMENSION / height);
+        width = Math.round(width * ratio);
+        height = Math.round(height * ratio);
+      }
+
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        URL.revokeObjectURL(img.src);
+        resolve(file);
+        return;
+      }
+
+      ctx.drawImage(img, 0, 0, width, height);
+      URL.revokeObjectURL(img.src);
+
+      // Use JPEG for smaller size; keep PNG only if it has transparency and is already small
+      const outputType = 'image/jpeg';
+      const ext = '.jpg';
+
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) {
+            resolve(file);
+            return;
+          }
+          const baseName = file.name.replace(/\.[^.]+$/, '');
+          resolve(new File([blob], `${baseName}${ext}`, { type: outputType }));
+        },
+        outputType,
+        COMPRESS_QUALITY,
+      );
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(img.src);
+      resolve(file);
+    };
+    img.src = URL.createObjectURL(file);
+  });
+}
 
 /**
  * Upload file via backend direct endpoint (base64 data URL in JSON body).
@@ -125,19 +199,26 @@ async function withRetry<T>(fn: () => Promise<T>, label: string): Promise<T> {
 /**
  * Main upload function.
  * Strategy:
- *  1. Try backend direct upload with retry (most reliable — works with or without S3)
- *  2. Try S3 presign + PUT as alternative if direct upload fails
+ *  1. Compress image if needed (reduces body size to avoid nginx/reverse proxy limits)
+ *  2. Try backend direct upload with retry (most reliable — works with or without S3)
+ *  3. Try S3 presign + PUT as alternative if direct upload fails
  */
 export async function uploadFileToS3(file: File, scope: UploadScope): Promise<UploadedFileRef> {
+  // Step 0: Compress image to reduce upload size (prevents "Failed to fetch" from oversized requests)
+  const compressedFile = await compressImage(file);
+  if (compressedFile.size < file.size) {
+    console.log(`[upload] Compressed ${file.name}: ${(file.size / 1024).toFixed(0)}KB → ${(compressedFile.size / 1024).toFixed(0)}KB`);
+  }
+
   // Step 1: Direct upload via backend (primary path, with retry)
   try {
-    return await withRetry(() => uploadFileViaBackend(file, scope), 'direct-upload');
+    return await withRetry(() => uploadFileViaBackend(compressedFile, scope), 'direct-upload');
   } catch (directError) {
     const directMessage = directError instanceof Error ? directError.message : String(directError);
     console.warn('[upload] Direct upload failed, trying S3 presign:', directMessage);
 
     // Step 2: Try S3 presign as alternative
-    const s3Result = await uploadFileViaS3Presign(file, scope);
+    const s3Result = await uploadFileViaS3Presign(compressedFile, scope);
     if (s3Result) return s3Result;
 
     // All attempts failed — provide a clear error message
