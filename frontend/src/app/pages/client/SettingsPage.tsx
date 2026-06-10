@@ -72,12 +72,14 @@ export default function ClientSettings() {
     try {
       setSaving(true);
       setStatusMessage('');
+      // Safety: never save a raw data URL as avatar — it would make the request body huge
+      const safeAvatarUrl = formData.avatarUrl?.startsWith('data:') ? '' : formData.avatarUrl;
       await updateProfile({
         fullName: formData.fullName,
         email: formData.email,
         phone: formData.phone,
         city: formData.city,
-        avatarUrl: formData.avatarUrl,
+        avatarUrl: safeAvatarUrl,
       });
       setStatusMessage(t('Profil berhasil disimpan', 'Profile saved successfully'));
       showToast(t('Profil berhasil disimpan', 'Profile saved successfully'), 'success');
