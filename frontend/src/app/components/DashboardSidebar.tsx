@@ -29,7 +29,7 @@ export default function DashboardSidebar({ userType, userName, unreadMessages = 
 
   const freelancerMenuItems = [
     { icon: Home, label: t('Ringkasan', 'Overview'), path: '/dashboard/freelancer' },
-    { icon: FileText, label: t('Permintaan Pekerjaan', 'Job Requests'), path: '/dashboard/freelancer/requests' },
+    { icon: FileText, label: t('Cari Pekerjaan', 'Job Requests'), path: '/dashboard/freelancer/requests' },
     { icon: Briefcase, label: t('Proyek Saya', 'My Projects'), path: '/dashboard/freelancer/projects' },
     { icon: Folder, label: t('Portofolio', 'Portfolio'), path: '/dashboard/freelancer/portfolio' },
     { icon: DollarSign, label: t('Pendapatan', 'Earnings'), path: '/dashboard/freelancer/earnings' },
@@ -94,7 +94,7 @@ export default function DashboardSidebar({ userType, userName, unreadMessages = 
                 <span className={`min-w-6 h-6 px-2 rounded-full text-xs font-bold inline-flex items-center justify-center ${
                   isActive ? 'bg-black text-[#F5C800]' : 'bg-[#F5C800] text-black'
                 }`}>
-                  {item.badge > 99 ? '99+' : item.badge}
+                  {(item.badge ?? 0) > 99 ? '99+' : item.badge}
                 </span>
               )}
             </Link>

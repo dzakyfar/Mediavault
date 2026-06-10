@@ -1,8 +1,8 @@
 import { FormEvent, useRef, useState } from 'react';
-import { Download, FileUp, Send, X } from 'lucide-react';
+import { Download, FileUp, FolderDown, Send, X } from 'lucide-react';
 import { apiRequest, getStoredToken } from '../../lib/api';
 
-const API_BASE_URL = (import.meta as { env?: { VITE_API_URL?: string } }).env?.VITE_API_URL || 'http://localhost:5000/api';
+const API_BASE_URL = (import.meta as ImportMeta & { env: { VITE_API_URL?: string } }).env?.VITE_API_URL ?? 'http://localhost:5000/api';
 import { PROJECT_SUBMISSION_MAX_BYTES, validateSubmissionFile } from '../../lib/uploadLimits';
 import { uploadFileToS3 } from '../../lib/s3Upload';
 import { useLanguage } from '../../context/LanguageContext';
@@ -49,52 +49,72 @@ export default function ProjectReviewPanel({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [downloading, setDownloading] = useState<string | null>(null);
+  const [downloadingAll, setDownloadingAll] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Shared helper — extracts key from presigned URL and fetches via backend proxy
+  const downloadSingleFile = async (url: string, fileName: string): Promise<void> => {
+    let key: string;
+    if (url.startsWith('http')) {
+      const urlObj = new URL(url);
+      key = urlObj.pathname.replace(/^\//, '');
+    } else {
+      key = url;
+    }
+
+    const token = getStoredToken();
+    const params = new URLSearchParams({ key, name: fileName });
+    const response = await fetch(`${API_BASE_URL}/uploads/proxy-download?${params.toString()}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+
+    if (!response.ok) throw new Error('Download gagal');
+
+    const blob = await response.blob();
+    const blobUrl = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = blobUrl;
+    anchor.download = fileName;
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
+    URL.revokeObjectURL(blobUrl);
+  };
+
   // Download via backend proxy to avoid S3 CORS restrictions.
-  // The browser cannot fetch() a cross-origin S3 presigned URL directly
-  // because the bucket does not have a CORS policy that allows it.
-  // Instead we hit our own backend which streams the file from S3 and sets
-  // Content-Disposition: attachment so the browser downloads it normally.
   const handleDownload = async (url: string, fileName: string) => {
     if (downloading) return;
     try {
       setDownloading(url);
-
-      // Extract the S3 key from a presigned URL or use the value directly if
-      // it's already a raw key (shouldn't normally happen here but safe guard).
-      let key: string;
-      if (url.startsWith('http')) {
-        // Presigned URL path looks like: /uploads/scope/userId/date/uuid-name.ext?X-Amz-...
-        const urlObj = new URL(url);
-        // pathname starts with /  e.g. "/uploads/project-submission/..."
-        key = urlObj.pathname.replace(/^\//, '');
-      } else {
-        key = url;
-      }
-
-      const apiBase = API_BASE_URL;
-      const token = getStoredToken();
-      const params = new URLSearchParams({ key, name: fileName });
-      const response = await fetch(`${apiBase}/uploads/proxy-download?${params.toString()}`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-
-      if (!response.ok) throw new Error('Download gagal');
-
-      const blob = await response.blob();
-      const blobUrl = URL.createObjectURL(blob);
-      const anchor = document.createElement('a');
-      anchor.href = blobUrl;
-      anchor.download = fileName;
-      document.body.appendChild(anchor);
-      anchor.click();
-      document.body.removeChild(anchor);
-      URL.revokeObjectURL(blobUrl);
+      await downloadSingleFile(url, fileName);
     } catch {
       setError(t('Gagal mengunduh file. Coba lagi.', 'Failed to download file. Please try again.'));
     } finally {
       setDownloading(null);
+    }
+  };
+
+  // Download all files from a submission sequentially
+  const handleDownloadAll = async (submission: ProjectSubmission) => {
+    if (!submission.fileUrl || downloadingAll) return;
+    const fileUrls = submission.fileUrl.split('|');
+    const fileNames = submission.fileName?.split('|') || [];
+    if (fileUrls.length === 0) return;
+
+    try {
+      setDownloadingAll(true);
+      setError('');
+      for (let i = 0; i < fileUrls.length; i++) {
+        const url = fileUrls[i];
+        const fileName = fileNames[i] || `file-${i + 1}`;
+        // Small delay between downloads so browser doesn't block them
+        if (i > 0) await new Promise((resolve) => setTimeout(resolve, 600));
+        await downloadSingleFile(url, fileName);
+      }
+    } catch {
+      setError(t('Gagal mengunduh beberapa file. Coba download satu per satu.', 'Failed to download some files. Try downloading one by one.'));
+    } finally {
+      setDownloadingAll(false);
     }
   };
 
@@ -220,18 +240,33 @@ export default function ProjectReviewPanel({
   const renderFile = (submission: ProjectSubmission) => {
     if (!submission.fileUrl) return null;
 
-    // Normalize to arrays regardless of single or multi-file
     const fileUrls = submission.fileUrl.split('|');
     const fileNames = submission.fileName?.split('|') || [];
     const fileTypes = submission.fileType?.split('|') || [];
-    // fileSize is the total combined size — only shown on single-file for accuracy
     const isSingle = fileUrls.length === 1;
 
     return (
       <div className="mt-4 space-y-2">
-        <div className="text-xs font-bold text-[#888888] uppercase tracking-wider">
-          {t('File Hasil', 'Result Files')} ({fileUrls.length})
+        {/* Header row: label + Download All button */}
+        <div className="flex items-center justify-between gap-3">
+          <div className="text-xs font-bold text-[#888888] uppercase tracking-wider">
+            {t('File Hasil', 'Result Files')} ({fileUrls.length})
+          </div>
+          {!isSingle && (
+            <button
+              type="button"
+              onClick={() => handleDownloadAll(submission)}
+              disabled={downloadingAll}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#F5C800]/10 border border-[#F5C800]/40 text-[#F5C800] text-xs font-bold rounded-lg hover:bg-[#F5C800]/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <FolderDown className="w-3.5 h-3.5" />
+              {downloadingAll
+                ? t('Mengunduh semua...', 'Downloading all...')
+                : t('Download Semua', 'Download All')} ({fileUrls.length})
+            </button>
+          )}
         </div>
+
         {fileUrls.map((url, index) => {
           const fileName = fileNames[index] || `file-${index + 1}`;
           const fileType = fileTypes[index] || '';
@@ -240,7 +275,6 @@ export default function ProjectReviewPanel({
 
           return (
             <div key={`${url}-${index}`} className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-lg overflow-hidden">
-              {/* Preview for images */}
               {isImage && (
                 <img
                   src={url}
@@ -248,7 +282,6 @@ export default function ProjectReviewPanel({
                   className="w-full max-h-72 object-contain bg-[#0A0A0A]"
                 />
               )}
-              {/* Preview for videos */}
               {isVideo && (
                 <video
                   src={url}
@@ -256,7 +289,6 @@ export default function ProjectReviewPanel({
                   className="w-full max-h-72 bg-[#0A0A0A]"
                 />
               )}
-              {/* File info + download row */}
               <div className="flex items-center gap-3 px-4 py-3">
                 <span className="text-lg">{getFileIcon(fileType)}</span>
                 <div className="flex-1 min-w-0">
@@ -268,7 +300,7 @@ export default function ProjectReviewPanel({
                 <button
                   type="button"
                   onClick={() => handleDownload(url, fileName)}
-                  disabled={downloading === url}
+                  disabled={downloading === url || downloadingAll}
                   className="inline-flex items-center gap-2 px-3 py-2 bg-[#F5C800] text-black text-xs font-bold rounded-lg hover:bg-[#e6b800] transition-colors shrink-0 disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   <Download className="w-3.5 h-3.5" />
