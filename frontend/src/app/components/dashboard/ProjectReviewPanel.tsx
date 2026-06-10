@@ -1,5 +1,5 @@
 import { FormEvent, useRef, useState } from 'react';
-import { FileUp, Send, X } from 'lucide-react';
+import { Download, FileUp, Send, X } from 'lucide-react';
 import { apiRequest } from '../../lib/api';
 import { PROJECT_SUBMISSION_MAX_BYTES, validateSubmissionFile } from '../../lib/uploadLimits';
 import { uploadFileToS3 } from '../../lib/s3Upload';
@@ -154,65 +154,79 @@ export default function ProjectReviewPanel({
     }
   };
 
+  const getFileIcon = (fileType: string) => {
+    if (fileType.startsWith('image/')) return '🖼️';
+    if (fileType.startsWith('video/')) return '🎬';
+    if (fileType === 'application/pdf') return '📄';
+    return '📁';
+  };
+
+  const formatFileSize = (bytes: number | null) => {
+    if (!bytes) return '';
+    if (bytes >= 1024 * 1024) return ` · ${(bytes / 1024 / 1024).toFixed(1)} MB`;
+    return ` · ${(bytes / 1024).toFixed(0)} KB`;
+  };
+
   const renderFile = (submission: ProjectSubmission) => {
     if (!submission.fileUrl) return null;
 
-    // Handle single file (backward compatibility)
-    if (!submission.fileUrl.includes('|')) {
-      if (submission.fileType?.startsWith('image/')) {
-        return (
-          <img
-            src={submission.fileUrl}
-            alt={submission.fileName || 'Draft submission'}
-            className="mt-3 max-h-72 rounded-lg object-contain bg-[#0A0A0A]"
-          />
-        );
-      }
-
-      return (
-        <a
-          href={submission.fileUrl}
-          download={submission.fileName || 'draft-file'}
-          className="inline-flex mt-3 text-[#F5C800] hover:underline"
-        >
-          {t('Download', 'Download')} {submission.fileName || t('file draft', 'draft file')}
-        </a>
-      );
-    }
-
-    // Handle multiple files (delimiter-separated)
+    // Normalize to arrays regardless of single or multi-file
     const fileUrls = submission.fileUrl.split('|');
-    const fileNames = submission.fileName?.split('|') || fileUrls;
+    const fileNames = submission.fileName?.split('|') || [];
     const fileTypes = submission.fileType?.split('|') || [];
+    // fileSize is the total combined size — only shown on single-file for accuracy
+    const isSingle = fileUrls.length === 1;
 
     return (
-      <div className="mt-3 space-y-2">
+      <div className="mt-4 space-y-2">
+        <div className="text-xs font-bold text-[#888888] uppercase tracking-wider">
+          {t('File Hasil', 'Result Files')} ({fileUrls.length})
+        </div>
         {fileUrls.map((url, index) => {
           const fileName = fileNames[index] || `file-${index + 1}`;
           const fileType = fileTypes[index] || '';
-          
-          // Show images inline
-          if (fileType.startsWith('image/')) {
-            return (
-              <img
-                key={`${url}-${index}`}
-                src={url}
-                alt={fileName}
-                className="max-h-72 rounded-lg object-contain bg-[#0A0A0A]"
-              />
-            );
-          }
+          const isImage = fileType.startsWith('image/');
+          const isVideo = fileType.startsWith('video/');
 
-          // Show download link for other files
           return (
-            <a
-              key={`${url}-${index}`}
-              href={url}
-              download={fileName}
-              className="flex items-center gap-2 text-[#F5C800] hover:underline text-sm"
-            >
-              📥 {t('Download', 'Download')}: {fileName}
-            </a>
+            <div key={`${url}-${index}`} className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-lg overflow-hidden">
+              {/* Preview for images */}
+              {isImage && (
+                <img
+                  src={url}
+                  alt={fileName}
+                  className="w-full max-h-72 object-contain bg-[#0A0A0A]"
+                />
+              )}
+              {/* Preview for videos */}
+              {isVideo && (
+                <video
+                  src={url}
+                  controls
+                  className="w-full max-h-72 bg-[#0A0A0A]"
+                />
+              )}
+              {/* File info + download row */}
+              <div className="flex items-center gap-3 px-4 py-3">
+                <span className="text-lg">{getFileIcon(fileType)}</span>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-bold text-white truncate">{fileName}</div>
+                  {isSingle && submission.fileSize && (
+                    <div className="text-xs text-[#888888]">{formatFileSize(submission.fileSize)}</div>
+                  )}
+                </div>
+                <a
+                  href={url}
+                  download={fileName}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 px-3 py-2 bg-[#F5C800] text-black text-xs font-bold rounded-lg hover:bg-[#e6b800] transition-colors shrink-0"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  {t('Download', 'Download')}
+                </a>
+              </div>
+            </div>
           );
         })}
       </div>

@@ -42,11 +42,22 @@ const resolvePortfolioMedia = async (item) => {
   };
 };
 
+// Resolve a pipe-delimited list of S3 keys/URLs into a pipe-delimited list of
+// signed/public URLs. Falls back to plain resolveMediaUrl for single values so
+// that legacy single-file submissions continue to work.
+const resolveMultiMediaUrl = async (value) => {
+  if (!value) return value;
+  if (!value.includes('|')) return resolveMediaUrl(value);
+  const parts = value.split('|');
+  const resolved = await Promise.all(parts.map((part) => resolveMediaUrl(part.trim())));
+  return resolved.join('|');
+};
+
 const resolveProjectMedia = async (project) => ({
   ...project,
   submissions: await Promise.all((project.submissions || []).map(async (submission) => ({
     ...submission,
-    fileUrl: await resolveMediaUrl(submission.fileUrl),
+    fileUrl: await resolveMultiMediaUrl(submission.fileUrl),
     fileKey: isS3ObjectKey(submission.fileUrl) ? submission.fileUrl : null,
   }))),
   referenceFiles: await Promise.all((project.referenceFiles || []).map(async (file) => ({
@@ -64,6 +75,7 @@ const resolveMessageMedia = async (message) => ({
 
 module.exports = {
   resolveMediaUrl,
+  resolveMultiMediaUrl,
   resolveMessageMedia,
   resolvePortfolioMedia,
   resolveProjectMedia,
