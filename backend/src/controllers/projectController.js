@@ -92,8 +92,8 @@ const validateBriefText = ({ title, description }) => {
     throw new Error('Judul pekerjaan maksimal 64 karakter');
   }
 
-  if (description !== undefined && countCharacters(description) > 500) {
-    throw new Error('Deskripsi maksimal 500 karakter');
+  if (description !== undefined && countCharacters(description) > 1000) {
+    throw new Error('Deskripsi maksimal 1000 karakter');
   }
 };
 
@@ -169,6 +169,11 @@ exports.createProject = async (req, res, next) => {
     if (!parsedBudget || parsedBudget < 10000) {
       res.status(400);
       throw new Error('Budget minimal Rp 10.000');
+    }
+
+    if (parsedBudget > 100_000_000) {
+      res.status(400);
+      throw new Error('Budget maksimal Rp 100.000.000');
     }
 
     let parsedEventDate;
@@ -295,6 +300,11 @@ exports.updateProject = async (req, res, next) => {
     if (parsedBudget !== undefined && (!parsedBudget || parsedBudget < 10000)) {
       res.status(400);
       throw new Error('Budget minimal Rp 10.000');
+    }
+
+    if (parsedBudget !== undefined && parsedBudget > 100_000_000) {
+      res.status(400);
+      throw new Error('Budget maksimal Rp 100.000.000');
     }
 
     let parsedEventDate;

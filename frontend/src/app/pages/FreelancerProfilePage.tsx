@@ -1312,11 +1312,21 @@ export default function FreelancerProfilePage() {
                     />
                     <textarea
                       value={orderData.description}
-                      onChange={(e) => setOrderData({ ...orderData, description: e.target.value })}
+                      onChange={(e) => {
+                        if (e.target.value.length <= 1000) {
+                          setOrderData({ ...orderData, description: e.target.value });
+                        }
+                      }}
                       placeholder={t('Jelaskan kebutuhan Anda secara detail...', 'Explain your needs in detail...')}
                       rows={5}
+                      maxLength={1000}
                       className="w-full bg-[#141414] border border-[#2A2A2A] rounded-lg px-4 py-3 text-white placeholder-[#888888] focus:border-[#F5C800] focus:outline-none"
                     />
+                    <div className="flex justify-end">
+                      <span className={`text-xs ${(orderData.description?.length || 0) > 950 ? 'text-[#EF4444]' : 'text-[#888888]'}`}>
+                        {orderData.description?.length || 0}/1000
+                      </span>
+                    </div>
                     <div>
                       <div className="flex items-center justify-between gap-3 mb-2">
                         <label className="block text-sm text-[#888888]">{t('Jumlah Orang yang Disewa', 'Number of People to Hire')}</label>
