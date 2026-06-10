@@ -1,4 +1,4 @@
-import { FormEvent, useState } from 'react';
+import { FormEvent, useRef, useState } from 'react';
 import { FileUp, Send, X } from 'lucide-react';
 import { apiRequest } from '../../lib/api';
 import { PROJECT_SUBMISSION_MAX_BYTES, validateSubmissionFile } from '../../lib/uploadLimits';
@@ -46,6 +46,7 @@ export default function ProjectReviewPanel({
   }>>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const pendingSubmission = submissions.find((submission) => submission.status === 'PENDING');
   const normalizedProjectStatus = projectStatus.toUpperCase().replace(/[\s-]+/g, '_');
@@ -88,6 +89,11 @@ export default function ProjectReviewPanel({
     
     setFileDrafts([...fileDrafts, ...newFiles]);
     setError('');
+    
+    // Reset file input so user can upload the same file again
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
   const submitDraft = async (event: FormEvent) => {
@@ -114,6 +120,12 @@ export default function ProjectReviewPanel({
       });
       setComment('');
       setFileDrafts([]);
+      
+      // Reset file input after successful submission
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      
       onUpdated(response.project);
     } catch (err) {
       setError(err instanceof Error ? err.message : t('Gagal mengirim hasil', 'Failed to send result'));
@@ -245,7 +257,7 @@ export default function ProjectReviewPanel({
             <label className="inline-flex items-center gap-2 px-4 py-3 border border-[#888888] text-white rounded-lg hover:border-[#F5C800] hover:text-[#F5C800] cursor-pointer transition-colors">
               <FileUp className="w-4 h-4" />
               {t('Upload hasil', 'Upload result')} {fileDrafts.length > 0 && `(${fileDrafts.length})`}
-              <input type="file" multiple accept="image/png,image/jpeg,image/gif,image/webp,application/pdf,video/mp4,video/quicktime,video/webm" className="hidden" onChange={(event) => attachFile(event.target.files || undefined)} />
+              <input ref={fileInputRef} type="file" multiple accept="image/png,image/jpeg,image/gif,image/webp,application/pdf,video/mp4,video/quicktime,video/webm" className="hidden" onChange={(event) => attachFile(event.target.files || undefined)} />
             </label>
             <span className="text-sm text-[#888888]">{t('Foto, video berapapun. PNG, JPEG, GIF, WebP, PDF, MP4, MOV, WebM. Maksimal 500MB per file.', 'Any photos or videos. PNG, JPEG, GIF, WebP, PDF, MP4, MOV, WebM. Max 500MB per file.')}</span>
           </div>
