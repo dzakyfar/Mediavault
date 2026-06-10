@@ -286,9 +286,9 @@ exports.orderFreelancerService = async (req, res, next) => {
       throw new Error('Judul pekerjaan maksimal 64 karakter');
     }
 
-    if (countCharacters(description) > 500) {
+    if (countCharacters(description) > 1000) {
       res.status(400);
-      throw new Error('Deskripsi maksimal 500 karakter');
+      throw new Error('Deskripsi maksimal 1000 karakter');
     }
 
     let parsedEventDate;
@@ -310,6 +310,11 @@ exports.orderFreelancerService = async (req, res, next) => {
     if (!amount || amount < 1) {
       res.status(400);
       throw new Error('Budget minimal Rp 1');
+    }
+
+    if (amount > 100_000_000) {
+      res.status(400);
+      throw new Error('Budget maksimal Rp 100.000.000');
     }
 
     const composedAddress = [addressDetail, village, district, city, province, postalCode].filter(Boolean).join(', ');

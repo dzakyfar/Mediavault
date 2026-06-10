@@ -60,7 +60,7 @@ const getCurrentPosition = (options: PositionOptions) => new Promise<Geolocation
 });
 
 const TITLE_MAX_LENGTH = 64;
-const DESCRIPTION_MAX_LENGTH = 500;
+const DESCRIPTION_MAX_LENGTH = 1000;
 const countCharacters = (value = '') => value.length;
 const sanitizeCurrencyInput = (value: string) => value.replace(/[^\d]/g, '');
 
@@ -353,6 +353,17 @@ export default function PostJobPage() {
     if (step === 2 && (!formData.eventDate || !formData.deadline || !formData.province || !formData.city || !formData.district || !formData.village || !formData.addressDetail)) {
       setError(t('Tanggal pelaksanaan, deadline, provinsi, kota, kecamatan, desa, dan detail alamat wajib diisi', 'Event date, deadline, province, city, district, village, and address details are required'));
       return;
+    }
+    if (step === 2 && formData.budget) {
+      const parsedBudget = Number(formData.budget.replace(/[^\d]/g, ''));
+      if (parsedBudget < 10000) {
+        setError(t('Budget minimal Rp 10.000', 'Minimum budget is Rp 10.000'));
+        return;
+      }
+      if (parsedBudget > 100_000_000) {
+        setError(t('Budget maksimal Rp 100.000.000', 'Maximum budget is Rp 100.000.000'));
+        return;
+      }
     }
     if (step < 3) setStep(step + 1);
   };

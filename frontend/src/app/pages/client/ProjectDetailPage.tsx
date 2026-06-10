@@ -368,7 +368,7 @@ export default function ClientProjectDetail() {
                       {t('Pembayaran QRIS', 'QRIS Payment')}
                     </h2>
                     <p className="text-[#888888]">
-                      {t('Buat QRIS dinamis untuk mengunci freelancer dan mencatat dana escrow internal.', 'Create a dynamic QRIS to lock the freelancer and record the internal escrow funds.')}
+                      {t('Klik tombol untuk membuat QRIS.', 'Create a dynamic QRIS to lock the freelancer and record the internal escrow funds.')}
                     </p>
                     {paymentError && <p className="mt-3 text-sm text-[#EF4444]">{paymentError}</p>}
                   </div>
