@@ -164,7 +164,7 @@ export default function ProjectReviewPanel({
             {t('Review Pengiriman', 'Delivery Review')}
           </h2>
           <p className="text-sm text-[#888888]">
-            {t('Freelancer mengirim hasil pekerjaan, klien menyetujui atau meminta revisi. Dana escrow diteruskan setelah disetujui.', 'Freelancers send work results, clients approve or request revisions. Escrow funds are released after approval.')}
+            {t('Tersedia ketika freelancer mengirim hasil', 'Available when freelancer sends results')}
           </p>
         </div>
         {pendingSubmission && (
