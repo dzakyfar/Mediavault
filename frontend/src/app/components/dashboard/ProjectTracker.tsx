@@ -2,6 +2,7 @@ import { FormEvent, useState } from 'react';
 import { CheckCircle2, Circle } from 'lucide-react';
 import { apiRequest } from '../../lib/api';
 import { useLanguage } from '../../context/LanguageContext';
+import CostBreakdownDisplay from './CostBreakdownDisplay';
 
 interface TrackingStage {
   status: string;
@@ -136,7 +137,13 @@ export default function ProjectTracker({ projectId, stages, histories, canUpdate
               <div className="font-bold text-white">{history.title}</div>
               <div className="text-sm text-[#888888]">{history.createdAt}</div>
             </div>
-            {history.body && <p className="text-[#888888] mt-1">{history.body}</p>}
+            {history.eventType === 'ORDER_COST_BREAKDOWN' && history.body ? (
+              <div className="mt-4">
+                <CostBreakdownDisplay data={history.body} createdAt={history.createdAt} />
+              </div>
+            ) : history.body ? (
+              <p className="text-[#888888] mt-1">{history.body}</p>
+            ) : null}
           </div>
         ))}
       </div>
