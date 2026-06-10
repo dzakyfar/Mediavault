@@ -37,13 +37,13 @@ export default function ProjectReviewPanel({
   const { t } = useLanguage();
   const [comment, setComment] = useState('');
   const [reviewComment, setReviewComment] = useState('');
-  const [fileDraft, setFileDraft] = useState<{
+  const [fileDrafts, setFileDrafts] = useState<Array<{
     key: string;
     previewUrl: string;
     name: string;
     type: string;
     size: number;
-  } | null>(null);
+  }>>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -59,33 +59,41 @@ export default function ProjectReviewPanel({
   const canonicalProjectStatus = statusAliases[normalizedProjectStatus] || normalizedProjectStatus;
   const canSubmitDraft = userType === 'freelancer' && ['PAID', 'CONFIRMED', 'IN_PROGRESS', 'UNDER_REVIEW'].includes(canonicalProjectStatus);
 
-  const attachFile = async (file?: File) => {
-    if (!file) return;
-    const validationError = validateSubmissionFile(file, PROJECT_SUBMISSION_MAX_BYTES);
-    if (validationError) {
-      setError(validationError);
-      return;
-    }
+  const attachFile = async (files?: FileList) => {
+    if (!files || files.length === 0) return;
+    
+    const newFiles = [];
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const validationError = validateSubmissionFile(file, PROJECT_SUBMISSION_MAX_BYTES);
+      if (validationError) {
+        setError(validationError);
+        return;
+      }
 
-    try {
-      const uploaded = await uploadFileToS3(file, 'project-submission');
-      setFileDraft({
-        key: uploaded.key,
-        previewUrl: uploaded.url,
-        name: uploaded.fileName,
-        type: uploaded.fileType,
-        size: uploaded.fileSize,
-      });
-      setError('');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t('Gagal upload hasil kerja. Cek konfigurasi storage atau ukuran file.', 'Failed to upload work result. Check storage configuration or file size.'));
+      try {
+        const uploaded = await uploadFileToS3(file, 'project-submission');
+        newFiles.push({
+          key: uploaded.key,
+          previewUrl: uploaded.url,
+          name: uploaded.fileName,
+          type: uploaded.fileType,
+          size: uploaded.fileSize,
+        });
+      } catch (err) {
+        setError(err instanceof Error ? err.message : t('Gagal upload hasil kerja. Cek konfigurasi storage atau ukuran file.', 'Failed to upload work result. Check storage configuration or file size.'));
+        return;
+      }
     }
+    
+    setFileDrafts([...fileDrafts, ...newFiles]);
+    setError('');
   };
 
   const submitDraft = async (event: FormEvent) => {
     event.preventDefault();
-    if (!comment.trim() || !fileDraft) {
-      setError(t('Komentar dan file hasil wajib diisi', 'Comment and result file are required'));
+    if (!comment.trim() || fileDrafts.length === 0) {
+      setError(t('Komentar dan minimal 1 file hasil wajib diisi', 'Comment and at least 1 result file are required'));
       return;
     }
 
@@ -96,14 +104,16 @@ export default function ProjectReviewPanel({
         method: 'POST',
         body: JSON.stringify({
           comment,
-          fileUrl: fileDraft.key,
-          fileName: fileDraft.name,
-          fileType: fileDraft.type,
-          fileSize: fileDraft.size,
+          files: fileDrafts.map(f => ({
+            fileUrl: f.key,
+            fileName: f.name,
+            fileType: f.type,
+            fileSize: f.size,
+          })),
         }),
       });
       setComment('');
-      setFileDraft(null);
+      setFileDrafts([]);
       onUpdated(response.project);
     } catch (err) {
       setError(err instanceof Error ? err.message : t('Gagal mengirim hasil', 'Failed to send result'));
@@ -135,24 +145,65 @@ export default function ProjectReviewPanel({
   const renderFile = (submission: ProjectSubmission) => {
     if (!submission.fileUrl) return null;
 
-    if (submission.fileType?.startsWith('image/')) {
+    // Handle single file (backward compatibility)
+    if (!submission.fileUrl.includes('|')) {
+      if (submission.fileType?.startsWith('image/')) {
+        return (
+          <img
+            src={submission.fileUrl}
+            alt={submission.fileName || 'Draft submission'}
+            className="mt-3 max-h-72 rounded-lg object-contain bg-[#0A0A0A]"
+          />
+        );
+      }
+
       return (
-        <img
-          src={submission.fileUrl}
-          alt={submission.fileName || 'Draft submission'}
-          className="mt-3 max-h-72 rounded-lg object-contain bg-[#0A0A0A]"
-        />
+        <a
+          href={submission.fileUrl}
+          download={submission.fileName || 'draft-file'}
+          className="inline-flex mt-3 text-[#F5C800] hover:underline"
+        >
+          {t('Download', 'Download')} {submission.fileName || t('file draft', 'draft file')}
+        </a>
       );
     }
 
+    // Handle multiple files (delimiter-separated)
+    const fileUrls = submission.fileUrl.split('|');
+    const fileNames = submission.fileName?.split('|') || fileUrls;
+    const fileTypes = submission.fileType?.split('|') || [];
+
     return (
-      <a
-        href={submission.fileUrl}
-        download={submission.fileName || 'draft-file'}
-        className="inline-flex mt-3 text-[#F5C800] hover:underline"
-      >
-        {t('Download', 'Download')} {submission.fileName || t('file draft', 'draft file')}
-      </a>
+      <div className="mt-3 space-y-2">
+        {fileUrls.map((url, index) => {
+          const fileName = fileNames[index] || `file-${index + 1}`;
+          const fileType = fileTypes[index] || '';
+          
+          // Show images inline
+          if (fileType.startsWith('image/')) {
+            return (
+              <img
+                key={`${url}-${index}`}
+                src={url}
+                alt={fileName}
+                className="max-h-72 rounded-lg object-contain bg-[#0A0A0A]"
+              />
+            );
+          }
+
+          // Show download link for other files
+          return (
+            <a
+              key={`${url}-${index}`}
+              href={url}
+              download={fileName}
+              className="flex items-center gap-2 text-[#F5C800] hover:underline text-sm"
+            >
+              📥 {t('Download', 'Download')}: {fileName}
+            </a>
+          );
+        })}
+      </div>
     );
   };
 
@@ -193,21 +244,26 @@ export default function ProjectReviewPanel({
           <div className="mt-3 flex items-center gap-3 flex-wrap">
             <label className="inline-flex items-center gap-2 px-4 py-3 border border-[#888888] text-white rounded-lg hover:border-[#F5C800] hover:text-[#F5C800] cursor-pointer transition-colors">
               <FileUp className="w-4 h-4" />
-              {t('Upload hasil', 'Upload result')}
-              <input type="file" accept="image/png,image/jpeg,application/pdf,video/mp4,video/quicktime,video/webm" className="hidden" onChange={(event) => attachFile(event.target.files?.[0])} />
+              {t('Upload hasil', 'Upload result')} {fileDrafts.length > 0 && `(${fileDrafts.length})`}
+              <input type="file" multiple accept="image/png,image/jpeg,image/gif,image/webp,application/pdf,video/mp4,video/quicktime,video/webm" className="hidden" onChange={(event) => attachFile(event.target.files || undefined)} />
             </label>
-            <span className="text-sm text-[#888888]">{t('PNG, JPEG, PDF, MP4, MOV, atau WebM. Maksimal 500MB.', 'PNG, JPEG, PDF, MP4, MOV, or WebM. Maximum 500MB.')}</span>
+            <span className="text-sm text-[#888888]">{t('Foto, video berapapun. PNG, JPEG, GIF, WebP, PDF, MP4, MOV, WebM. Maksimal 500MB per file.', 'Any photos or videos. PNG, JPEG, GIF, WebP, PDF, MP4, MOV, WebM. Max 500MB per file.')}</span>
           </div>
 
-          {fileDraft && (
-            <div className="mt-3 flex items-center gap-3 bg-[#1A1A1A] border border-[#2A2A2A] rounded-lg p-3">
-              <div className="flex-1">
-                <div className="font-bold text-white">{fileDraft.name}</div>
-                <div className="text-sm text-[#888888]">{fileDraft.type}</div>
-              </div>
-              <button type="button" onClick={() => setFileDraft(null)} className="text-[#888888] hover:text-[#EF4444]">
-                <X className="w-5 h-5" />
-              </button>
+          {fileDrafts.length > 0 && (
+            <div className="mt-3 space-y-2">
+              <div className="text-sm font-bold text-white">{t('File yang dipilih:', 'Selected files:')}</div>
+              {fileDrafts.map((file, index) => (
+                <div key={`${file.key}-${index}`} className="flex items-center gap-3 bg-[#1A1A1A] border border-[#2A2A2A] rounded-lg p-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="font-bold text-white truncate">{file.name}</div>
+                    <div className="text-sm text-[#888888]">{(file.size / 1024 / 1024).toFixed(2)} MB</div>
+                  </div>
+                  <button type="button" onClick={() => setFileDrafts(fileDrafts.filter((_, i) => i !== index))} className="text-[#888888] hover:text-[#EF4444]">
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+              ))}
             </div>
           )}
 

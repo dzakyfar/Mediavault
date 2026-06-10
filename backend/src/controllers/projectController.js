@@ -579,17 +579,25 @@ exports.updateProjectProgress = async (req, res, next) => {
 exports.submitProjectReview = async (req, res, next) => {
   try {
     const { projectId } = req.params;
-    const { comment, fileUrl, fileName, fileType, fileSize } = req.body;
+    const { comment, files } = req.body;
 
     if (!comment?.trim()) {
       res.status(400);
       throw new Error('Komentar progress wajib diisi');
     }
 
-    const fileError = validateSubmissionFile({ fileUrl, fileType, fileSize });
-    if (fileError) {
+    if (!files || !Array.isArray(files) || files.length === 0) {
       res.status(400);
-      throw new Error(fileError);
+      throw new Error('Minimal 1 file hasil wajib dikirim');
+    }
+
+    // Validate all files
+    for (const file of files) {
+      const fileError = validateSubmissionFile(file, 500 * 1024 * 1024); // 500MB per file
+      if (fileError) {
+        res.status(400);
+        throw new Error(fileError);
+      }
     }
 
     const project = await prisma.project.findUnique({
@@ -610,16 +618,22 @@ exports.submitProjectReview = async (req, res, next) => {
     const deliveredAt = new Date();
     const autoReleaseAt = new Date(deliveredAt.getTime() + 72 * 60 * 60 * 1000);
 
+    // Store multiple files using pipe delimiter
+    const fileUrls = files.map(f => f.fileUrl).join('|');
+    const fileNames = files.map(f => f.fileName).join('|');
+    const fileTypes = files.map(f => f.fileType).join('|');
+    const totalSize = files.reduce((sum, f) => sum + (Number.isFinite(Number(f.fileSize)) ? Number(f.fileSize) : 0), 0);
+
     const [submission, updatedProject] = await prisma.$transaction([
       prisma.projectSubmission.create({
         data: {
           projectId,
           freelancerId: req.user.id,
           comment: comment.trim(),
-          fileUrl,
-          fileName: fileName || null,
-          fileType,
-          fileSize: Number.isFinite(Number(fileSize)) ? Number(fileSize) : null,
+          fileUrl: fileUrls,
+          fileName: fileNames,
+          fileType: fileTypes,
+          fileSize: totalSize,
         },
       }),
       prisma.project.update({
