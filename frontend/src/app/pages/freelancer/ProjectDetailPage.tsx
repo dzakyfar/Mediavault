@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router';
-import { MapPin } from 'lucide-react';
+import { MapPin, Navigation } from 'lucide-react';
 import DashboardLayout from '../../components/DashboardLayout';
 import EmptyState from '../../components/EmptyState';
 import ProjectTracker from '../../components/dashboard/ProjectTracker';
 import ProjectReviewPanel, { ProjectSubmission } from '../../components/dashboard/ProjectReviewPanel';
 import { apiRequest } from '../../lib/api';
-import { buildGoogleMapsSearchUrl, buildGoogleMapsEmbedUrl } from '../../lib/googleMaps';
+import { buildGoogleMapsSearchUrl, buildGoogleMapsDirectionsUrl, buildGoogleMapsEmbedUrl } from '../../lib/googleMaps';
 import { useLanguage } from '../../context/LanguageContext';
 
 interface ProjectDetail {
@@ -137,17 +137,28 @@ export default function FreelancerProjectDetail() {
                   <p className="text-[#888888] mt-2">{project.addressDetail || project.address || '-'}</p>
                   {project.postalCode && <p className="text-[#888888] mt-1">{t('Kode Pos:', 'Postal Code:')} {project.postalCode}</p>}
                   {project.latitude && project.longitude && (
-                    <div className="mt-4">
-                      <a
-                        href={buildGoogleMapsSearchUrl(`${project.latitude},${project.longitude}`)}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center gap-2 text-[#F5C800] hover:underline font-medium"
-                      >
-                        <MapPin className="w-4 h-4" />
-                        {t('Buka di Google Maps', 'Open in Google Maps')}
-                      </a>
-                      <div className="mt-3 rounded-lg overflow-hidden border border-[#2A2A2A]">
+                    <div className="mt-4 space-y-3">
+                      <div className="flex flex-wrap gap-3">
+                        <a
+                          href={buildGoogleMapsDirectionsUrl(`${project.latitude},${project.longitude}`)}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-2 px-5 py-3 bg-[#F5C800] text-black font-bold rounded-lg text-sm hover:shadow-[0_0_12px_rgba(245,200,0,0.4)] transition-all"
+                        >
+                          <Navigation className="w-4 h-4" />
+                          {t('Navigasi ke Lokasi', 'Navigate to Location')}
+                        </a>
+                        <a
+                          href={buildGoogleMapsSearchUrl(`${project.latitude},${project.longitude}`)}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-2 px-5 py-3 border border-[#888888] text-white rounded-lg text-sm hover:border-[#F5C800] hover:text-[#F5C800] transition-colors"
+                        >
+                          <MapPin className="w-4 h-4" />
+                          {t('Lihat di Maps', 'View on Maps')}
+                        </a>
+                      </div>
+                      <div className="rounded-lg overflow-hidden border border-[#2A2A2A]">
                         <iframe
                           title="Project Location Map"
                           src={buildGoogleMapsEmbedUrl(`${project.latitude},${project.longitude}`, 16)}
@@ -158,7 +169,7 @@ export default function FreelancerProjectDetail() {
                           allowFullScreen
                         />
                       </div>
-                      <p className="text-xs text-[#888888] mt-2">
+                      <p className="text-xs text-[#888888]">
                         {t('Koordinat:', 'Coordinates:')} {project.latitude}, {project.longitude}
                       </p>
                     </div>

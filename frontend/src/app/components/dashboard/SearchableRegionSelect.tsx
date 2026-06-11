@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { normalizeRegionName, RegionOption } from '../../lib/indonesiaRegions';
 import { useLanguage } from '../../context/LanguageContext';
 
@@ -10,6 +10,7 @@ interface SearchableRegionSelectProps {
   disabled?: boolean;
   onChange: (value: string) => void;
   onSelect: (option: RegionOption) => void;
+  noResultsText?: string;
 }
 
 export default function SearchableRegionSelect({
@@ -20,15 +21,17 @@ export default function SearchableRegionSelect({
   disabled,
   onChange,
   onSelect,
+  noResultsText,
 }: SearchableRegionSelectProps) {
   const { t } = useLanguage();
   const [open, setOpen] = useState(false);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
   const filteredOptions = useMemo(() => {
     const keyword = normalizeRegionName(value);
     const result = keyword
       ? options.filter((option) => normalizeRegionName(option.name).includes(keyword))
       : options;
-    return result.slice(0, 80);
+    return result.slice(0, 100);
   }, [options, value]);
 
   return (
@@ -47,10 +50,14 @@ export default function SearchableRegionSelect({
         className="w-full bg-[#141414] border border-[#2A2A2A] rounded-lg px-4 py-3 text-white placeholder-[#888888] focus:border-[#F5C800] focus:outline-none focus:ring-2 focus:ring-[#F5C800]/20 transition-all disabled:opacity-60"
       />
       {open && !disabled && (
-        <div className="absolute z-30 mt-2 w-full max-h-72 overflow-y-auto rounded-lg border border-[#2A2A2A] bg-[#101010] shadow-xl">
+        <div
+          ref={scrollRef}
+          className="absolute z-30 mt-2 w-full max-h-80 overflow-y-auto overscroll-contain rounded-lg border border-[#2A2A2A] bg-[#101010] shadow-xl"
+          style={{ WebkitOverflowScrolling: 'touch' }}
+        >
           {filteredOptions.length === 0 && (
             <div className="px-4 py-3 text-sm text-[#888888]">
-              {t('Tidak ada hasil. Coba ejaan lain atau ketik manual lalu verifikasi alamat.', 'No results found. Try another spelling or type manually, then verify the address.')}
+              {noResultsText || t('Tidak ada hasil. Coba ejaan lain atau ketik manual lalu verifikasi alamat.', 'No results found. Try another spelling or type manually, then verify the address.')}
             </div>
           )}
           {filteredOptions.map((option) => (
@@ -62,7 +69,7 @@ export default function SearchableRegionSelect({
                 onSelect(option);
                 setOpen(false);
               }}
-              className="block w-full px-4 py-3 text-left text-sm text-white hover:bg-[#F5C800] hover:text-black transition-colors"
+              className="block w-full px-4 py-3 text-left text-sm text-white hover:bg-[#F5C800] hover:text-black active:bg-[#F5C800] active:text-black transition-colors"
             >
               {option.name}
             </button>

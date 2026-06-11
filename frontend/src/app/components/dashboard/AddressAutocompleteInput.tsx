@@ -6,6 +6,8 @@ interface AddressAutocompleteInputProps {
   value: string;
   onChange: (value: string) => void;
   onResolved?: (result: AddressLookupResult) => void;
+  /** Additional context like selected province/city/district to improve search accuracy */
+  regionContext?: string;
   placeholder?: string;
   label?: string;
   disabled?: boolean;
@@ -16,6 +18,7 @@ export default function AddressAutocompleteInput({
   value,
   onChange,
   onResolved,
+  regionContext = '',
   placeholder = 'Ketik alamat lengkap...',
   label,
   disabled = false,
@@ -48,9 +51,14 @@ export default function AddressAutocompleteInput({
       return;
     }
 
+    // Combine typed text with region context for better results (like Shopee/Google Maps)
+    const searchQuery = regionContext.trim()
+      ? `${query.trim()}, ${regionContext.trim()}`
+      : query.trim();
+
     setLoading(true);
     try {
-      const results = await searchAddressSuggestions(query);
+      const results = await searchAddressSuggestions(searchQuery);
       setSuggestions(results);
       setShowDropdown(results.length > 0);
     } catch {
@@ -58,7 +66,7 @@ export default function AddressAutocompleteInput({
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [regionContext]);
 
   const handleInputChange = (newValue: string) => {
     if (skipSearchRef.current) {
@@ -70,7 +78,7 @@ export default function AddressAutocompleteInput({
     onChange(newValue);
 
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => fetchSuggestions(newValue), 400);
+    debounceRef.current = setTimeout(() => fetchSuggestions(newValue), 350);
   };
 
   const handleSelectSuggestion = async (suggestion: AddressSuggestion) => {
@@ -140,18 +148,19 @@ export default function AddressAutocompleteInput({
 
       {/* Suggestions dropdown */}
       {showDropdown && suggestions.length > 0 && (
-        <div className="absolute z-50 w-full mt-1 bg-[#1E1E1E] border border-[#2A2A2A] rounded-lg shadow-2xl max-h-64 overflow-y-auto">
+        <div className="absolute z-50 w-full mt-1 bg-[#1E1E1E] border border-[#2A2A2A] rounded-lg shadow-2xl max-h-64 overflow-y-auto overscroll-contain">
           {suggestions.map((suggestion) => (
             <button
               key={suggestion.id}
               type="button"
+              onMouseDown={(e) => e.preventDefault()}
               onClick={() => handleSelectSuggestion(suggestion)}
-              className="w-full text-left px-4 py-3 hover:bg-[#2A2A2A] transition-colors border-b border-[#2A2A2A] last:border-b-0 flex items-start gap-3"
+              className="w-full text-left px-4 py-3 hover:bg-[#2A2A2A] active:bg-[#F5C800] active:text-black transition-colors border-b border-[#2A2A2A] last:border-b-0 flex items-start gap-3"
             >
               <MapPin className="w-4 h-4 text-[#F5C800] mt-0.5 flex-shrink-0" />
               <div className="min-w-0">
                 <div className="text-white text-sm font-medium truncate">
-                  {suggestion.mainText || suggestion.label}
+                  {suggestion.mainText || suggestion.label.split(',')[0]}
                 </div>
                 {suggestion.secondaryText && suggestion.secondaryText !== suggestion.mainText && (
                   <div className="text-[#888888] text-xs truncate mt-0.5">
@@ -167,7 +176,7 @@ export default function AddressAutocompleteInput({
       {/* No results hint */}
       {showDropdown && suggestions.length === 0 && !loading && value.trim().length >= 3 && (
         <div className="absolute z-50 w-full mt-1 bg-[#1E1E1E] border border-[#2A2A2A] rounded-lg shadow-2xl px-4 py-3 text-[#888888] text-sm">
-          Tidak ada saran alamat ditemukan. Ketik alamat manual lalu pilih wilayah di bawah.
+          Tidak ada saran ditemukan. Ketik alamat manual lalu pilih wilayah di bawah.
         </div>
       )}
     </div>
