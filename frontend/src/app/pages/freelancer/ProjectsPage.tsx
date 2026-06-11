@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
-import { Camera, Upload } from 'lucide-react';
+import { Camera, MapPin, Upload } from 'lucide-react';
 import DashboardLayout from '../../components/DashboardLayout';
 import EmptyState from '../../components/EmptyState';
 import { useLanguage } from '../../context/LanguageContext';
 import { apiRequest } from '../../lib/api';
+import { buildGoogleMapsSearchUrl, buildGoogleMapsEmbedUrl } from '../../lib/googleMaps';
 
 interface Project {
   id: string;
@@ -19,8 +20,15 @@ interface Project {
   files: number;
   amount: string;
   statusColor: string;
+  province: string | null;
   city: string | null;
+  district: string | null;
+  village: string | null;
+  postalCode: string | null;
   address: string | null;
+  addressDetail: string | null;
+  latitude: number | null;
+  longitude: number | null;
 }
 
 export default function FreelancerProjects() {
@@ -139,9 +147,54 @@ export default function FreelancerProjects() {
                     {t('Untuk', 'For')} {project.client}
                   </div>
                   <span>{t('Jasa', 'Service')}: {project.serviceType || t('Jasa kreatif', 'Creative service')}</span>
-                  <span>{t('Lokasi', 'Location')}: {project.city || '-'}</span>
                 </div>
-                {project.address && <p className="text-sm text-[#888888] mt-2">{project.address}</p>}
+                {/* Location section with map */}
+                <div className="mt-3 bg-[#141414] rounded-lg p-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[#888888] text-xs mb-1 uppercase tracking-wide">{t('Lokasi', 'Location')}</div>
+                      <div className="text-white font-bold text-sm">
+                        {[project.village, project.district, project.city, project.province].filter(Boolean).join(', ') || '-'}
+                      </div>
+                      {(project.addressDetail || project.address) && (
+                        <p className="text-[#888888] text-sm mt-1">{project.addressDetail || project.address}</p>
+                      )}
+                      {project.postalCode && (
+                        <p className="text-[#888888] text-xs mt-1">{t('Kode Pos:', 'Postal Code:')} {project.postalCode}</p>
+                      )}
+                      {project.latitude != null && project.longitude != null && (
+                        <a
+                          href={buildGoogleMapsSearchUrl(`${project.latitude},${project.longitude}`)}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1.5 mt-2 text-[#F5C800] text-sm hover:underline"
+                        >
+                          <MapPin className="w-3.5 h-3.5" />
+                          {t('Buka di Google Maps', 'Open in Google Maps')}
+                        </a>
+                      )}
+                    </div>
+                    {/* Embedded map preview */}
+                    {project.latitude != null && project.longitude != null && (
+                      <a
+                        href={buildGoogleMapsSearchUrl(`${project.latitude},${project.longitude}`)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex-shrink-0 w-32 h-24 rounded-lg overflow-hidden border border-[#2A2A2A] hover:border-[#F5C800] transition-colors"
+                        title={t('Klik untuk buka Maps', 'Click to open Maps')}
+                      >
+                        <iframe
+                          title={`Map for ${project.title}`}
+                          src={buildGoogleMapsEmbedUrl(`${project.latitude},${project.longitude}`, 15)}
+                          width="128"
+                          height="96"
+                          style={{ border: 0, pointerEvents: 'none' }}
+                          loading="lazy"
+                        />
+                      </a>
+                    )}
+                  </div>
+                </div>
               </div>
               <span className={`px-4 py-2 rounded-full text-sm font-bold ${project.statusColor}`}>
                 {statusLabel(project.status)}

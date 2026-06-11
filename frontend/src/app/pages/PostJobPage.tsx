@@ -2,8 +2,10 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { ArrowLeft, ArrowRight, Check, FileUp, MapPin, X } from 'lucide-react';
 import DashboardLayout from '../components/DashboardLayout';
+import AddressAutocompleteInput from '../components/dashboard/AddressAutocompleteInput';
 import DraggableLocationMap from '../components/dashboard/DraggableLocationMap';
 import { apiRequest } from '../lib/api';
+import { type AddressLookupResult } from '../lib/googleMaps';
 import { getServicesForCategory, serviceCatalog } from '../lib/serviceCatalog';
 import { formatBytes, REFERENCE_FILE_MAX_BYTES, S3_TOTAL_LIMIT_BYTES, validateReferenceFile } from '../lib/uploadLimits';
 import { uploadFileToS3 } from '../lib/s3Upload';
@@ -855,11 +857,11 @@ export default function PostJobPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm text-[#888888] mb-2">{t('Detail Alamat', 'Address Details')}</label>
-                  <textarea
+                  <AddressAutocompleteInput
+                    label={t('Detail Alamat', 'Address Details')}
                     value={formData.addressDetail}
-                    onChange={(e) => {
-                      const addressDetail = e.target.value;
+                    placeholder={t('Ketik alamat lengkap (cth: Jl. Raya Darmo 10, Surabaya) — akan muncul saran dari Maps', 'Type full address (e.g. Jl. Raya Darmo 10, Surabaya) — suggestions from Maps will appear')}
+                    onChange={(addressDetail) => {
                       const address = [
                         addressDetail,
                         formData.village,
@@ -868,11 +870,86 @@ export default function PostJobPage() {
                         formData.province,
                         formData.postalCode,
                       ].filter(Boolean).join(', ');
-                      setFormData({ ...formData, addressDetail, address, locationSource: 'manual' });
+                      setFormData((prev) => ({ ...prev, addressDetail, address, locationSource: 'manual' }));
                     }}
-                    placeholder={t('Nama venue, jalan, nomor rumah/gedung, patokan, instruksi masuk', 'Venue name, street, house/building number, landmark, entry instructions')}
-                    rows={4}
-                    className="w-full bg-[#141414] border border-[#2A2A2A] rounded-lg px-4 py-3 text-white placeholder-[#888888] focus:border-[#F5C800] focus:outline-none focus:ring-2 focus:ring-[#F5C800]/20 transition-all"
+                    onResolved={async (result: AddressLookupResult) => {
+                      // Auto-fill region fields from Maps suggestion
+                      const parts = result.parts;
+                      if (!parts) {
+                        setFormData((prev) => ({
+                          ...prev,
+                          latitude: result.latitude,
+                          longitude: result.longitude,
+                          address: result.label,
+                          locationSource: 'geo',
+                        }));
+                        return;
+                      }
+
+                      // Try to match province
+                      let matchedProvinceId = '';
+                      let matchedCityId = '';
+                      let matchedDistrictId = '';
+                      let cityOpts: RegionOption[] = [];
+                      let districtOpts: RegionOption[] = [];
+                      let villageOpts: RegionOption[] = [];
+
+                      if (parts.province) {
+                        const match = findRegionByName(provinces, parts.province);
+                        if (match) {
+                          matchedProvinceId = match.id;
+                          try {
+                            cityOpts = await fetchRegionOptions(`/regencies/${match.id}.json`);
+                          } catch { /* ignore */ }
+                        }
+                      }
+
+                      if (parts.city && cityOpts.length > 0) {
+                        const match = findRegionByName(cityOpts, parts.city);
+                        if (match) {
+                          matchedCityId = match.id;
+                          try {
+                            districtOpts = await fetchRegionOptions(`/districts/${match.id}.json`);
+                          } catch { /* ignore */ }
+                        }
+                      }
+
+                      if (parts.district && districtOpts.length > 0) {
+                        const match = findRegionByName(districtOpts, parts.district);
+                        if (match) {
+                          matchedDistrictId = match.id;
+                          try {
+                            villageOpts = await fetchRegionOptions(`/villages/${match.id}.json`);
+                          } catch { /* ignore */ }
+                        }
+                      }
+
+                      setSelectedProvinceId(matchedProvinceId);
+                      setSelectedCityId(matchedCityId);
+                      setSelectedDistrictId(matchedDistrictId);
+                      setCities(cityOpts);
+                      setDistricts(districtOpts);
+                      setVillages(villageOpts);
+
+                      const resolvedProvince = matchedProvinceId ? (findRegionByName(cityOpts.length > 0 ? provinces : [], parts.province || '')?.name || parts.province || '') : parts.province || '';
+                      const resolvedCity = matchedCityId ? (cityOpts.find((o) => o.id === matchedCityId)?.name || parts.city || '') : parts.city || '';
+                      const resolvedDistrict = matchedDistrictId ? (districtOpts.find((o) => o.id === matchedDistrictId)?.name || parts.district || '') : parts.district || '';
+                      const resolvedVillage = parts.village || '';
+
+                      setFormData((prev) => ({
+                        ...prev,
+                        province: resolvedProvince || prev.province,
+                        city: resolvedCity || prev.city,
+                        district: resolvedDistrict || prev.district,
+                        village: resolvedVillage || prev.village,
+                        postalCode: parts.postalCode || prev.postalCode,
+                        addressDetail: parts.addressDetail || prev.addressDetail,
+                        latitude: result.latitude,
+                        longitude: result.longitude,
+                        address: result.label,
+                        locationSource: 'geo',
+                      }));
+                    }}
                   />
                   <p className="text-xs text-[#888888] mt-2">
                     {t('Alamat tersimpan:', 'Saved address:')} {[formData.addressDetail, formData.village, formData.district, formData.city, formData.province, formData.postalCode].filter(Boolean).join(', ') || '-'}
