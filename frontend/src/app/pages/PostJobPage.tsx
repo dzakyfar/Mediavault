@@ -860,7 +860,8 @@ export default function PostJobPage() {
                   <AddressAutocompleteInput
                     label={t('Detail Alamat', 'Address Details')}
                     value={formData.addressDetail}
-                    placeholder={t('Ketik alamat lengkap (cth: Jl. Raya Darmo 10, Surabaya) — akan muncul saran dari Maps', 'Type full address (e.g. Jl. Raya Darmo 10, Surabaya) — suggestions from Maps will appear')}
+                    regionContext={[formData.district, formData.city, formData.province].filter(Boolean).join(', ')}
+                    placeholder={t('Ketik alamat lengkap (cth: Jl. Raya Darmo 10) — saran dari Maps muncul otomatis', 'Type full address (e.g. Jl. Raya Darmo 10) — Maps suggestions appear automatically')}
                     onChange={(addressDetail) => {
                       const address = [
                         addressDetail,

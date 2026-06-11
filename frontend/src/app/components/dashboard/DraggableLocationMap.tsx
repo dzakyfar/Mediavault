@@ -1,6 +1,6 @@
 import { MapPin, Minus, Plus } from 'lucide-react';
-import { useMemo, useRef, useState } from 'react';
-import { buildGoogleMapsEmbedUrl, buildGoogleMapsSearchUrl } from '../../lib/googleMaps';
+import { useCallback, useMemo, useRef, useState } from 'react';
+import { buildGoogleMapsSearchUrl } from '../../lib/googleMaps';
 
 interface DraggableLocationMapProps {
   latitude: string;
@@ -12,10 +12,11 @@ interface DraggableLocationMapProps {
 
 const TILE_SIZE = 256;
 const DEFAULT_ZOOM = 15;
-const MIN_ZOOM = 5;
+const MIN_ZOOM = 3;
 const MAX_ZOOM = 19;
 const DEFAULT_LATITUDE = -7.2575;
 const DEFAULT_LONGITUDE = 112.7521;
+const OVERSCAN = 2; // tiles beyond viewport for smooth scrolling
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
@@ -36,12 +37,12 @@ const tileYToLat = (y: number, zoom: number) => {
 export default function DraggableLocationMap({
   latitude,
   longitude,
-  fallbackQuery,
+  fallbackQuery: _fallbackQuery,
   onChange,
   onCommit,
 }: DraggableLocationMapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const dragStartTileRef = useRef<{ x: number; y: number } | null>(null);
+  const dragStartRef = useRef<{ pointerX: number; pointerY: number; centerLat: number; centerLon: number } | null>(null);
   const lastCoordinateRef = useRef<{ latitude: string; longitude: string } | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [dragging, setDragging] = useState(false);
@@ -56,50 +57,93 @@ export default function DraggableLocationMap({
     };
   }, [latitude, longitude]);
 
-  const centerTile = useMemo(() => ({
-    x: lonToTileX(center.lon, zoom),
-    y: latToTileY(center.lat, zoom),
-  }), [center.lat, center.lon, zoom]);
-
-  const dragPosition = useMemo(() => {
-    const nextTileX = centerTile.x + dragOffset.x / TILE_SIZE;
-    const nextTileY = centerTile.y + dragOffset.y / TILE_SIZE;
+  // The effective center accounts for drag offset
+  const effectiveCenter = useMemo(() => {
+    if (!dragging) return center;
+    const centerTileX = lonToTileX(center.lon, zoom);
+    const centerTileY = latToTileY(center.lat, zoom);
+    const newTileX = centerTileX + dragOffset.x / TILE_SIZE;
+    const newTileY = centerTileY + dragOffset.y / TILE_SIZE;
     return {
-      lat: tileYToLat(nextTileY, zoom),
-      lon: tileXToLon(nextTileX, zoom),
+      lat: clamp(tileYToLat(newTileY, zoom), -85, 85),
+      lon: clamp(tileXToLon(newTileX, zoom), -180, 180),
     };
-  }, [centerTile.x, centerTile.y, dragOffset.x, dragOffset.y, zoom]);
+  }, [center, dragOffset.x, dragOffset.y, zoom, dragging]);
 
-  const updateFromPointer = (clientX: number, clientY: number) => {
+  // Build tile list covering the container + overscan
+  const tiles = useMemo(() => {
+    const container = containerRef.current;
+    const width = container?.clientWidth || 400;
+    const height = container?.clientHeight || 288;
+    const centerTileX = lonToTileX(effectiveCenter.lon, zoom);
+    const centerTileY = latToTileY(effectiveCenter.lat, zoom);
+    const halfTilesX = Math.ceil(width / (2 * TILE_SIZE)) + OVERSCAN;
+    const halfTilesY = Math.ceil(height / (2 * TILE_SIZE)) + OVERSCAN;
+
+    const tileList: Array<{ key: string; src: string; left: number; top: number }> = [];
+    const maxTile = 2 ** zoom;
+
+    for (let dy = -halfTilesY; dy <= halfTilesY; dy++) {
+      for (let dx = -halfTilesX; dx <= halfTilesX; dx++) {
+        const tileX = Math.floor(centerTileX) + dx;
+        const tileY = Math.floor(centerTileY) + dy;
+        if (tileY < 0 || tileY >= maxTile) continue;
+        const wrappedX = ((tileX % maxTile) + maxTile) % maxTile;
+        const pixelOffsetX = (centerTileX - Math.floor(centerTileX)) * TILE_SIZE;
+        const pixelOffsetY = (centerTileY - Math.floor(centerTileY)) * TILE_SIZE;
+        tileList.push({
+          key: `${zoom}/${wrappedX}/${tileY}`,
+          src: `https://a.tile.openstreetmap.org/${zoom}/${wrappedX}/${tileY}.png`,
+          left: dx * TILE_SIZE - pixelOffsetX + dragOffset.x,
+          top: dy * TILE_SIZE - pixelOffsetY + dragOffset.y,
+        });
+      }
+    }
+    return tileList;
+  }, [effectiveCenter.lat, effectiveCenter.lon, zoom, dragOffset.x, dragOffset.y]);
+
+  const updateFromPointer = useCallback((clientX: number, clientY: number) => {
     const rect = containerRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    const x = clientX - (rect.left + rect.width / 2);
-    const y = clientY - (rect.top + rect.height / 2);
-    const originTile = dragStartTileRef.current || centerTile;
-    setDragOffset({ x, y });
-    const nextTileX = originTile.x + x / TILE_SIZE;
-    const nextTileY = originTile.y + y / TILE_SIZE;
-    const nextLatitude = tileYToLat(nextTileY, zoom).toFixed(6);
-    const nextLongitude = tileXToLon(nextTileX, zoom).toFixed(6);
-    lastCoordinateRef.current = { latitude: nextLatitude, longitude: nextLongitude };
-    onChange(nextLatitude, nextLongitude);
-  };
+    if (!rect || !dragStartRef.current) return;
+    const deltaX = clientX - dragStartRef.current.pointerX;
+    const deltaY = clientY - dragStartRef.current.pointerY;
+    setDragOffset({ x: deltaX, y: deltaY });
+
+    const centerTileX = lonToTileX(dragStartRef.current.centerLon, zoom);
+    const centerTileY = latToTileY(dragStartRef.current.centerLat, zoom);
+    const newTileX = centerTileX + deltaX / TILE_SIZE;
+    const newTileY = centerTileY + deltaY / TILE_SIZE;
+    const nextLat = tileYToLat(newTileY, zoom).toFixed(6);
+    const nextLon = tileXToLon(newTileX, zoom).toFixed(6);
+    lastCoordinateRef.current = { latitude: nextLat, longitude: nextLon };
+    onChange(nextLat, nextLon);
+  }, [zoom, onChange]);
 
   const changeZoom = (delta: number) => {
     setZoom((current) => clamp(current + delta, MIN_ZOOM, MAX_ZOOM));
     setDragOffset({ x: 0, y: 0 });
-    dragStartTileRef.current = null;
+    dragStartRef.current = null;
   };
 
-  const mapsQuery = latitude && longitude ? `${latitude},${longitude}` : fallbackQuery || `${center.lat},${center.lon}`;
-  const previewUrl = useMemo(() => buildGoogleMapsEmbedUrl(mapsQuery, zoom), [mapsQuery, zoom]);
-  const externalUrl = useMemo(() => buildGoogleMapsSearchUrl(mapsQuery), [mapsQuery]);
+  const commitDrag = useCallback(() => {
+    if (lastCoordinateRef.current) {
+      const { latitude: lat, longitude: lon } = lastCoordinateRef.current;
+      onCommit?.(lat, lon);
+    }
+    setDragOffset({ x: 0, y: 0 });
+    dragStartRef.current = null;
+    lastCoordinateRef.current = null;
+  }, [onCommit]);
+
+  const displayLat = dragging ? effectiveCenter.lat : center.lat;
+  const displayLon = dragging ? effectiveCenter.lon : center.lon;
+  const externalUrl = useMemo(() => buildGoogleMapsSearchUrl(`${displayLat},${displayLon}`), [displayLat, displayLon]);
 
   return (
     <div className="rounded-xl border border-[#2A2A2A] bg-[#101010] overflow-hidden">
       <div
         ref={containerRef}
-        className="relative h-72 overflow-hidden touch-none select-none"
+        className="relative h-72 overflow-hidden touch-none select-none cursor-grab active:cursor-grabbing"
         onWheel={(event) => {
           event.preventDefault();
           changeZoom(event.deltaY > 0 ? -1 : 1);
@@ -107,10 +151,15 @@ export default function DraggableLocationMap({
         onPointerDown={(event) => {
           const target = event.target as HTMLElement;
           if (target.closest('button') || target.closest('a')) return;
+          event.preventDefault();
           event.currentTarget.setPointerCapture(event.pointerId);
-          dragStartTileRef.current = centerTile;
+          dragStartRef.current = {
+            pointerX: event.clientX,
+            pointerY: event.clientY,
+            centerLat: center.lat,
+            centerLon: center.lon,
+          };
           setDragging(true);
-          updateFromPointer(event.clientX, event.clientY);
         }}
         onPointerMove={(event) => {
           if (!dragging) return;
@@ -120,46 +169,42 @@ export default function DraggableLocationMap({
           if (!dragging) return;
           event.currentTarget.releasePointerCapture(event.pointerId);
           setDragging(false);
-          if (lastCoordinateRef.current) {
-            onCommit?.(lastCoordinateRef.current.latitude, lastCoordinateRef.current.longitude);
-          }
-          dragStartTileRef.current = null;
-          lastCoordinateRef.current = null;
-          setDragOffset({ x: 0, y: 0 });
+          commitDrag();
         }}
         onPointerCancel={() => {
           setDragging(false);
-          dragStartTileRef.current = null;
-          lastCoordinateRef.current = null;
           setDragOffset({ x: 0, y: 0 });
+          dragStartRef.current = null;
+          lastCoordinateRef.current = null;
         }}
       >
-        <iframe
-          key={previewUrl}
-          title="Location map preview"
-          src={previewUrl}
-          className="absolute inset-0 h-full w-full border-0"
-          loading="lazy"
-          referrerPolicy="no-referrer-when-downgrade"
-          aria-hidden="true"
-        />
-        <div className="absolute inset-0 bg-black/10" />
-        <button
-          type="button"
-          onPointerDown={(event) => {
-            event.currentTarget.parentElement?.setPointerCapture(event.pointerId);
-            dragStartTileRef.current = centerTile;
-            setDragging(true);
-            updateFromPointer(event.clientX, event.clientY);
-          }}
-          className="absolute left-1/2 top-1/2 z-10 -translate-x-1/2 -translate-y-full cursor-grab active:cursor-grabbing text-[#F5C800] drop-shadow-[0_2px_6px_rgba(0,0,0,0.75)]"
-          style={{ transform: `translate(calc(-50% + ${dragOffset.x}px), calc(-100% + ${dragOffset.y}px))` }}
-          aria-label="Geser titik lokasi"
+        {/* OSM tile layer — no default markers */}
+        <div className="absolute inset-0">
+          {tiles.map((tile) => (
+            <img
+              key={tile.key}
+              src={tile.src}
+              alt=""
+              width={TILE_SIZE}
+              height={TILE_SIZE}
+              className="absolute pointer-events-none"
+              style={{ left: tile.left, top: tile.top }}
+              loading="lazy"
+              draggable={false}
+            />
+          ))}
+        </div>
+        {/* Dark overlay for readability */}
+        <div className="absolute inset-0 bg-black/5 pointer-events-none" />
+        {/* Single yellow marker — no duplicate */}
+        <div
+          className="absolute left-1/2 top-1/2 z-10 pointer-events-none"
+          style={{ transform: `translate(-50%, -100%)` }}
         >
-          <MapPin className="w-10 h-10 fill-[#F5C800] text-black" />
-        </button>
-        <div className="absolute left-3 top-3 rounded-lg bg-black/65 px-3 py-2 text-xs text-white">
-          Geser peta atau marker untuk mengatur titik lokasi
+          <MapPin className="w-10 h-10 text-[#F5C800] drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]" fill="#F5C800" strokeWidth={1} />
+        </div>
+        <div className="absolute left-3 top-3 rounded-lg bg-black/65 px-3 py-2 text-xs text-white pointer-events-none">
+          Geser peta untuk mengatur titik lokasi
         </div>
         <div className="absolute right-3 top-3 z-20 flex flex-col overflow-hidden rounded-lg border border-[#2A2A2A] bg-black/70">
           <button
@@ -185,7 +230,7 @@ export default function DraggableLocationMap({
       </div>
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 border-t border-[#2A2A2A] px-4 py-3 text-sm">
         <div className="text-[#888888]">
-          Posisi: <span className="text-white">{dragPosition.lat.toFixed(6)}, {dragPosition.lon.toFixed(6)}</span>
+          Posisi: <span className="text-white">{displayLat.toFixed(6)}, {displayLon.toFixed(6)}</span>
           <span className="ml-3 text-[#666666]">Zoom {zoom}</span>
         </div>
         <a
