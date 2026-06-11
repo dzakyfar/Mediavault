@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
-import { Camera, MapPin, Upload } from 'lucide-react';
+import { Camera, MapPin, Navigation, Upload } from 'lucide-react';
 import DashboardLayout from '../../components/DashboardLayout';
 import EmptyState from '../../components/EmptyState';
 import { useLanguage } from '../../context/LanguageContext';
 import { apiRequest } from '../../lib/api';
-import { buildGoogleMapsSearchUrl, buildGoogleMapsEmbedUrl } from '../../lib/googleMaps';
+import { buildGoogleMapsSearchUrl, buildGoogleMapsDirectionsUrl, buildGoogleMapsEmbedUrl } from '../../lib/googleMaps';
 
 interface Project {
   id: string;
@@ -163,25 +163,36 @@ export default function FreelancerProjects() {
                         <p className="text-[#888888] text-xs mt-1">{t('Kode Pos:', 'Postal Code:')} {project.postalCode}</p>
                       )}
                       {project.latitude != null && project.longitude != null && (
-                        <a
-                          href={buildGoogleMapsSearchUrl(`${project.latitude},${project.longitude}`)}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex items-center gap-1.5 mt-2 text-[#F5C800] text-sm hover:underline"
-                        >
-                          <MapPin className="w-3.5 h-3.5" />
-                          {t('Buka di Google Maps', 'Open in Google Maps')}
-                        </a>
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          <a
+                            href={buildGoogleMapsDirectionsUrl(`${project.latitude},${project.longitude}`)}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#F5C800] text-black text-xs font-bold rounded-lg hover:shadow-[0_0_8px_rgba(245,200,0,0.4)] transition-all"
+                          >
+                            <Navigation className="w-3 h-3" />
+                            {t('Navigasi', 'Navigate')}
+                          </a>
+                          <a
+                            href={buildGoogleMapsSearchUrl(`${project.latitude},${project.longitude}`)}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-[#888888] text-white text-xs rounded-lg hover:border-[#F5C800] hover:text-[#F5C800] transition-colors"
+                          >
+                            <MapPin className="w-3 h-3" />
+                            {t('Maps', 'Maps')}
+                          </a>
+                        </div>
                       )}
                     </div>
                     {/* Embedded map preview */}
                     {project.latitude != null && project.longitude != null && (
                       <a
-                        href={buildGoogleMapsSearchUrl(`${project.latitude},${project.longitude}`)}
+                        href={buildGoogleMapsDirectionsUrl(`${project.latitude},${project.longitude}`)}
                         target="_blank"
                         rel="noreferrer"
                         className="flex-shrink-0 w-32 h-24 rounded-lg overflow-hidden border border-[#2A2A2A] hover:border-[#F5C800] transition-colors"
-                        title={t('Klik untuk buka Maps', 'Click to open Maps')}
+                        title={t('Klik untuk navigasi ke lokasi', 'Click to navigate to location')}
                       >
                         <iframe
                           title={`Map for ${project.title}`}

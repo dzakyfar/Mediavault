@@ -50,6 +50,14 @@ export const buildGoogleMapsSearchUrl = (query: string) => {
     : 'https://www.google.com/maps';
 };
 
+/** Opens Google Maps with directions from current location to destination (like WhatsApp shared location) */
+export const buildGoogleMapsDirectionsUrl = (destination: string) => {
+  const normalizedDest = normalizeMapQuery(destination);
+  return normalizedDest
+    ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(normalizedDest)}&travelmode=driving`
+    : 'https://www.google.com/maps';
+};
+
 export const buildGoogleMapsEmbedUrl = (query: string, zoom = 15) => {
   const normalizedQuery = normalizeMapQuery(query);
   const safeQuery = normalizedQuery || 'Indonesia';
