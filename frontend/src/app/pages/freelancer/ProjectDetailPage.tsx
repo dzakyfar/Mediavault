@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router';
+import { MapPin } from 'lucide-react';
 import DashboardLayout from '../../components/DashboardLayout';
 import EmptyState from '../../components/EmptyState';
 import ProjectTracker from '../../components/dashboard/ProjectTracker';
 import ProjectReviewPanel, { ProjectSubmission } from '../../components/dashboard/ProjectReviewPanel';
 import { apiRequest } from '../../lib/api';
-import { buildGoogleMapsSearchUrl } from '../../lib/googleMaps';
+import { buildGoogleMapsSearchUrl, buildGoogleMapsEmbedUrl } from '../../lib/googleMaps';
 import { useLanguage } from '../../context/LanguageContext';
 
 interface ProjectDetail {
@@ -136,14 +137,31 @@ export default function FreelancerProjectDetail() {
                   <p className="text-[#888888] mt-2">{project.addressDetail || project.address || '-'}</p>
                   {project.postalCode && <p className="text-[#888888] mt-1">{t('Kode Pos:', 'Postal Code:')} {project.postalCode}</p>}
                   {project.latitude && project.longitude && (
-                    <a
-                      href={buildGoogleMapsSearchUrl(`${project.latitude},${project.longitude}`)}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-block mt-3 text-[#F5C800] hover:underline"
-                    >
-                      {t('Buka Maps', 'Open Maps')}
-                    </a>
+                    <div className="mt-4">
+                      <a
+                        href={buildGoogleMapsSearchUrl(`${project.latitude},${project.longitude}`)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-2 text-[#F5C800] hover:underline font-medium"
+                      >
+                        <MapPin className="w-4 h-4" />
+                        {t('Buka di Google Maps', 'Open in Google Maps')}
+                      </a>
+                      <div className="mt-3 rounded-lg overflow-hidden border border-[#2A2A2A]">
+                        <iframe
+                          title="Project Location Map"
+                          src={buildGoogleMapsEmbedUrl(`${project.latitude},${project.longitude}`, 16)}
+                          width="100%"
+                          height="300"
+                          style={{ border: 0 }}
+                          loading="lazy"
+                          allowFullScreen
+                        />
+                      </div>
+                      <p className="text-xs text-[#888888] mt-2">
+                        {t('Koordinat:', 'Coordinates:')} {project.latitude}, {project.longitude}
+                      </p>
+                    </div>
                   )}
                 </div>
               </div>
